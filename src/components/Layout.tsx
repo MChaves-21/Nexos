@@ -1,8 +1,11 @@
-import { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator } from "lucide-react";
+import { ReactNode, useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import type { User } from "@supabase/supabase-js";
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,6 +13,38 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Erro ao sair",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Logout realizado",
+        description: "Até logo!",
+      });
+      navigate("/auth");
+    }
+  };
 
   const navItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -55,6 +90,20 @@ const Layout = ({ children }: LayoutProps) => {
             <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               FinanceHub
             </h1>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {user ? (
+              <Button variant="outline" onClick={handleLogout} className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Sair
+              </Button>
+            ) : (
+              <Button onClick={() => navigate("/auth")} className="gap-2">
+                <LogIn className="h-4 w-4" />
+                Entrar
+              </Button>
+            )}
           </div>
         </div>
       </header>
