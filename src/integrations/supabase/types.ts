@@ -14,7 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      investments: {
+        Row: {
+          asset_name: string
+          asset_type: string
+          created_at: string
+          current_price: number
+          id: string
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_name: string
+          asset_type: string
+          created_at?: string
+          current_price: number
+          id?: string
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_name?: string
+          asset_type?: string
+          created_at?: string
+          current_price?: number
+          id?: string
+          purchase_date?: string
+          purchase_price?: number
+          quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          date: string
+          description: string
+          id: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          date?: string
+          description: string
+          id?: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

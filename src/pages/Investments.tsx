@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, TrendingUp, TrendingDown } from "lucide-react";
+import { useInvestments } from "@/hooks/useInvestments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,46 +24,41 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    asset_type: '',
+    asset_name: '',
+    quantity: '',
+    purchase_price: '',
+    current_price: '',
+    purchase_date: new Date().toISOString().split('T')[0],
+  });
 
-  // Mock data
-  const portfolio = [
-    {
-      id: 1,
-      name: "PETR4",
-      type: "Ações",
-      quantity: 100,
-      avgPrice: 32.50,
-      currentPrice: 35.80,
-      totalValue: 3580,
-    },
-    {
-      id: 2,
-      name: "HGLG11",
-      type: "FIIs",
-      quantity: 50,
-      avgPrice: 180.00,
-      currentPrice: 192.50,
-      totalValue: 9625,
-    },
-    {
-      id: 3,
-      name: "Tesouro Selic 2029",
-      type: "Tesouro Direto",
-      quantity: 1,
-      avgPrice: 10000,
-      currentPrice: 10450,
-      totalValue: 10450,
-    },
-    {
-      id: 4,
-      name: "CDB Banco XYZ",
-      type: "Renda Fixa",
-      quantity: 1,
-      avgPrice: 8000,
-      currentPrice: 8345,
-      totalValue: 8345,
-    },
-  ];
+  const { investments, isLoading, addInvestment } = useInvestments();
+
+  const handleSubmit = () => {
+    if (!formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price) {
+      return;
+    }
+
+    addInvestment({
+      asset_name: formData.asset_name,
+      asset_type: formData.asset_type,
+      quantity: parseFloat(formData.quantity),
+      purchase_price: parseFloat(formData.purchase_price),
+      current_price: parseFloat(formData.current_price),
+      purchase_date: formData.purchase_date,
+    });
+
+    setFormData({
+      asset_type: '',
+      asset_name: '',
+      quantity: '',
+      purchase_price: '',
+      current_price: '',
+      purchase_date: new Date().toISOString().split('T')[0],
+    });
+    setIsDialogOpen(false);
+  };
 
   const performanceData = [
     { mes: "Jan", rendimento: 450 },
@@ -73,15 +69,16 @@ const Investments = () => {
     { mes: "Jun", rendimento: 1200 },
   ];
 
-  const totalInvested = portfolio.reduce((sum, item) => sum + (item.avgPrice * item.quantity), 0);
-  const totalCurrent = portfolio.reduce((sum, item) => sum + item.totalValue, 0);
+  const totalInvested = investments.reduce((sum, item) => sum + (item.purchase_price * item.quantity), 0);
+  const totalCurrent = investments.reduce((sum, item) => sum + (item.current_price * item.quantity), 0);
   const totalGain = totalCurrent - totalInvested;
-  const totalGainPercentage = ((totalGain / totalInvested) * 100).toFixed(2);
+  const totalGainPercentage = totalInvested > 0 ? ((totalGain / totalInvested) * 100).toFixed(2) : '0.00';
 
-  const calculateGain = (item: typeof portfolio[0]) => {
-    const invested = item.avgPrice * item.quantity;
-    const gain = item.totalValue - invested;
-    const percentage = ((gain / invested) * 100).toFixed(2);
+  const calculateGain = (item: typeof investments[0]) => {
+    const invested = item.purchase_price * item.quantity;
+    const current = item.current_price * item.quantity;
+    const gain = current - invested;
+    const percentage = invested > 0 ? ((gain / invested) * 100).toFixed(2) : '0.00';
     return { gain, percentage };
   };
 
@@ -108,36 +105,68 @@ const Investments = () => {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="asset-type">Tipo de Ativo</Label>
-                <Select>
+                <Select value={formData.asset_type} onValueChange={(value) => setFormData({ ...formData, asset_type: value })}>
                   <SelectTrigger id="asset-type">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="stocks">Ações</SelectItem>
-                    <SelectItem value="fiis">FIIs</SelectItem>
-                    <SelectItem value="treasury">Tesouro Direto</SelectItem>
-                    <SelectItem value="fixed">Renda Fixa</SelectItem>
-                    <SelectItem value="crypto">Criptomoedas</SelectItem>
+                    <SelectItem value="Ações">Ações</SelectItem>
+                    <SelectItem value="FIIs">FIIs</SelectItem>
+                    <SelectItem value="Tesouro Direto">Tesouro Direto</SelectItem>
+                    <SelectItem value="Renda Fixa">Renda Fixa</SelectItem>
+                    <SelectItem value="Criptomoedas">Criptomoedas</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="asset-name">Nome/Ticker</Label>
-                <Input id="asset-name" placeholder="Ex: PETR4, HGLG11" />
+                <Input 
+                  id="asset-name" 
+                  placeholder="Ex: PETR4, HGLG11"
+                  value={formData.asset_name}
+                  onChange={(e) => setFormData({ ...formData, asset_name: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quantity">Quantidade</Label>
-                <Input id="quantity" type="number" placeholder="0" />
+                <Input 
+                  id="quantity" 
+                  type="number" 
+                  placeholder="0"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="avg-price">Preço Médio</Label>
-                <Input id="avg-price" type="number" placeholder="0.00" />
+                <Label htmlFor="avg-price">Preço de Compra</Label>
+                <Input 
+                  id="avg-price" 
+                  type="number" 
+                  placeholder="0.00"
+                  value={formData.purchase_price}
+                  onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="current-price">Preço Atual</Label>
-                <Input id="current-price" type="number" placeholder="0.00" />
+                <Input 
+                  id="current-price" 
+                  type="number" 
+                  placeholder="0.00"
+                  value={formData.current_price}
+                  onChange={(e) => setFormData({ ...formData, current_price: e.target.value })}
+                />
               </div>
-              <Button className="w-full">Adicionar</Button>
+              <div className="space-y-2">
+                <Label htmlFor="purchase-date">Data da Compra</Label>
+                <Input 
+                  id="purchase-date" 
+                  type="date"
+                  value={formData.purchase_date}
+                  onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+                />
+              </div>
+              <Button className="w-full" onClick={handleSubmit}>Adicionar</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -216,46 +245,53 @@ const Investments = () => {
           <CardTitle>Minha Carteira</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {portfolio.map((item) => {
-              const { gain, percentage } = calculateGain(item);
-              const isPositive = gain >= 0;
+          {isLoading ? (
+            <p className="text-center text-muted-foreground">Carregando...</p>
+          ) : investments.length === 0 ? (
+            <p className="text-center text-muted-foreground">Nenhum investimento encontrado</p>
+          ) : (
+            <div className="space-y-4">
+              {investments.map((item) => {
+                const { gain, percentage } = calculateGain(item);
+                const isPositive = gain >= 0;
+                const totalValue = item.current_price * item.quantity;
 
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold">{item.name}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {item.type}
-                      </Badge>
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{item.asset_name}</p>
+                        <Badge variant="outline" className="text-xs">
+                          {item.asset_type}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {item.quantity} × R$ {item.current_price.toFixed(2)}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {item.quantity} × R$ {item.currentPrice.toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">
-                      R$ {item.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                    <div className="flex items-center gap-1 justify-end mt-1">
-                      {isPositive ? (
-                        <TrendingUp className="h-3 w-3 text-success" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3 text-destructive" />
-                      )}
-                      <span className={`text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
-                        {isPositive ? '+' : ''}{percentage}%
-                      </span>
+                    <div className="text-right">
+                      <p className="font-semibold">
+                        R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <div className="flex items-center gap-1 justify-end mt-1">
+                        {isPositive ? (
+                          <TrendingUp className="h-3 w-3 text-success" />
+                        ) : (
+                          <TrendingDown className="h-3 w-3 text-destructive" />
+                        )}
+                        <span className={`text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                          {isPositive ? '+' : ''}{percentage}%
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
