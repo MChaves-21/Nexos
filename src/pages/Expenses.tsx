@@ -24,6 +24,8 @@ import {
 
 const Expenses = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     type: 'expense' as 'income' | 'expense',
     description: '',
@@ -32,7 +34,7 @@ const Expenses = () => {
     date: new Date().toISOString().split('T')[0],
   });
 
-  const { transactions, isLoading, addTransaction, deleteTransaction } = useTransactions();
+  const { transactions, isLoading, addTransaction, updateTransaction, deleteTransaction } = useTransactions();
 
   const handleSubmit = () => {
     if (!formData.description || !formData.category || !formData.amount) {
@@ -55,6 +57,43 @@ const Expenses = () => {
       date: new Date().toISOString().split('T')[0],
     });
     setIsDialogOpen(false);
+  };
+
+  const handleEdit = (transaction: typeof transactions[0]) => {
+    setEditingTransaction(transaction.id);
+    setFormData({
+      type: transaction.type,
+      description: transaction.description,
+      category: transaction.category,
+      amount: transaction.amount.toString(),
+      date: transaction.date,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = () => {
+    if (!editingTransaction || !formData.description || !formData.category || !formData.amount) {
+      return;
+    }
+
+    updateTransaction({
+      id: editingTransaction,
+      type: formData.type,
+      description: formData.description,
+      category: formData.category,
+      amount: parseFloat(formData.amount),
+      date: formData.date,
+    });
+
+    setFormData({
+      type: 'expense',
+      description: '',
+      category: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+    });
+    setEditingTransaction(null);
+    setIsEditDialogOpen(false);
   };
 
   // Mock data for budget categories
@@ -226,7 +265,12 @@ const Expenses = () => {
                       {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => handleEdit(transaction)}
+                      >
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button 
@@ -245,6 +289,74 @@ const Expenses = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Transaction Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Transação</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-type">Tipo</Label>
+              <Select value={formData.type} onValueChange={(value: 'income' | 'expense') => setFormData({ ...formData, type: value })}>
+                <SelectTrigger id="edit-type">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="income">Receita</SelectItem>
+                  <SelectItem value="expense">Despesa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Descrição</Label>
+              <Input 
+                id="edit-description" 
+                placeholder="Ex: Aluguel" 
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Categoria</Label>
+              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                <SelectTrigger id="edit-category">
+                  <SelectValue placeholder="Selecione a categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Moradia">Moradia</SelectItem>
+                  <SelectItem value="Alimentação">Alimentação</SelectItem>
+                  <SelectItem value="Transporte">Transporte</SelectItem>
+                  <SelectItem value="Lazer">Lazer</SelectItem>
+                  <SelectItem value="Outros">Outros</SelectItem>
+                  <SelectItem value="Receita">Receita</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-amount">Valor</Label>
+              <Input 
+                id="edit-amount" 
+                type="number" 
+                placeholder="0.00"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Data</Label>
+              <Input 
+                id="edit-date" 
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              />
+            </div>
+            <Button className="w-full" onClick={handleUpdate}>Atualizar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

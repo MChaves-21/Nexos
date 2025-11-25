@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Edit2, Trash2 } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingInvestment, setEditingInvestment] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     asset_type: '',
     asset_name: '',
@@ -33,7 +35,7 @@ const Investments = () => {
     purchase_date: new Date().toISOString().split('T')[0],
   });
 
-  const { investments, isLoading, addInvestment } = useInvestments();
+  const { investments, isLoading, addInvestment, updateInvestment, deleteInvestment } = useInvestments();
 
   const handleSubmit = () => {
     if (!formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price) {
@@ -58,6 +60,46 @@ const Investments = () => {
       purchase_date: new Date().toISOString().split('T')[0],
     });
     setIsDialogOpen(false);
+  };
+
+  const handleEdit = (investment: typeof investments[0]) => {
+    setEditingInvestment(investment.id);
+    setFormData({
+      asset_type: investment.asset_type,
+      asset_name: investment.asset_name,
+      quantity: investment.quantity.toString(),
+      purchase_price: investment.purchase_price.toString(),
+      current_price: investment.current_price.toString(),
+      purchase_date: investment.purchase_date,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = () => {
+    if (!editingInvestment || !formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price) {
+      return;
+    }
+
+    updateInvestment({
+      id: editingInvestment,
+      asset_name: formData.asset_name,
+      asset_type: formData.asset_type,
+      quantity: parseFloat(formData.quantity),
+      purchase_price: parseFloat(formData.purchase_price),
+      current_price: parseFloat(formData.current_price),
+      purchase_date: formData.purchase_date,
+    });
+
+    setFormData({
+      asset_type: '',
+      asset_name: '',
+      quantity: '',
+      purchase_price: '',
+      current_price: '',
+      purchase_date: new Date().toISOString().split('T')[0],
+    });
+    setEditingInvestment(null);
+    setIsEditDialogOpen(false);
   };
 
   const performanceData = [
@@ -272,19 +314,39 @@ const Investments = () => {
                         {item.quantity} × R$ {item.current_price.toFixed(2)}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                      <div className="flex items-center gap-1 justify-end mt-1">
-                        {isPositive ? (
-                          <TrendingUp className="h-3 w-3 text-success" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3 text-destructive" />
-                        )}
-                        <span className={`text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
-                          {isPositive ? '+' : ''}{percentage}%
-                        </span>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-semibold">
+                          R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                        <div className="flex items-center gap-1 justify-end mt-1">
+                          {isPositive ? (
+                            <TrendingUp className="h-3 w-3 text-success" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3 text-destructive" />
+                          )}
+                          <span className={`text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                            {isPositive ? '+' : ''}{percentage}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => handleEdit(item)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => deleteInvestment(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -294,6 +356,81 @@ const Investments = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Investment Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Investimento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-asset-type">Tipo de Ativo</Label>
+              <Select value={formData.asset_type} onValueChange={(value) => setFormData({ ...formData, asset_type: value })}>
+                <SelectTrigger id="edit-asset-type">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Ações">Ações</SelectItem>
+                  <SelectItem value="FIIs">FIIs</SelectItem>
+                  <SelectItem value="Tesouro Direto">Tesouro Direto</SelectItem>
+                  <SelectItem value="Renda Fixa">Renda Fixa</SelectItem>
+                  <SelectItem value="Criptomoedas">Criptomoedas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-asset-name">Nome/Ticker</Label>
+              <Input 
+                id="edit-asset-name" 
+                placeholder="Ex: PETR4, HGLG11"
+                value={formData.asset_name}
+                onChange={(e) => setFormData({ ...formData, asset_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-quantity">Quantidade</Label>
+              <Input 
+                id="edit-quantity" 
+                type="number" 
+                placeholder="0"
+                value={formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-avg-price">Preço de Compra</Label>
+              <Input 
+                id="edit-avg-price" 
+                type="number" 
+                placeholder="0.00"
+                value={formData.purchase_price}
+                onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-current-price">Preço Atual</Label>
+              <Input 
+                id="edit-current-price" 
+                type="number" 
+                placeholder="0.00"
+                value={formData.current_price}
+                onChange={(e) => setFormData({ ...formData, current_price: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-purchase-date">Data da Compra</Label>
+              <Input 
+                id="edit-purchase-date" 
+                type="date"
+                value={formData.purchase_date}
+                onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+              />
+            </div>
+            <Button className="w-full" onClick={handleUpdate}>Atualizar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
