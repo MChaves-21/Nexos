@@ -188,9 +188,40 @@ const Dashboard = () => {
       return {
         ano: year.toString(),
         receitas: totalIncome,
-        despesas: totalExpense
+        despesas: totalExpense,
+        economia: totalIncome - totalExpense
       };
     }).reverse();
+
+    // Calcular estatísticas anuais
+    const currentYearWealth = yearlyData[currentYear][11] || 0; // Dezembro do ano atual
+    const lastYearWealth = yearlyData[currentYear - 1][11] || 0; // Dezembro do ano anterior
+    
+    const wealthGrowthPercentage = lastYearWealth > 0 
+      ? (((currentYearWealth - lastYearWealth) / lastYearWealth) * 100)
+      : 0;
+
+    // Economia média anual (últimos anos com dados)
+    const yearsWithData = yearlyIncomeData.filter(y => y.economia > 0);
+    const averageAnnualSavings = yearsWithData.length > 0
+      ? yearsWithData.reduce((sum, y) => sum + y.economia, 0) / yearsWithData.length
+      : 0;
+
+    // Taxa de crescimento anual média (últimos 3 anos)
+    const growthRates = [];
+    for (let i = 0; i < years.length - 1; i++) {
+      const currentYearData = yearlyData[years[i]][11] || 0;
+      const previousYearData = yearlyData[years[i + 1]][11] || 0;
+      
+      if (previousYearData > 0) {
+        const rate = ((currentYearData - previousYearData) / previousYearData) * 100;
+        growthRates.push(rate);
+      }
+    }
+    
+    const averageGrowthRate = growthRates.length > 0
+      ? growthRates.reduce((sum, rate) => sum + rate, 0) / growthRates.length
+      : 0;
 
     return {
       patrimonioData,
@@ -209,7 +240,16 @@ const Dashboard = () => {
       },
       yearlyComparisonData,
       yearlyIncomeData,
-      availableYears: years.map(y => y.toString())
+      availableYears: years.map(y => y.toString()),
+      annualStats: {
+        wealthGrowth: {
+          percentage: wealthGrowthPercentage,
+          from: lastYearWealth,
+          to: currentYearWealth
+        },
+        averageAnnualSavings,
+        averageGrowthRate
+      }
     };
   }, [transactions, investments, loadingTransactions, loadingInvestments]);
 
@@ -221,7 +261,7 @@ const Dashboard = () => {
     );
   }
 
-  const { patrimonioData, fluxoCaixaData, categoriesData, investmentsData, stats, yearlyComparisonData, yearlyIncomeData, availableYears } = dashboardData;
+  const { patrimonioData, fluxoCaixaData, categoriesData, investmentsData, stats, yearlyComparisonData, yearlyIncomeData, availableYears, annualStats } = dashboardData;
 
 
   const toggleYear = (year: string) => {
@@ -585,13 +625,15 @@ const Dashboard = () => {
           <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Crescimento Patrimonial (2023-2024)
+                Crescimento Patrimonial ({new Date().getFullYear() - 1}-{new Date().getFullYear()})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">+27.6%</div>
+              <div className={`text-2xl font-bold ${annualStats.wealthGrowth.percentage >= 0 ? 'text-success' : 'text-destructive'}`}>
+                {annualStats.wealthGrowth.percentage >= 0 ? '+' : ''}{annualStats.wealthGrowth.percentage.toFixed(1)}%
+              </div>
               <p className="text-xs text-muted-foreground mt-2">
-                De R$ 57.800 para R$ 73.800
+                De R$ {annualStats.wealthGrowth.from.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para R$ {annualStats.wealthGrowth.to.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </CardContent>
           </Card>
@@ -603,9 +645,11 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">R$ 35.400</div>
+              <div className="text-2xl font-bold text-primary">
+                R$ {annualStats.averageAnnualSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Baseado nos últimos 5 anos
+                Baseado nos anos com dados
               </p>
             </CardContent>
           </Card>
@@ -617,9 +661,11 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-warning">12.3%</div>
+              <div className={`text-2xl font-bold ${annualStats.averageGrowthRate >= 0 ? 'text-warning' : 'text-destructive'}`}>
+                {annualStats.averageGrowthRate >= 0 ? '+' : ''}{annualStats.averageGrowthRate.toFixed(1)}%
+              </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Média dos últimos 3 anos
+                Média dos últimos anos
               </p>
             </CardContent>
           </Card>
