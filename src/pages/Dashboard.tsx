@@ -1,11 +1,13 @@
-import { Wallet, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target } from "lucide-react";
 import { useState, useMemo } from "react";
 import StatCard from "@/components/StatCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useInvestments } from "@/hooks/useInvestments";
+import { useGoals } from "@/hooks/useGoals";
 
 const Dashboard = () => {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
@@ -15,10 +17,11 @@ const Dashboard = () => {
 
   const { transactions, isLoading: loadingTransactions } = useTransactions();
   const { investments, isLoading: loadingInvestments } = useInvestments();
+  const { goals, isLoading: loadingGoals } = useGoals();
 
   // Calcular dados reais a partir das transações e investimentos
   const dashboardData = useMemo(() => {
-    if (loadingTransactions || loadingInvestments) {
+    if (loadingTransactions || loadingInvestments || loadingGoals) {
       return null;
     }
 
@@ -223,6 +226,15 @@ const Dashboard = () => {
       ? growthRates.reduce((sum, rate) => sum + rate, 0) / growthRates.length
       : 0;
 
+    // Dados de evolução das metas
+    const goalsData = goals.map(goal => ({
+      name: goal.title,
+      progresso: Math.min((goal.current_amount / goal.target_amount) * 100, 100),
+      atual: goal.current_amount,
+      meta: goal.target_amount,
+      concluida: goal.completed
+    })).sort((a, b) => b.progresso - a.progresso);
+
     return {
       patrimonioData,
       fluxoCaixaData,
@@ -249,11 +261,12 @@ const Dashboard = () => {
         },
         averageAnnualSavings,
         averageGrowthRate
-      }
+      },
+      goalsData
     };
-  }, [transactions, investments, loadingTransactions, loadingInvestments]);
+  }, [transactions, investments, goals, loadingTransactions, loadingInvestments, loadingGoals]);
 
-  if (loadingTransactions || loadingInvestments || !dashboardData) {
+  if (loadingTransactions || loadingInvestments || loadingGoals || !dashboardData) {
     return (
       <div className="flex items-center justify-center h-[400px]">
         <p className="text-muted-foreground">Carregando dados...</p>
@@ -261,7 +274,7 @@ const Dashboard = () => {
     );
   }
 
-  const { patrimonioData, fluxoCaixaData, categoriesData, investmentsData, stats, yearlyComparisonData, yearlyIncomeData, availableYears, annualStats } = dashboardData;
+  const { patrimonioData, fluxoCaixaData, categoriesData, investmentsData, stats, yearlyComparisonData, yearlyIncomeData, availableYears, annualStats, goalsData } = dashboardData;
 
 
   const toggleYear = (year: string) => {
@@ -532,6 +545,48 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Evolução das Metas Financeiras */}
+      {goalsData.length > 0 && (
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle>Evolução das Metas Financeiras</CardTitle>
+                <CardDescription>Acompanhe o progresso das suas metas</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {goalsData.map((goal, index) => (
+              <div key={index} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{goal.name}</span>
+                    {goal.concluida && (
+                      <Badge variant="default" className="bg-success text-success-foreground">
+                        Concluída
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="text-sm font-semibold text-primary">
+                    {goal.progresso.toFixed(1)}%
+                  </span>
+                </div>
+                <Progress 
+                  value={goal.progresso} 
+                  className={`h-3 ${goal.concluida ? '[&>div]:bg-success' : ''}`}
+                />
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>R$ {goal.atual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>R$ {goal.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Comparação Ano a Ano */}
       <div className="space-y-4">
