@@ -11,6 +11,7 @@ import Expenses from "./pages/Expenses";
 import Investments from "./pages/Investments";
 import Auth from "./pages/Auth";
 import Simulation from "./pages/Simulation";
+import Goals from "./pages/Goals";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/expenses" element={<Layout><Expenses /></Layout>} />
             <Route path="/investments" element={<Layout><Investments /></Layout>} />
             <Route path="/simulation" element={<Layout><Simulation /></Layout>} />
+            <Route path="/goals" element={<Layout><Goals /></Layout>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
