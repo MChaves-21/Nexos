@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from "recharts";
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -80,6 +80,47 @@ const Investments = () => {
       rendimento: Math.round(d.rendimento * 100) / 100
     }));
   }, [investments, selectedYear]);
+
+  // Calculate accumulated evolution over time
+  const accumulatedEvolutionData = useMemo(() => {
+    if (investments.length === 0) return [];
+
+    // Sort investments by purchase date
+    const sortedInvestments = [...investments].sort(
+      (a, b) => new Date(a.purchase_date).getTime() - new Date(b.purchase_date).getTime()
+    );
+
+    // Group by month-year and accumulate
+    const monthlyAccumulated: { [key: string]: { invested: number; current: number } } = {};
+    let totalInvested = 0;
+    let totalCurrent = 0;
+
+    sortedInvestments.forEach(inv => {
+      const date = new Date(inv.purchase_date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      totalInvested += inv.purchase_price * inv.quantity;
+      totalCurrent += inv.current_price * inv.quantity;
+
+      monthlyAccumulated[monthKey] = {
+        invested: totalInvested,
+        current: totalCurrent
+      };
+    });
+
+    // Convert to array and format for chart
+    return Object.entries(monthlyAccumulated)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, values]) => {
+        const [year, month] = key.split('-');
+        const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+        return {
+          periodo: `${monthNames[parseInt(month) - 1]}/${year.slice(2)}`,
+          investido: Math.round(values.invested * 100) / 100,
+          atual: Math.round(values.current * 100) / 100
+        };
+      });
+  }, [investments]);
 
   const handleSubmit = () => {
     if (!formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price) {
@@ -332,6 +373,50 @@ const Investments = () => {
               <Bar dataKey="rendimento" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Accumulated Evolution Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Evolução Acumulada dos Investimentos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {accumulatedEvolutionData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              Adicione investimentos para ver a evolução acumulada
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={accumulatedEvolutionData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="periodo" className="text-xs" />
+                <YAxis className="text-xs" tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius)"
+                  }}
+                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="investido" 
+                  stroke="hsl(var(--muted-foreground))" 
+                  fill="hsl(var(--muted))" 
+                  name="Total Investido"
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="atual" 
+                  stroke="hsl(var(--success))" 
+                  fill="hsl(var(--success)/0.3)" 
+                  name="Valor Atual"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
