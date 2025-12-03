@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, TrendingUp, TrendingDown, Edit2, Trash2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,50 @@ const Investments = () => {
   });
 
   const { investments, isLoading, addInvestment, updateInvestment, deleteInvestment } = useInvestments();
+
+  // Get available years from investments
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    investments.forEach(inv => {
+      const year = new Date(inv.purchase_date).getFullYear();
+      years.add(year);
+    });
+    if (years.size === 0) {
+      years.add(new Date().getFullYear());
+    }
+    return Array.from(years).sort((a, b) => b - a);
+  }, [investments]);
+
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
+  // Calculate monthly returns based on investments
+  const performanceData = useMemo(() => {
+    const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    
+    // Initialize all months with zero
+    const monthlyData = months.map(mes => ({ mes, rendimento: 0 }));
+    
+    // Calculate returns for each investment in the selected year
+    investments.forEach(inv => {
+      const purchaseDate = new Date(inv.purchase_date);
+      const purchaseYear = purchaseDate.getFullYear();
+      const purchaseMonth = purchaseDate.getMonth();
+      
+      if (purchaseYear === selectedYear) {
+        // Calculate the gain for this investment
+        const gain = (inv.current_price - inv.purchase_price) * inv.quantity;
+        
+        // Add to the purchase month
+        monthlyData[purchaseMonth].rendimento += gain;
+      }
+    });
+
+    // Round values
+    return monthlyData.map(d => ({
+      ...d,
+      rendimento: Math.round(d.rendimento * 100) / 100
+    }));
+  }, [investments, selectedYear]);
 
   const handleSubmit = () => {
     if (!formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price) {
@@ -101,15 +145,6 @@ const Investments = () => {
     setEditingInvestment(null);
     setIsEditDialogOpen(false);
   };
-
-  const performanceData = [
-    { mes: "Jan", rendimento: 450 },
-    { mes: "Fev", rendimento: 680 },
-    { mes: "Mar", rendimento: 520 },
-    { mes: "Abr", rendimento: 890 },
-    { mes: "Mai", rendimento: 1050 },
-    { mes: "Jun", rendimento: 1200 },
-  ];
 
   const totalInvested = investments.reduce((sum, item) => sum + (item.purchase_price * item.quantity), 0);
   const totalCurrent = investments.reduce((sum, item) => sum + (item.current_price * item.quantity), 0);
@@ -259,8 +294,26 @@ const Investments = () => {
 
       {/* Performance Chart */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Rendimentos Mensais</CardTitle>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Select 
+              value={selectedYear.toString()} 
+              onValueChange={(value) => setSelectedYear(parseInt(value))}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map(year => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
@@ -274,6 +327,7 @@ const Investments = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "var(--radius)"
                 }}
+                formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Rendimento']}
               />
               <Bar dataKey="rendimento" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
             </BarChart>
