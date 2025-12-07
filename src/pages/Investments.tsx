@@ -51,6 +51,7 @@ const Investments = () => {
   }, [investments]);
 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedAssetType, setSelectedAssetType] = useState<string>("all");
 
   // Calculate monthly returns based on investments
   const performanceData = useMemo(() => {
@@ -81,12 +82,26 @@ const Investments = () => {
     }));
   }, [investments, selectedYear]);
 
+  // Get unique asset types for filter
+  const assetTypes = useMemo(() => {
+    const types = new Set<string>();
+    investments.forEach(inv => types.add(inv.asset_type));
+    return Array.from(types).sort();
+  }, [investments]);
+
   // Calculate accumulated evolution over time
   const accumulatedEvolutionData = useMemo(() => {
     if (investments.length === 0) return [];
 
+    // Filter by asset type if selected
+    const filteredInvestments = selectedAssetType === "all" 
+      ? investments 
+      : investments.filter(inv => inv.asset_type === selectedAssetType);
+
+    if (filteredInvestments.length === 0) return [];
+
     // Sort investments by purchase date
-    const sortedInvestments = [...investments].sort(
+    const sortedInvestments = [...filteredInvestments].sort(
       (a, b) => new Date(a.purchase_date).getTime() - new Date(b.purchase_date).getTime()
     );
 
@@ -120,7 +135,7 @@ const Investments = () => {
           atual: Math.round(values.current * 100) / 100
         };
       });
-  }, [investments]);
+  }, [investments, selectedAssetType]);
 
   const handleSubmit = () => {
     if (!formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price) {
@@ -378,8 +393,24 @@ const Investments = () => {
 
       {/* Accumulated Evolution Chart */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Evolução Acumulada dos Investimentos</CardTitle>
+          <Select 
+            value={selectedAssetType} 
+            onValueChange={setSelectedAssetType}
+          >
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Tipo de Ativo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {assetTypes.map(type => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardHeader>
         <CardContent>
           {accumulatedEvolutionData.length === 0 ? (
