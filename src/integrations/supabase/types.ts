@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      allocation_targets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          id: string
+          target_percentage: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_type: string
+          created_at?: string
+          id?: string
+          target_percentage: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          id?: string
+          target_percentage?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       category_budgets: {
         Row: {
           category: string

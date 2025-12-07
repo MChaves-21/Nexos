@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
+import { useAllocationTargets } from "@/hooks/useAllocationTargets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart, PieChart, Pie, Cell, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart, PieChart, Pie, Cell, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
+import { Progress } from "@/components/ui/progress";
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -36,6 +38,9 @@ const Investments = () => {
   });
 
   const { investments, isLoading, addInvestment, updateInvestment, deleteInvestment } = useInvestments();
+  const { allocationTargets, upsertAllocationTarget } = useAllocationTargets();
+  const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
+  const [targetFormData, setTargetFormData] = useState({ asset_type: '', target_percentage: '' });
 
   // Get available years from investments
   const availableYears = useMemo(() => {
@@ -170,6 +175,51 @@ const Investments = () => {
       color: COLORS[index % COLORS.length]
     }));
   }, [investments]);
+
+  // Calculate allocation comparison (current vs target)
+  const allocationComparison = useMemo(() => {
+    const assetTypesList = ["Ações", "FIIs", "Tesouro Direto", "Renda Fixa", "Criptomoedas"];
+    
+    // Calculate current percentages
+    let totalValue = 0;
+    const currentDistribution: { [key: string]: number } = {};
+    
+    investments.forEach(inv => {
+      const currentValue = inv.current_price * inv.quantity;
+      totalValue += currentValue;
+      if (!currentDistribution[inv.asset_type]) {
+        currentDistribution[inv.asset_type] = 0;
+      }
+      currentDistribution[inv.asset_type] += currentValue;
+    });
+
+    // Create target map
+    const targetMap: { [key: string]: number } = {};
+    allocationTargets.forEach(t => {
+      targetMap[t.asset_type] = t.target_percentage;
+    });
+
+    return assetTypesList.map(type => ({
+      type,
+      current: totalValue > 0 ? parseFloat(((currentDistribution[type] || 0) / totalValue * 100).toFixed(1)) : 0,
+      target: targetMap[type] || 0,
+      difference: totalValue > 0 
+        ? parseFloat(((currentDistribution[type] || 0) / totalValue * 100).toFixed(1)) - (targetMap[type] || 0)
+        : 0 - (targetMap[type] || 0)
+    }));
+  }, [investments, allocationTargets]);
+
+  const handleSaveTarget = () => {
+    if (!targetFormData.asset_type || !targetFormData.target_percentage) return;
+    
+    upsertAllocationTarget({
+      asset_type: targetFormData.asset_type,
+      target_percentage: parseFloat(targetFormData.target_percentage)
+    });
+    
+    setTargetFormData({ asset_type: '', target_percentage: '' });
+    setIsTargetDialogOpen(false);
+  };
 
   const handleSubmit = () => {
     if (!formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price) {
@@ -474,7 +524,106 @@ const Investments = () => {
         </CardContent>
       </Card>
 
-      {/* Accumulated Evolution Chart */}
+      {/* Allocation Targets */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Metas de Alocação
+          </CardTitle>
+          <Dialog open={isTargetDialogOpen} onOpenChange={setIsTargetDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                Definir Meta
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Definir Meta de Alocação</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="target-asset-type">Tipo de Ativo</Label>
+                  <Select 
+                    value={targetFormData.asset_type} 
+                    onValueChange={(value) => setTargetFormData({ ...targetFormData, asset_type: value })}
+                  >
+                    <SelectTrigger id="target-asset-type">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Ações">Ações</SelectItem>
+                      <SelectItem value="FIIs">FIIs</SelectItem>
+                      <SelectItem value="Tesouro Direto">Tesouro Direto</SelectItem>
+                      <SelectItem value="Renda Fixa">Renda Fixa</SelectItem>
+                      <SelectItem value="Criptomoedas">Criptomoedas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="target-percentage">Percentual Meta (%)</Label>
+                  <Input 
+                    id="target-percentage" 
+                    type="number" 
+                    placeholder="Ex: 30"
+                    min="0"
+                    max="100"
+                    value={targetFormData.target_percentage}
+                    onChange={(e) => setTargetFormData({ ...targetFormData, target_percentage: e.target.value })}
+                  />
+                </div>
+                <Button className="w-full" onClick={handleSaveTarget}>Salvar Meta</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {allocationComparison.map((item) => {
+              const hasTarget = item.target > 0;
+              const isOverAllocated = item.difference > 0;
+              const isUnderAllocated = item.difference < 0;
+              
+              return (
+                <div key={item.type} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{item.type}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-muted-foreground">
+                        Atual: <span className="text-foreground font-medium">{item.current}%</span>
+                      </span>
+                      {hasTarget && (
+                        <>
+                          <span className="text-muted-foreground">
+                            Meta: <span className="text-foreground font-medium">{item.target}%</span>
+                          </span>
+                          <span className={`text-xs font-medium ${isOverAllocated ? 'text-warning' : isUnderAllocated ? 'text-destructive' : 'text-success'}`}>
+                            {item.difference > 0 ? '+' : ''}{item.difference.toFixed(1)}%
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="absolute h-full bg-primary rounded-full transition-all"
+                      style={{ width: `${Math.min(item.current, 100)}%` }}
+                    />
+                    {hasTarget && (
+                      <div 
+                        className="absolute h-full w-0.5 bg-foreground"
+                        style={{ left: `${Math.min(item.target, 100)}%` }}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Evolução Acumulada dos Investimentos</CardTitle>
