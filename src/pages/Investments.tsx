@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
-import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, Bell } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
 import { useAllocationTargets } from "@/hooks/useAllocationTargets";
+import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,11 @@ const Investments = () => {
   const { allocationTargets, upsertAllocationTarget } = useAllocationTargets();
   const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
   const [targetFormData, setTargetFormData] = useState({ asset_type: '', target_percentage: '' });
+  const [imbalanceThreshold, setImbalanceThreshold] = useState(() => {
+    const saved = localStorage.getItem('imbalanceThreshold');
+    return saved ? parseFloat(saved) : 10;
+  });
+  const [hasShownNotification, setHasShownNotification] = useState(false);
 
   // Get available years from investments
   const availableYears = useMemo(() => {
@@ -255,6 +261,34 @@ const Investments = () => {
       return b.percentage - a.percentage;
     });
   }, [investments, allocationTargets, allocationComparison]);
+
+  // Check for imbalance and show notifications
+  useEffect(() => {
+    if (hasShownNotification || allocationTargets.length === 0 || investments.length === 0) return;
+
+    const criticalImbalances = allocationComparison.filter(
+      item => item.target > 0 && Math.abs(item.difference) > imbalanceThreshold
+    );
+
+    if (criticalImbalances.length > 0) {
+      setHasShownNotification(true);
+      
+      const assetList = criticalImbalances.map(item => item.type).join(', ');
+      
+      toast({
+        title: "⚠️ Carteira Desbalanceada",
+        description: `${criticalImbalances.length} tipo(s) de ativo estão fora da meta de alocação (>${imbalanceThreshold}%): ${assetList}`,
+        variant: "destructive",
+        duration: 8000,
+      });
+    }
+  }, [allocationComparison, allocationTargets, investments, imbalanceThreshold, hasShownNotification]);
+
+  const handleThresholdChange = (value: number) => {
+    setImbalanceThreshold(value);
+    localStorage.setItem('imbalanceThreshold', value.toString());
+    setHasShownNotification(false); // Reset to check again with new threshold
+  };
 
   const handleSaveTarget = () => {
     if (!targetFormData.asset_type || !targetFormData.target_percentage) return;
@@ -578,13 +612,32 @@ const Investments = () => {
             <Target className="h-5 w-5" />
             Metas de Alocação
           </CardTitle>
-          <Dialog open={isTargetDialogOpen} onOpenChange={setIsTargetDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                Definir Meta
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Alertar se &gt;</span>
+              <Select 
+                value={imbalanceThreshold.toString()} 
+                onValueChange={(value) => handleThresholdChange(parseFloat(value))}
+              >
+                <SelectTrigger className="w-[80px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5%</SelectItem>
+                  <SelectItem value="10">10%</SelectItem>
+                  <SelectItem value="15">15%</SelectItem>
+                  <SelectItem value="20">20%</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Dialog open={isTargetDialogOpen} onOpenChange={setIsTargetDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Definir Meta
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Definir Meta de Alocação</DialogTitle>
@@ -624,6 +677,7 @@ const Investments = () => {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
