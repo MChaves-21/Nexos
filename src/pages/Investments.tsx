@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
 import { useAllocationTargets } from "@/hooks/useAllocationTargets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -199,15 +199,62 @@ const Investments = () => {
       targetMap[t.asset_type] = t.target_percentage;
     });
 
-    return assetTypesList.map(type => ({
+      return assetTypesList.map(type => ({
       type,
       current: totalValue > 0 ? parseFloat(((currentDistribution[type] || 0) / totalValue * 100).toFixed(1)) : 0,
       target: targetMap[type] || 0,
+      currentValue: currentDistribution[type] || 0,
       difference: totalValue > 0 
         ? parseFloat(((currentDistribution[type] || 0) / totalValue * 100).toFixed(1)) - (targetMap[type] || 0)
         : 0 - (targetMap[type] || 0)
     }));
   }, [investments, allocationTargets]);
+
+  // Calculate rebalancing suggestions
+  const rebalancingSuggestions = useMemo(() => {
+    const totalValue = investments.reduce((sum, inv) => sum + inv.current_price * inv.quantity, 0);
+    if (totalValue === 0 || allocationTargets.length === 0) return [];
+
+    const suggestions: {
+      type: string;
+      action: 'buy' | 'sell';
+      amount: number;
+      percentage: number;
+      priority: 'high' | 'medium' | 'low';
+    }[] = [];
+
+    allocationComparison.forEach(item => {
+      if (item.target === 0) return; // Skip if no target set
+
+      const difference = item.difference;
+      const targetValue = (item.target / 100) * totalValue;
+      const amountDiff = Math.abs(targetValue - item.currentValue);
+
+      // Only suggest if difference is significant (> 2%)
+      if (Math.abs(difference) > 2) {
+        const priority: 'high' | 'medium' | 'low' = 
+          Math.abs(difference) > 10 ? 'high' : 
+          Math.abs(difference) > 5 ? 'medium' : 'low';
+
+        suggestions.push({
+          type: item.type,
+          action: difference > 0 ? 'sell' : 'buy',
+          amount: amountDiff,
+          percentage: Math.abs(difference),
+          priority
+        });
+      }
+    });
+
+    // Sort by priority and percentage difference
+    return suggestions.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      }
+      return b.percentage - a.percentage;
+    });
+  }, [investments, allocationTargets, allocationComparison]);
 
   const handleSaveTarget = () => {
     if (!targetFormData.asset_type || !targetFormData.target_percentage) return;
@@ -621,6 +668,82 @@ const Investments = () => {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Rebalancing Suggestions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Scale className="h-5 w-5" />
+            Sugestões de Rebalanceamento
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {allocationTargets.length === 0 ? (
+            <p className="text-center text-muted-foreground py-4">
+              Defina metas de alocação para receber sugestões de rebalanceamento
+            </p>
+          ) : rebalancingSuggestions.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-success font-medium">✓ Carteira balanceada!</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Sua alocação está alinhada com suas metas
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {rebalancingSuggestions.map((suggestion, index) => (
+                <div 
+                  key={index}
+                  className={`flex items-center justify-between p-4 rounded-lg border ${
+                    suggestion.priority === 'high' 
+                      ? 'border-destructive/50 bg-destructive/5' 
+                      : suggestion.priority === 'medium'
+                      ? 'border-warning/50 bg-warning/5'
+                      : 'border-border'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${
+                      suggestion.action === 'buy' 
+                        ? 'bg-success/10 text-success' 
+                        : 'bg-warning/10 text-warning'
+                    }`}>
+                      {suggestion.action === 'buy' ? (
+                        <ArrowUpRight className="h-4 w-4" />
+                      ) : (
+                        <ArrowDownRight className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        {suggestion.action === 'buy' ? 'Comprar' : 'Vender'} {suggestion.type}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Diferença de {suggestion.percentage.toFixed(1)}% da meta
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">
+                      R$ {suggestion.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <Badge 
+                      variant={
+                        suggestion.priority === 'high' ? 'destructive' : 
+                        suggestion.priority === 'medium' ? 'secondary' : 'outline'
+                      }
+                      className="text-xs"
+                    >
+                      {suggestion.priority === 'high' ? 'Alta' : 
+                       suggestion.priority === 'medium' ? 'Média' : 'Baixa'} prioridade
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
