@@ -100,6 +100,45 @@ const Investments = () => {
     return Array.from(types).sort();
   }, [investments]);
 
+  // Calculate performance comparison by asset type over time
+  const assetTypePerformanceData = useMemo(() => {
+    if (investments.length === 0) return [];
+
+    const COLORS: { [key: string]: string } = {
+      'Ações': 'hsl(var(--primary))',
+      'FIIs': 'hsl(var(--success))',
+      'Tesouro Direto': 'hsl(215 70% 50%)',
+      'Renda Fixa': 'hsl(var(--warning))',
+      'Criptomoedas': 'hsl(280 70% 50%)',
+    };
+
+    // Group investments by asset type and calculate performance
+    const performanceByType: { [key: string]: { invested: number; current: number } } = {};
+
+    investments.forEach(inv => {
+      const type = inv.asset_type;
+      if (!performanceByType[type]) {
+        performanceByType[type] = { invested: 0, current: 0 };
+      }
+      performanceByType[type].invested += inv.purchase_price * inv.quantity;
+      performanceByType[type].current += inv.current_price * inv.quantity;
+    });
+
+    return Object.entries(performanceByType).map(([type, values]) => {
+      const percentageReturn = values.invested > 0 
+        ? ((values.current - values.invested) / values.invested) * 100 
+        : 0;
+      return {
+        type,
+        invested: Math.round(values.invested * 100) / 100,
+        current: Math.round(values.current * 100) / 100,
+        gain: Math.round((values.current - values.invested) * 100) / 100,
+        percentageReturn: Math.round(percentageReturn * 100) / 100,
+        color: COLORS[type] || 'hsl(var(--muted-foreground))'
+      };
+    }).sort((a, b) => b.percentageReturn - a.percentageReturn);
+  }, [investments]);
+
   // Calculate accumulated evolution over time
   const accumulatedEvolutionData = useMemo(() => {
     if (investments.length === 0) return [];
@@ -796,6 +835,80 @@ const Investments = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Asset Type Performance Comparison */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Comparativo de Performance por Tipo de Ativo
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {assetTypePerformanceData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              Adicione investimentos para ver o comparativo
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {assetTypePerformanceData.map((item) => (
+                <div key={item.type} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{item.type}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-muted-foreground">
+                        Investido: <span className="text-foreground font-medium">
+                          R$ {item.invested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Atual: <span className="text-foreground font-medium">
+                          R$ {item.current.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </span>
+                      <span className={`font-semibold ${item.percentageReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
+                        {item.percentageReturn >= 0 ? '+' : ''}{item.percentageReturn.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 relative h-3 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="absolute h-full rounded-full transition-all"
+                        style={{ 
+                          width: `${Math.min(Math.max((item.current / (Math.max(...assetTypePerformanceData.map(d => d.current)) || 1)) * 100, 5), 100)}%`,
+                          backgroundColor: item.color 
+                        }}
+                      />
+                    </div>
+                    <span className={`text-sm font-medium min-w-[80px] text-right ${item.gain >= 0 ? 'text-success' : 'text-destructive'}`}>
+                      {item.gain >= 0 ? '+' : ''}R$ {item.gain.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Summary */}
+              <div className="pt-4 border-t mt-4">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium">Melhor Performance:</span>
+                  <span className="text-success font-semibold">
+                    {assetTypePerformanceData[0]?.type} ({assetTypePerformanceData[0]?.percentageReturn.toFixed(2)}%)
+                  </span>
+                </div>
+                {assetTypePerformanceData.length > 1 && (
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="font-medium">Pior Performance:</span>
+                    <span className={`font-semibold ${assetTypePerformanceData[assetTypePerformanceData.length - 1]?.percentageReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
+                      {assetTypePerformanceData[assetTypePerformanceData.length - 1]?.type} ({assetTypePerformanceData[assetTypePerformanceData.length - 1]?.percentageReturn.toFixed(2)}%)
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </CardContent>

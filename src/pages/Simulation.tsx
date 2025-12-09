@@ -1,51 +1,117 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Target, TrendingUp } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const Simulation = () => {
   // Goal-driven projection
+  const [goalInitialValue, setGoalInitialValue] = useState("");
   const [goalTarget, setGoalTarget] = useState("");
   const [goalYears, setGoalYears] = useState("");
   const [goalRate, setGoalRate] = useState("10");
   const [goalResult, setGoalResult] = useState<number | null>(null);
 
   // Contribution-driven projection
+  const [contributionInitialValue, setContributionInitialValue] = useState("");
   const [monthlyContribution, setMonthlyContribution] = useState("");
   const [contributionYears, setContributionYears] = useState("");
   const [contributionRate, setContributionRate] = useState("10");
-  const [contributionResult, setContributionResult] = useState<number | null>(null);
+  const [contributionResult, setContributionResult] = useState<{
+    futureValue: number;
+    totalInvested: number;
+    earnings: number;
+  } | null>(null);
 
   const calculateMonthlyContribution = () => {
+    const initial = parseFloat(goalInitialValue) || 0;
     const target = parseFloat(goalTarget);
     const years = parseFloat(goalYears);
     const annualRate = parseFloat(goalRate) / 100;
     const monthlyRate = annualRate / 12;
     const months = years * 12;
 
+    if (!target || !years) return;
+
+    // Future value of initial investment
+    // FV_initial = PV * (1 + i)^n
+    const futureValueOfInitial = initial * Math.pow(1 + monthlyRate, months);
+    
+    // Remaining amount needed from monthly contributions
+    const remainingTarget = target - futureValueOfInitial;
+    
+    if (remainingTarget <= 0) {
+      setGoalResult(0); // Initial investment alone will exceed target
+      return;
+    }
+
     // FV = PMT * [((1 + i)^n - 1) / i]
     // PMT = FV / [((1 + i)^n - 1) / i]
     const futureValueFactor = (Math.pow(1 + monthlyRate, months) - 1) / monthlyRate;
-    const pmt = target / futureValueFactor;
+    const pmt = remainingTarget / futureValueFactor;
 
-    setGoalResult(pmt);
+    setGoalResult(Math.max(0, pmt));
   };
 
   const calculateFutureValue = () => {
-    const pmt = parseFloat(monthlyContribution);
+    const initial = parseFloat(contributionInitialValue) || 0;
+    const pmt = parseFloat(monthlyContribution) || 0;
     const years = parseFloat(contributionYears);
     const annualRate = parseFloat(contributionRate) / 100;
     const monthlyRate = annualRate / 12;
     const months = years * 12;
 
-    // FV = PMT * [((1 + i)^n - 1) / i]
-    const futureValue = pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+    if (!years) return;
 
-    setContributionResult(futureValue);
+    // FV = PV * (1 + i)^n + PMT * [((1 + i)^n - 1) / i]
+    const futureValueOfInitial = initial * Math.pow(1 + monthlyRate, months);
+    const futureValueOfContributions = pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+    const futureValue = futureValueOfInitial + futureValueOfContributions;
+    
+    const totalInvested = initial + (pmt * months);
+    const earnings = futureValue - totalInvested;
+
+    setContributionResult({
+      futureValue,
+      totalInvested,
+      earnings
+    });
   };
+
+  // Generate projection chart data for contribution mode
+  const projectionChartData = useMemo(() => {
+    if (!contributionResult) return [];
+    
+    const initial = parseFloat(contributionInitialValue) || 0;
+    const pmt = parseFloat(monthlyContribution) || 0;
+    const years = parseFloat(contributionYears);
+    const annualRate = parseFloat(contributionRate) / 100;
+    const monthlyRate = annualRate / 12;
+    
+    const data = [];
+    
+    for (let year = 0; year <= years; year++) {
+      const months = year * 12;
+      const futureValueOfInitial = initial * Math.pow(1 + monthlyRate, months);
+      const futureValueOfContributions = months > 0 
+        ? pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
+        : 0;
+      const total = futureValueOfInitial + futureValueOfContributions;
+      const invested = initial + (pmt * months);
+      
+      data.push({
+        ano: `Ano ${year}`,
+        valorTotal: Math.round(total * 100) / 100,
+        totalInvestido: Math.round(invested * 100) / 100,
+        rendimentos: Math.round((total - invested) * 100) / 100
+      });
+    }
+    
+    return data;
+  }, [contributionResult, contributionInitialValue, monthlyContribution, contributionYears, contributionRate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 md:p-8">
@@ -76,7 +142,17 @@ const Simulation = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="goal-initial">Valor Inicial (R$)</Label>
+                    <Input
+                      id="goal-initial"
+                      type="number"
+                      placeholder="0"
+                      value={goalInitialValue}
+                      onChange={(e) => setGoalInitialValue(e.target.value)}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="goal-target">Valor Desejado (R$)</Label>
                     <Input
@@ -119,7 +195,9 @@ const Simulation = () => {
                     <CardContent className="pt-6">
                       <div className="text-center">
                         <p className="text-sm text-muted-foreground mb-2">
-                          Você precisa investir mensalmente:
+                          {goalResult === 0 
+                            ? "Seu valor inicial já atingirá a meta!"
+                            : "Você precisa investir mensalmente:"}
                         </p>
                         <p className="text-4xl font-bold text-primary">
                           {goalResult.toLocaleString("pt-BR", {
@@ -134,6 +212,15 @@ const Simulation = () => {
                           })}{" "}
                           em {goalYears} anos com taxa de {goalRate}% ao ano
                         </p>
+                        {parseFloat(goalInitialValue) > 0 && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Partindo de um valor inicial de{" "}
+                            {parseFloat(goalInitialValue).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -142,7 +229,7 @@ const Simulation = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="contribution" className="mt-6">
+          <TabsContent value="contribution" className="mt-6 space-y-6">
             <Card className="border-border/50 shadow-elegant">
               <CardHeader>
                 <CardTitle>Projeção Dirigida por Aporte</CardTitle>
@@ -151,7 +238,17 @@ const Simulation = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="contribution-initial">Valor Inicial (R$)</Label>
+                    <Input
+                      id="contribution-initial"
+                      type="number"
+                      placeholder="0"
+                      value={contributionInitialValue}
+                      onChange={(e) => setContributionInitialValue(e.target.value)}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="monthly-contribution">Aporte Mensal (R$)</Label>
                     <Input
@@ -197,24 +294,42 @@ const Simulation = () => {
                           Você terá aproximadamente:
                         </p>
                         <p className="text-4xl font-bold text-success">
-                          {contributionResult.toLocaleString("pt-BR", {
+                          {contributionResult.futureValue.toLocaleString("pt-BR", {
                             style: "currency",
                             currency: "BRL",
                           })}
                         </p>
+                        <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Total Investido</p>
+                            <p className="font-semibold">
+                              {contributionResult.totalInvested.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Rendimentos</p>
+                            <p className="font-semibold text-success">
+                              {contributionResult.earnings.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </p>
+                          </div>
+                        </div>
                         <p className="text-sm text-muted-foreground mt-4">
-                          Investindo {parseFloat(monthlyContribution).toLocaleString("pt-BR", {
+                          {parseFloat(contributionInitialValue) > 0 && (
+                            <>Iniciando com {parseFloat(contributionInitialValue).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })} + </>
+                          )}
+                          {parseFloat(monthlyContribution).toLocaleString("pt-BR", {
                             style: "currency",
                             currency: "BRL",
-                          })}{" "}
-                          por mês durante {contributionYears} anos com taxa de {contributionRate}% ao ano
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Total investido:{" "}
-                          {(parseFloat(monthlyContribution) * parseFloat(contributionYears) * 12).toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
+                          })}/mês durante {contributionYears} anos a {contributionRate}% a.a.
                         </p>
                       </div>
                     </CardContent>
@@ -222,6 +337,62 @@ const Simulation = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Projection Chart */}
+            {contributionResult && projectionChartData.length > 0 && (
+              <Card className="border-border/50">
+                <CardHeader>
+                  <CardTitle>Projeção ao Longo do Tempo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={projectionChartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="ano" className="text-xs" />
+                      <YAxis 
+                        className="text-xs" 
+                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "var(--radius)"
+                        }}
+                        formatter={(value: number) => [
+                          value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                        ]}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="valorTotal" 
+                        stroke="hsl(var(--success))" 
+                        strokeWidth={2}
+                        name="Valor Total"
+                        dot={false}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="totalInvestido" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        name="Total Investido"
+                        dot={false}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="rendimentos" 
+                        stroke="hsl(var(--warning))" 
+                        strokeWidth={2}
+                        name="Rendimentos"
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
