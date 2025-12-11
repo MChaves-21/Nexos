@@ -4,8 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Target, TrendingUp } from "lucide-react";
+import { Calculator, Target, TrendingUp, FileDown } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const Simulation = () => {
   // Goal-driven projection
@@ -113,6 +115,111 @@ const Simulation = () => {
     return data;
   }, [contributionResult, contributionInitialValue, monthlyContribution, contributionYears, contributionRate]);
 
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  };
+
+  const exportGoalSimulationPDF = () => {
+    if (goalResult === null) return;
+
+    const doc = new jsPDF();
+    const date = new Date().toLocaleDateString("pt-BR");
+
+    doc.setFontSize(20);
+    doc.text("Simulação por Meta", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${date}`, 14, 28);
+
+    doc.setFontSize(12);
+    doc.text("Parâmetros da Simulação", 14, 42);
+
+    autoTable(doc, {
+      startY: 48,
+      head: [["Parâmetro", "Valor"]],
+      body: [
+        ["Valor Inicial", formatCurrency(parseFloat(goalInitialValue) || 0)],
+        ["Meta Desejada", formatCurrency(parseFloat(goalTarget) || 0)],
+        ["Prazo", `${goalYears} anos`],
+        ["Taxa Anual", `${goalRate}%`],
+      ],
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 90;
+
+    doc.setFontSize(14);
+    doc.text("Resultado", 14, finalY + 15);
+    doc.setFontSize(12);
+    
+    if (goalResult === 0) {
+      doc.text("Seu valor inicial já atingirá a meta!", 14, finalY + 25);
+    } else {
+      doc.text(`Aporte Mensal Necessário: ${formatCurrency(goalResult)}`, 14, finalY + 25);
+    }
+
+    doc.save(`simulacao-meta-${date.replace(/\//g, "-")}.pdf`);
+  };
+
+  const exportContributionSimulationPDF = () => {
+    if (!contributionResult) return;
+
+    const doc = new jsPDF();
+    const date = new Date().toLocaleDateString("pt-BR");
+
+    doc.setFontSize(20);
+    doc.text("Simulação por Aporte", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${date}`, 14, 28);
+
+    doc.setFontSize(12);
+    doc.text("Parâmetros da Simulação", 14, 42);
+
+    autoTable(doc, {
+      startY: 48,
+      head: [["Parâmetro", "Valor"]],
+      body: [
+        ["Valor Inicial", formatCurrency(parseFloat(contributionInitialValue) || 0)],
+        ["Aporte Mensal", formatCurrency(parseFloat(monthlyContribution) || 0)],
+        ["Prazo", `${contributionYears} anos`],
+        ["Taxa Anual", `${contributionRate}%`],
+      ],
+    });
+
+    let finalY = (doc as any).lastAutoTable.finalY || 90;
+
+    doc.setFontSize(14);
+    doc.text("Resultado", 14, finalY + 15);
+
+    autoTable(doc, {
+      startY: finalY + 20,
+      head: [["Métrica", "Valor"]],
+      body: [
+        ["Valor Futuro", formatCurrency(contributionResult.futureValue)],
+        ["Total Investido", formatCurrency(contributionResult.totalInvested)],
+        ["Rendimentos", formatCurrency(contributionResult.earnings)],
+      ],
+    });
+
+    finalY = (doc as any).lastAutoTable.finalY || 130;
+
+    if (projectionChartData.length > 0) {
+      doc.setFontSize(14);
+      doc.text("Projeção Anual", 14, finalY + 15);
+
+      autoTable(doc, {
+        startY: finalY + 20,
+        head: [["Ano", "Valor Total", "Total Investido", "Rendimentos"]],
+        body: projectionChartData.map((item) => [
+          item.ano,
+          formatCurrency(item.valorTotal),
+          formatCurrency(item.totalInvestido),
+          formatCurrency(item.rendimentos),
+        ]),
+      });
+    }
+
+    doc.save(`simulacao-aporte-${date.replace(/\//g, "-")}.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -186,9 +293,17 @@ const Simulation = () => {
                   </div>
                 </div>
 
-                <Button onClick={calculateMonthlyContribution} className="w-full">
-                  Calcular Aporte Mensal
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={calculateMonthlyContribution} className="flex-1">
+                    Calcular Aporte Mensal
+                  </Button>
+                  {goalResult !== null && (
+                    <Button variant="outline" onClick={exportGoalSimulationPDF}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      PDF
+                    </Button>
+                  )}
+                </div>
 
                 {goalResult !== null && (
                   <Card className="bg-primary/5 border-primary/20">
@@ -282,9 +397,17 @@ const Simulation = () => {
                   </div>
                 </div>
 
-                <Button onClick={calculateFutureValue} className="w-full">
-                  Calcular Valor Futuro
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={calculateFutureValue} className="flex-1">
+                    Calcular Valor Futuro
+                  </Button>
+                  {contributionResult && (
+                    <Button variant="outline" onClick={exportContributionSimulationPDF}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      PDF
+                    </Button>
+                  )}
+                </div>
 
                 {contributionResult !== null && (
                   <Card className="bg-success/5 border-success/20">
