@@ -284,6 +284,69 @@ const Simulation = () => {
     setSavedSimulations([]);
   };
 
+  const exportComparisonPDF = () => {
+    if (savedSimulations.length === 0) return;
+
+    const doc = new jsPDF();
+    const date = new Date().toLocaleDateString("pt-BR");
+
+    doc.setFontSize(20);
+    doc.text("Comparação de Simulações", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${date}`, 14, 28);
+
+    const goalSimulations = savedSimulations.filter(s => s.type === "goal");
+    const contributionSimulations = savedSimulations.filter(s => s.type === "contribution");
+
+    let currentY = 40;
+
+    if (goalSimulations.length > 0) {
+      doc.setFontSize(14);
+      doc.text("Simulações por Meta", 14, currentY);
+      
+      autoTable(doc, {
+        startY: currentY + 6,
+        head: [["Nome", "Valor Inicial", "Meta", "Prazo", "Taxa", "Aporte Mensal"]],
+        body: goalSimulations.map(sim => [
+          sim.name,
+          formatCurrency(sim.initialValue),
+          formatCurrency(sim.target || 0),
+          `${sim.years} anos`,
+          `${sim.rate}%`,
+          formatCurrency(sim.result),
+        ]),
+      });
+      
+      currentY = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    if (contributionSimulations.length > 0) {
+      if (currentY > 250) {
+        doc.addPage();
+        currentY = 20;
+      }
+      
+      doc.setFontSize(14);
+      doc.text("Simulações por Aporte", 14, currentY);
+      
+      autoTable(doc, {
+        startY: currentY + 6,
+        head: [["Nome", "Valor Inicial", "Aporte Mensal", "Prazo", "Taxa", "Valor Futuro", "Rendimentos"]],
+        body: contributionSimulations.map(sim => [
+          sim.name,
+          formatCurrency(sim.initialValue),
+          formatCurrency(sim.monthlyContribution || 0),
+          `${sim.years} anos`,
+          `${sim.rate}%`,
+          formatCurrency(sim.result),
+          formatCurrency(sim.earnings || 0),
+        ]),
+      });
+    }
+
+    doc.save(`comparacao-simulacoes-${date.replace(/\//g, "-")}.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -609,10 +672,16 @@ const Simulation = () => {
                     </CardDescription>
                   </div>
                   {savedSimulations.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={clearAllSimulations}>
-                      <X className="h-4 w-4 mr-2" />
-                      Limpar Todas
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={exportComparisonPDF}>
+                        <FileDown className="h-4 w-4 mr-2" />
+                        Exportar PDF
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={clearAllSimulations}>
+                        <X className="h-4 w-4 mr-2" />
+                        Limpar
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardHeader>
