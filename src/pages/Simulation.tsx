@@ -347,6 +347,76 @@ const Simulation = () => {
     doc.save(`comparacao-simulacoes-${date.replace(/\//g, "-")}.pdf`);
   };
 
+  // Generate comparison chart data for all saved simulations
+  const comparisonChartData = useMemo(() => {
+    if (savedSimulations.length === 0) return [];
+
+    // Find the maximum years among all simulations
+    const maxYears = Math.max(...savedSimulations.map(s => s.years));
+    
+    const data = [];
+    
+    for (let year = 0; year <= maxYears; year++) {
+      const point: Record<string, number | string> = { ano: `Ano ${year}` };
+      
+      savedSimulations.forEach((sim, index) => {
+        if (year > sim.years) {
+          // Simulation has ended, keep the final value
+          const monthlyRate = sim.rate / 100 / 12;
+          const totalMonths = sim.years * 12;
+          
+          if (sim.type === "contribution") {
+            const futureValueOfInitial = sim.initialValue * Math.pow(1 + monthlyRate, totalMonths);
+            const pmt = sim.monthlyContribution || 0;
+            const futureValueOfContributions = totalMonths > 0 
+              ? pmt * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate)
+              : 0;
+            point[`sim_${index}`] = Math.round((futureValueOfInitial + futureValueOfContributions) * 100) / 100;
+          } else {
+            // Goal simulation - show target value after completion
+            point[`sim_${index}`] = Math.round((sim.target || 0) * 100) / 100;
+          }
+        } else {
+          const months = year * 12;
+          const monthlyRate = sim.rate / 100 / 12;
+          
+          if (sim.type === "contribution") {
+            const futureValueOfInitial = sim.initialValue * Math.pow(1 + monthlyRate, months);
+            const pmt = sim.monthlyContribution || 0;
+            const futureValueOfContributions = months > 0 
+              ? pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
+              : 0;
+            point[`sim_${index}`] = Math.round((futureValueOfInitial + futureValueOfContributions) * 100) / 100;
+          } else {
+            // Goal simulation - calculate progress toward target
+            const pmt = sim.result;
+            const futureValueOfInitial = sim.initialValue * Math.pow(1 + monthlyRate, months);
+            const futureValueOfContributions = months > 0 
+              ? pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
+              : 0;
+            point[`sim_${index}`] = Math.round((futureValueOfInitial + futureValueOfContributions) * 100) / 100;
+          }
+        }
+      });
+      
+      data.push(point);
+    }
+    
+    return data;
+  }, [savedSimulations]);
+
+  // Colors for the chart lines
+  const chartColors = [
+    "hsl(var(--primary))",
+    "hsl(var(--success))",
+    "hsl(var(--warning))",
+    "hsl(var(--destructive))",
+    "hsl(200, 70%, 50%)",
+    "hsl(280, 70%, 50%)",
+    "hsl(320, 70%, 50%)",
+    "hsl(40, 70%, 50%)",
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -695,88 +765,156 @@ const Simulation = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {savedSimulations.map((sim) => (
-                      <Card key={sim.id} className={`relative ${sim.type === "goal" ? "border-primary/30 bg-primary/5" : "border-success/30 bg-success/5"}`}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 h-6 w-6"
-                          onClick={() => removeSimulation(sim.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                        <CardContent className="pt-6">
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              {sim.type === "goal" ? (
-                                <Target className="h-4 w-4 text-primary" />
-                              ) : (
-                                <TrendingUp className="h-4 w-4 text-success" />
-                              )}
-                              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                {sim.type === "goal" ? "Por Meta" : "Por Aporte"}
-                              </span>
-                            </div>
-                            
-                            <p className="font-semibold text-sm truncate">{sim.name}</p>
-                            
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Valor Inicial:</span>
-                                <span className="font-medium">{formatCurrency(sim.initialValue)}</span>
-                              </div>
-                              
-                              {sim.type === "goal" && sim.target && (
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Meta:</span>
-                                  <span className="font-medium">{formatCurrency(sim.target)}</span>
-                                </div>
-                              )}
-                              
-                              {sim.type === "contribution" && sim.monthlyContribution && (
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Aporte Mensal:</span>
-                                  <span className="font-medium">{formatCurrency(sim.monthlyContribution)}</span>
-                                </div>
-                              )}
-                              
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Prazo:</span>
-                                <span className="font-medium">{sim.years} anos</span>
-                              </div>
-                              
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Taxa:</span>
-                                <span className="font-medium">{sim.rate}% a.a.</span>
-                              </div>
-                            </div>
-                            
-                            <div className="pt-3 border-t border-border">
-                              {sim.type === "goal" ? (
-                                <div className="text-center">
-                                  <p className="text-xs text-muted-foreground">Aporte Mensal Necessário</p>
-                                  <p className="text-xl font-bold text-primary">{formatCurrency(sim.result)}</p>
-                                </div>
-                              ) : (
-                                <div className="space-y-1">
-                                  <div className="text-center">
-                                    <p className="text-xs text-muted-foreground">Valor Futuro</p>
-                                    <p className="text-xl font-bold text-success">{formatCurrency(sim.result)}</p>
-                                  </div>
-                                  {sim.earnings && (
-                                    <div className="flex justify-between text-xs">
-                                      <span className="text-muted-foreground">Rendimentos:</span>
-                                      <span className="text-success font-medium">{formatCurrency(sim.earnings)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                  <div className="space-y-6">
+                    {/* Comparison Chart */}
+                    <Card className="border-border/50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg">Evolução Comparativa</CardTitle>
+                        <CardDescription>
+                          Visualize o crescimento de todas as simulações ao longo do tempo
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-[350px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={comparisonChartData}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                              <XAxis 
+                                dataKey="ano" 
+                                stroke="hsl(var(--muted-foreground))"
+                                fontSize={12}
+                              />
+                              <YAxis 
+                                stroke="hsl(var(--muted-foreground))"
+                                fontSize={12}
+                                tickFormatter={(value) => formatCurrency(value)}
+                              />
+                              <Tooltip 
+                                formatter={(value: number) => formatCurrency(value)}
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: "8px",
+                                }}
+                                labelStyle={{ color: "hsl(var(--foreground))" }}
+                              />
+                              <Legend />
+                              {savedSimulations.map((sim, index) => (
+                                <Line
+                                  key={sim.id}
+                                  type="monotone"
+                                  dataKey={`sim_${index}`}
+                                  stroke={chartColors[index % chartColors.length]}
+                                  strokeWidth={2}
+                                  name={sim.name}
+                                  dot={false}
+                                  strokeDasharray={sim.type === "goal" ? "5 5" : undefined}
+                                />
+                              ))}
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex flex-wrap gap-4 mt-4 justify-center text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-0.5 bg-foreground"></div>
+                            <span>Linha sólida = Por Aporte</span>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-0.5 border-t-2 border-dashed border-foreground"></div>
+                            <span>Linha tracejada = Por Meta</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Simulation Cards */}
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {savedSimulations.map((sim, index) => (
+                        <Card key={sim.id} className="relative" style={{ borderColor: chartColors[index % chartColors.length], borderWidth: "2px" }}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 h-6 w-6"
+                            onClick={() => removeSimulation(sim.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <CardContent className="pt-6">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                                />
+                                {sim.type === "goal" ? (
+                                  <Target className="h-4 w-4 text-primary" />
+                                ) : (
+                                  <TrendingUp className="h-4 w-4 text-success" />
+                                )}
+                                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                  {sim.type === "goal" ? "Por Meta" : "Por Aporte"}
+                                </span>
+                              </div>
+                              
+                              <p className="font-semibold text-sm truncate">{sim.name}</p>
+                              
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Valor Inicial:</span>
+                                  <span className="font-medium">{formatCurrency(sim.initialValue)}</span>
+                                </div>
+                                
+                                {sim.type === "goal" && sim.target && (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Meta:</span>
+                                    <span className="font-medium">{formatCurrency(sim.target)}</span>
+                                  </div>
+                                )}
+                                
+                                {sim.type === "contribution" && sim.monthlyContribution && (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Aporte Mensal:</span>
+                                    <span className="font-medium">{formatCurrency(sim.monthlyContribution)}</span>
+                                  </div>
+                                )}
+                                
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Prazo:</span>
+                                  <span className="font-medium">{sim.years} anos</span>
+                                </div>
+                                
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Taxa:</span>
+                                  <span className="font-medium">{sim.rate}% a.a.</span>
+                                </div>
+                              </div>
+                              
+                              <div className="pt-3 border-t border-border">
+                                {sim.type === "goal" ? (
+                                  <div className="text-center">
+                                    <p className="text-xs text-muted-foreground">Aporte Mensal Necessário</p>
+                                    <p className="text-xl font-bold text-primary">{formatCurrency(sim.result)}</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <div className="text-center">
+                                      <p className="text-xs text-muted-foreground">Valor Futuro</p>
+                                      <p className="text-xl font-bold text-success">{formatCurrency(sim.result)}</p>
+                                    </div>
+                                    {sim.earnings && (
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-muted-foreground">Rendimentos:</span>
+                                        <span className="text-success font-medium">{formatCurrency(sim.earnings)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
