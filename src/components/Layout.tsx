@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Target, Receipt, FileText } from "lucide-react";
+import nexosLogo from "@/assets/nexos-logo.jpg";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,9 +99,12 @@ const Layout = ({ children }: LayoutProps) => {
                 </nav>
               </SheetContent>
             </Sheet>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              FinanceHub
-            </h1>
+            <div className="flex items-center gap-2">
+              <img src={nexosLogo} alt="NEXOS" className="h-8 w-8 rounded" />
+              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                NEXOS
+              </h1>
+            </div>
           </div>
           
           <div className="flex items-center gap-2">
