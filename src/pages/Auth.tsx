@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Mail, Lock } from "lucide-react";
 import nexosLogo from "@/assets/nexos-logo.jpg";
 
 const Auth = () => {
@@ -128,23 +129,31 @@ const Auth = () => {
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email">E-mail</Label>
-                    <Input
-                      id="signin-email"
-                      name="signin-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      required
-                    />
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signin-email"
+                        name="signin-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        className="pl-10"
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signin-password">Senha</Label>
-                    <Input
-                      id="signin-password"
-                      name="signin-password"
-                      type="password"
-                      placeholder="••••••••"
-                      required
-                    />
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signin-password"
+                        name="signin-password"
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10"
+                        required
+                      />
+                    </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Entrando..." : "Entrar"}
@@ -156,35 +165,47 @@ const Auth = () => {
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">E-mail</Label>
-                    <Input
-                      id="signup-email"
-                      name="signup-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      required
-                    />
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signup-email"
+                        name="signup-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        className="pl-10"
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Senha</Label>
-                    <Input
-                      id="signup-password"
-                      name="signup-password"
-                      type="password"
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                    />
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signup-password"
+                        name="signup-password"
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10"
+                        required
+                        minLength={6}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirmar Senha</Label>
-                    <Input
-                      id="confirm-password"
-                      name="confirm-password"
-                      type="password"
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                    />
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="confirm-password"
+                        name="confirm-password"
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10"
+                        required
+                        minLength={6}
+                      />
+                    </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Criando..." : "Criar Conta"}
