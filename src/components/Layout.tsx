@@ -1,6 +1,6 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useTransition } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Target, Receipt, FileText } from "lucide-react";
+import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Target, Receipt, FileText, Loader2 } from "lucide-react";
 import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -19,6 +19,8 @@ const Layout = ({ children }: LayoutProps) => {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [pendingRoute, setPendingRoute] = useState<string | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -37,6 +39,11 @@ const Layout = ({ children }: LayoutProps) => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Clear pending route when location changes
+  useEffect(() => {
+    setPendingRoute(null);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -73,6 +80,15 @@ const Layout = ({ children }: LayoutProps) => {
     }
   };
 
+  const handleNavClick = (to: string) => {
+    if (location.pathname !== to) {
+      setPendingRoute(to);
+      startTransition(() => {
+        navigate(to);
+      });
+    }
+  };
+
   const navItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/expenses", icon: Wallet, label: "Gastos" },
@@ -85,22 +101,34 @@ const Layout = ({ children }: LayoutProps) => {
 
   const NavLinks = () => (
     <>
-      {navItems.map(({ to, icon: Icon, label }) => (
-        <Link 
-          key={to} 
-          to={to}
-          onMouseEnter={() => handlePrefetch(to)}
-          onFocus={() => handlePrefetch(to)}
-        >
-          <Button
-            variant={location.pathname === to ? "default" : "ghost"}
-            className="w-full justify-start gap-3"
+      {navItems.map(({ to, icon: Icon, label }) => {
+        const isLoading = isPending && pendingRoute === to;
+        const isActive = location.pathname === to;
+        
+        return (
+          <button
+            key={to}
+            onClick={() => handleNavClick(to)}
+            onMouseEnter={() => handlePrefetch(to)}
+            onFocus={() => handlePrefetch(to)}
+            className="w-full text-left"
+            disabled={isLoading}
           >
-            <Icon className="h-5 w-5" />
-            {label}
-          </Button>
-        </Link>
-      ))}
+            <Button
+              variant={isActive ? "default" : "ghost"}
+              className="w-full justify-start gap-3"
+              asChild={false}
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Icon className="h-5 w-5" />
+              )}
+              {label}
+            </Button>
+          </button>
+        );
+      })}
     </>
   );
 
