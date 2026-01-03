@@ -109,7 +109,7 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center mb-8 gap-3 opacity-0 animate-fade-in-up">
-          <img src={nexosLogo} alt="NEXOS" className="h-12 w-12 rounded-lg shadow-md" />
+          <img src={nexosLogo} alt="NEXOS" className="h-12 w-12 rounded-lg shadow-md" fetchPriority="high" />
           <h1 className="text-4xl font-bold text-primary">NEXOS</h1>
         </div>
 
