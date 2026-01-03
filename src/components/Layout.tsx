@@ -100,7 +100,7 @@ const Layout = ({ children }: LayoutProps) => {
               </SheetContent>
             </Sheet>
             <div className="flex items-center gap-2">
-              <img src={nexosLogo} alt="NEXOS" className="h-8 w-8 rounded" />
+              <img src={nexosLogo} alt="NEXOS" className="h-8 w-8 rounded" loading="eager" decoding="async" />
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                 NEXOS
               </h1>
