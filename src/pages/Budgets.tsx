@@ -9,6 +9,7 @@ import { Plus, Wallet, Edit2, Trash2, AlertCircle, TrendingUp } from "lucide-rea
 import { useBudgets } from "@/hooks/useBudgets";
 import { useTransactions } from "@/hooks/useTransactions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { StatCardSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
 
 const Budgets = () => {
   const { budgets, isLoading: loadingBudgets, upsertBudget, deleteBudget } = useBudgets();
@@ -69,10 +70,37 @@ const Budgets = () => {
     }
   };
 
-  if (loadingBudgets || loadingTransactions) {
+  const isLoading = loadingBudgets || loadingTransactions;
+
+  // Loading skeleton
+  if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">Carregando orçamentos...</div>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Wallet className="h-8 w-8 text-primary" />
+              Orçamentos por Categoria
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Gerencie seus orçamentos mensais por categoria
+            </p>
+          </div>
+        </div>
+
+        {/* Summary Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+        </div>
+
+        {/* Budget Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <BudgetCardSkeleton />
+          <BudgetCardSkeleton />
+          <BudgetCardSkeleton />
+        </div>
       </div>
     );
   }

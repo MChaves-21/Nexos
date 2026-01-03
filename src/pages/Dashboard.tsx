@@ -14,6 +14,7 @@ import { useTransactions } from "@/hooks/useTransactions";
 import { useInvestments } from "@/hooks/useInvestments";
 import { useGoals } from "@/hooks/useGoals";
 import { cn } from "@/lib/utils";
+import { StatCardSkeleton, ChartSkeleton } from "@/components/skeletons";
 
 const Dashboard = () => {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
@@ -295,8 +296,32 @@ const Dashboard = () => {
 
   if (loadingTransactions || loadingInvestments || loadingGoals || !dashboardData) {
     return (
-      <div className="flex items-center justify-center h-[400px]">
-        <p className="text-muted-foreground">Carregando dados...</p>
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard Financeiro</h2>
+          <p className="text-muted-foreground mt-1">
+            Visão completa das suas finanças
+          </p>
+        </div>
+
+        {/* Stats Cards Skeleton */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+        </div>
+
+        {/* Charts Skeleton */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ChartSkeleton height={300} />
+          <ChartSkeleton height={300} />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ChartSkeleton height={250} />
+          <ChartSkeleton height={250} />
+        </div>
       </div>
     );
   }
