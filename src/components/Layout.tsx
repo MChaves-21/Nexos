@@ -1,7 +1,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Target, Receipt, FileText } from "lucide-react";
-import nexosLogo from "@/assets/nexos-logo.jpg";
+import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
