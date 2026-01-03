@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock } from "lucide-react";
-import nexosLogo from "@/assets/nexos-logo.jpg";
+import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 
 const Auth = () => {
   const navigate = useNavigate();
