@@ -4,6 +4,7 @@ import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, M
 import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/Footer";
+import Breadcrumb from "@/components/Breadcrumb";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -195,7 +196,10 @@ const Layout = ({ children }: LayoutProps) => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <Breadcrumb />
+          {children}
+        </main>
       </div>
 
       <Footer />
