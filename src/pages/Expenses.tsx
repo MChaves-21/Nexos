@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TransactionRowSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
 
 const Expenses = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -292,7 +293,11 @@ const Expenses = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             {isBudgetsLoading ? (
-              <p className="text-center text-muted-foreground">Carregando...</p>
+              <div className="space-y-6">
+                {[...Array(4)].map((_, i) => (
+                  <BudgetCardSkeleton key={i} />
+                ))}
+              </div>
             ) : categoriesData.length === 0 ? (
               <p className="text-center text-muted-foreground">
                 Nenhum orçamento definido. Clique em "Novo Orçamento" para começar.
@@ -359,7 +364,11 @@ const Expenses = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-center text-muted-foreground">Carregando...</p>
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <TransactionRowSkeleton key={i} />
+              ))}
+            </div>
           ) : transactions.length === 0 ? (
             <p className="text-center text-muted-foreground">Nenhuma transação encontrada</p>
           ) : (
