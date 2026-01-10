@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { TrendingUp, TrendingDown, Calendar, Sparkles } from "lucide-react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useInvestments } from "@/hooks/useInvestments";
 
@@ -11,6 +13,7 @@ type TimeRange = "6m" | "1y" | "2y" | "all";
 
 const WealthEvolutionChart = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>("1y");
+  const [showProjection, setShowProjection] = useState(true);
   const { transactions, isLoading: loadingTransactions } = useTransactions();
   const { investments, isLoading: loadingInvestments } = useInvestments();
 
@@ -22,7 +25,7 @@ const WealthEvolutionChart = () => {
     // Determinar quantidade de meses baseado no período selecionado
     const monthsToShow = timeRange === "6m" ? 6 : timeRange === "1y" ? 12 : timeRange === "2y" ? 24 : 36;
 
-    // Criar lista de meses
+    // Criar lista de meses históricos
     const months: { month: number; year: number; name: string; fullName: string }[] = [];
     for (let i = monthsToShow - 1; i >= 0; i--) {
       const date = new Date();
@@ -90,7 +93,7 @@ const WealthEvolutionChart = () => {
       }
     });
 
-    const data = months.map(({ month, year, fullName }) => {
+    const historicalData = months.map(({ month, year, fullName }) => {
       const key = `${year}-${month}`;
       const monthData = monthlyData[key] || { income: 0, expense: 0 };
       
@@ -105,22 +108,91 @@ const WealthEvolutionChart = () => {
         investimentos: investmentValue,
         receitas: monthData.income,
         despesas: monthData.expense,
-        saldo: monthData.income - monthData.expense
+        saldo: monthData.income - monthData.expense,
+        isProjection: false,
+        projecaoPatrimonio: null as number | null,
+        projecaoInvestimentos: null as number | null
       };
     });
 
-    // Calcular estatísticas
-    const firstValue = data[0]?.patrimonio || 0;
-    const lastValue = data[data.length - 1]?.patrimonio || 0;
+    // Calcular estatísticas históricas
+    const firstValue = historicalData[0]?.patrimonio || 0;
+    const lastValue = historicalData[historicalData.length - 1]?.patrimonio || 0;
     const absoluteChange = lastValue - firstValue;
     const percentageChange = firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
     
-    const maxValue = Math.max(...data.map(d => d.patrimonio));
-    const minValue = Math.min(...data.map(d => d.patrimonio));
-    const avgValue = data.reduce((sum, d) => sum + d.patrimonio, 0) / data.length;
+    const maxValue = Math.max(...historicalData.map(d => d.patrimonio));
+    const minValue = Math.min(...historicalData.map(d => d.patrimonio));
+    const avgValue = historicalData.reduce((sum, d) => sum + d.patrimonio, 0) / historicalData.length;
+
+    // Calcular taxa média de crescimento mensal
+    const monthlyGrowthRates: number[] = [];
+    for (let i = 1; i < historicalData.length; i++) {
+      const prevValue = historicalData[i - 1].patrimonio;
+      const currValue = historicalData[i].patrimonio;
+      if (prevValue > 0) {
+        const rate = (currValue - prevValue) / prevValue;
+        monthlyGrowthRates.push(rate);
+      }
+    }
+    
+    const avgMonthlyGrowthRate = monthlyGrowthRates.length > 0
+      ? monthlyGrowthRates.reduce((sum, rate) => sum + rate, 0) / monthlyGrowthRates.length
+      : 0.02; // Default 2% ao mês se não houver dados
+
+    // Calcular aporte médio mensal
+    const avgMonthlySavings = historicalData.reduce((sum, d) => sum + d.saldo, 0) / historicalData.length;
+
+    // Gerar projeção futura (próximos 12 meses)
+    const projectionMonths = 12;
+    const projectionData: typeof historicalData = [];
+    let projectedWealth = lastValue;
+    let projectedInvestments = historicalData[historicalData.length - 1]?.investimentos || 0;
+
+    for (let i = 1; i <= projectionMonths; i++) {
+      const date = new Date();
+      date.setMonth(date.getMonth() + i);
+      const fullName = `${monthNames[date.getMonth()]}/${date.getFullYear().toString().slice(-2)}`;
+      
+      // Projeção considera crescimento + aporte médio
+      projectedWealth = projectedWealth * (1 + avgMonthlyGrowthRate) + Math.max(0, avgMonthlySavings);
+      projectedInvestments = projectedInvestments * (1 + avgMonthlyGrowthRate * 0.5); // Investimentos crescem mais conservadoramente
+
+      projectionData.push({
+        name: fullName,
+        patrimonio: 0,
+        economias: 0,
+        investimentos: 0,
+        receitas: 0,
+        despesas: 0,
+        saldo: 0,
+        isProjection: true,
+        projecaoPatrimonio: Math.round(projectedWealth),
+        projecaoInvestimentos: Math.round(projectedInvestments)
+      });
+    }
+
+    // Adicionar ponto de transição (último ponto histórico também na projeção)
+    const transitionPoint = {
+      ...historicalData[historicalData.length - 1],
+      projecaoPatrimonio: historicalData[historicalData.length - 1].patrimonio,
+      projecaoInvestimentos: historicalData[historicalData.length - 1].investimentos
+    };
+
+    // Combinar dados históricos e projeção
+    const combinedData = [
+      ...historicalData.slice(0, -1),
+      transitionPoint,
+      ...projectionData
+    ];
+
+    // Estatísticas de projeção
+    const projectedFinalValue = projectionData[projectionData.length - 1]?.projecaoPatrimonio || lastValue;
+    const projectedGrowth = lastValue > 0 ? ((projectedFinalValue - lastValue) / lastValue) * 100 : 0;
 
     return {
-      data,
+      data: combinedData,
+      historicalData,
       stats: {
         currentValue: lastValue,
         absoluteChange,
@@ -128,7 +200,14 @@ const WealthEvolutionChart = () => {
         maxValue,
         minValue,
         avgValue,
-        isPositive: percentageChange >= 0
+        isPositive: percentageChange >= 0,
+        avgMonthlyGrowthRate: avgMonthlyGrowthRate * 100,
+        avgMonthlySavings
+      },
+      projection: {
+        finalValue: projectedFinalValue,
+        growth: projectedGrowth,
+        monthsAhead: projectionMonths
       }
     };
   }, [transactions, investments, loadingTransactions, loadingInvestments, timeRange]);
@@ -147,7 +226,8 @@ const WealthEvolutionChart = () => {
     );
   }
 
-  const { data, stats } = chartData;
+  const { data, historicalData, stats, projection } = chartData;
+  const displayData = showProjection ? data : historicalData;
 
   const formatCurrency = (value: number) => {
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -155,33 +235,61 @@ const WealthEvolutionChart = () => {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload;
+      const tooltipData = payload[0].payload;
+      const isProjection = tooltipData.isProjection;
+      
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-semibold text-foreground mb-2">{label}</p>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="font-semibold text-foreground">{label}</p>
+            {isProjection && (
+              <Badge variant="outline" className="text-xs bg-chart-3/20 text-chart-3 border-chart-3/50">
+                <Sparkles className="h-3 w-3 mr-1" />
+                Projeção
+              </Badge>
+            )}
+          </div>
           <div className="space-y-1 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Patrimônio Total:</span>
-              <span className="font-medium text-primary">{formatCurrency(data.patrimonio)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Economias:</span>
-              <span className="font-medium">{formatCurrency(data.economias)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Investimentos:</span>
-              <span className="font-medium">{formatCurrency(data.investimentos)}</span>
-            </div>
-            <div className="border-t border-border pt-1 mt-1">
-              <div className="flex justify-between gap-4">
-                <span className="text-success">Receitas:</span>
-                <span className="font-medium text-success">+{formatCurrency(data.receitas)}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-destructive">Despesas:</span>
-                <span className="font-medium text-destructive">-{formatCurrency(data.despesas)}</span>
-              </div>
-            </div>
+            {isProjection ? (
+              <>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Patrimônio Projetado:</span>
+                  <span className="font-medium text-chart-3">{formatCurrency(tooltipData.projecaoPatrimonio)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Investimentos Projetados:</span>
+                  <span className="font-medium">{formatCurrency(tooltipData.projecaoInvestimentos)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
+                  * Baseado na taxa média de crescimento de {stats.avgMonthlyGrowthRate.toFixed(1)}%/mês
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Patrimônio Total:</span>
+                  <span className="font-medium text-primary">{formatCurrency(tooltipData.patrimonio)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Economias:</span>
+                  <span className="font-medium">{formatCurrency(tooltipData.economias)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Investimentos:</span>
+                  <span className="font-medium">{formatCurrency(tooltipData.investimentos)}</span>
+                </div>
+                <div className="border-t border-border pt-1 mt-1">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-success">Receitas:</span>
+                    <span className="font-medium text-success">+{formatCurrency(tooltipData.receitas)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-destructive">Despesas:</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(tooltipData.despesas)}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       );
@@ -200,17 +308,30 @@ const WealthEvolutionChart = () => {
             </CardTitle>
             <CardDescription>Acompanhe o crescimento do seu patrimônio ao longo do tempo</CardDescription>
           </div>
-          <div className="flex gap-1">
-            {(["6m", "1y", "2y", "all"] as TimeRange[]).map((range) => (
-              <Button
-                key={range}
-                variant={timeRange === range ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeRange(range)}
-              >
-                {range === "6m" ? "6M" : range === "1y" ? "1A" : range === "2y" ? "2A" : "Tudo"}
-              </Button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show-projection"
+                checked={showProjection}
+                onCheckedChange={setShowProjection}
+              />
+              <Label htmlFor="show-projection" className="text-sm flex items-center gap-1 cursor-pointer">
+                <Sparkles className="h-4 w-4 text-chart-3" />
+                Projeção
+              </Label>
+            </div>
+            <div className="flex gap-1">
+              {(["6m", "1y", "2y", "all"] as TimeRange[]).map((range) => (
+                <Button
+                  key={range}
+                  variant={timeRange === range ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeRange(range)}
+                >
+                  {range === "6m" ? "6M" : range === "1y" ? "1A" : range === "2y" ? "2A" : "Tudo"}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -234,19 +355,40 @@ const WealthEvolutionChart = () => {
               </span>
             </div>
           </div>
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Máximo no Período</p>
-            <p className="text-lg font-bold">{formatCurrency(stats.maxValue)}</p>
-          </div>
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Média no Período</p>
-            <p className="text-lg font-bold">{formatCurrency(stats.avgValue)}</p>
-          </div>
+          {showProjection ? (
+            <>
+              <div className="bg-chart-3/10 rounded-lg p-3 border border-chart-3/20">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-chart-3" />
+                  Projeção 12 meses
+                </p>
+                <p className="text-lg font-bold text-chart-3">{formatCurrency(projection.finalValue)}</p>
+              </div>
+              <div className="bg-chart-3/10 rounded-lg p-3 border border-chart-3/20">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-chart-3" />
+                  Crescimento Projetado
+                </p>
+                <p className="text-lg font-bold text-chart-3">+{projection.growth.toFixed(1)}%</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Máximo no Período</p>
+                <p className="text-lg font-bold">{formatCurrency(stats.maxValue)}</p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Média no Período</p>
+                <p className="text-lg font-bold">{formatCurrency(stats.avgValue)}</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Chart */}
         <ResponsiveContainer width="100%" height={350}>
-          <AreaChart data={data}>
+          <AreaChart data={displayData}>
             <defs>
               <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4}/>
@@ -255,6 +397,10 @@ const WealthEvolutionChart = () => {
               <linearGradient id="colorInvestimentos" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.3}/>
                 <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
+              </linearGradient>
+              <linearGradient id="colorProjecao" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -280,7 +426,6 @@ const WealthEvolutionChart = () => {
             <Area
               type="monotone"
               dataKey="investimentos"
-              stackId="1"
               stroke="hsl(var(--chart-2))"
               fill="url(#colorInvestimentos)"
               strokeWidth={2}
@@ -292,11 +437,23 @@ const WealthEvolutionChart = () => {
               fill="url(#colorPatrimonio)"
               strokeWidth={2}
             />
+            {showProjection && (
+              <>
+                <Area
+                  type="monotone"
+                  dataKey="projecaoPatrimonio"
+                  stroke="hsl(var(--chart-3))"
+                  fill="url(#colorProjecao)"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                />
+              </>
+            )}
           </AreaChart>
         </ResponsiveContainer>
 
         {/* Legend */}
-        <div className="flex justify-center gap-6 mt-4">
+        <div className="flex justify-center flex-wrap gap-4 md:gap-6 mt-4">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
             <span className="text-sm text-muted-foreground">Patrimônio Total</span>
@@ -305,19 +462,31 @@ const WealthEvolutionChart = () => {
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
             <span className="text-sm text-muted-foreground">Investimentos</span>
           </div>
+          {showProjection && (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--chart-3))' }} />
+              <span className="text-sm text-muted-foreground">Projeção ({stats.avgMonthlyGrowthRate.toFixed(1)}%/mês)</span>
+            </div>
+          )}
         </div>
 
         {/* Growth Badge */}
-        {stats.absoluteChange !== 0 && (
-          <div className="flex justify-center mt-4">
+        <div className="flex justify-center gap-2 mt-4 flex-wrap">
+          {stats.absoluteChange !== 0 && (
             <Badge 
               variant={stats.isPositive ? "default" : "destructive"}
               className={stats.isPositive ? "bg-success text-success-foreground" : ""}
             >
               {stats.isPositive ? '+' : ''}{formatCurrency(stats.absoluteChange)} no período
             </Badge>
-          </div>
-        )}
+          )}
+          {showProjection && (
+            <Badge variant="outline" className="bg-chart-3/10 text-chart-3 border-chart-3/30">
+              <Sparkles className="h-3 w-3 mr-1" />
+              +{formatCurrency(projection.finalValue - stats.currentValue)} em 12 meses
+            </Badge>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
