@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useUndoableDelete } from "./useUndoableDelete";
 
 export interface CategoryBudget {
   id: string;
@@ -66,35 +67,17 @@ export const useBudgets = () => {
     },
   });
 
-  const deleteBudget = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("category_budgets")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["category_budgets"] });
-      toast({
-        title: "Orçamento excluído",
-        description: "O orçamento da categoria foi excluído.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro ao excluir orçamento",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+  const { deleteWithUndo } = useUndoableDelete<CategoryBudget>({
+    tableName: "category_budgets",
+    queryKey: ["category_budgets"],
+    itemLabel: "Orçamento",
+    getItemDescription: (budget) => budget.category,
   });
 
   return {
     budgets,
     isLoading,
     upsertBudget,
-    deleteBudget,
+    deleteBudget: { mutate: deleteWithUndo },
   };
 };

@@ -1066,7 +1066,7 @@ const Investments = () => {
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8"
-                            onClick={() => deleteInvestment(item.id)}
+                            onClick={() => deleteInvestment(item)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

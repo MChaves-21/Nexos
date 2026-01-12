@@ -95,10 +95,8 @@ const Goals = () => {
     setIsEditDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir esta meta?")) {
-      deleteGoal.mutate(id);
-    }
+  const handleDelete = (goal: Goal) => {
+    deleteGoal.mutate(goal);
   };
 
   const calculateProgress = (current: number, target: number) => {
@@ -277,7 +275,7 @@ const Goals = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(goal.id)}
+                          onClick={() => handleDelete(goal)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
