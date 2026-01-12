@@ -411,7 +411,7 @@ const Expenses = () => {
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8"
-                        onClick={() => deleteTransaction(transaction.id)}
+                        onClick={() => deleteTransaction(transaction)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -535,7 +535,7 @@ const Expenses = () => {
                   onClick={() => {
                     const budget = budgets.find(b => b.category === editingBudgetCategory);
                     if (budget) {
-                      deleteBudget.mutate(budget.id);
+                      deleteBudget.mutate(budget);
                       setIsBudgetDialogOpen(false);
                       setEditingBudgetCategory(null);
                     }

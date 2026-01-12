@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useUndoableDelete } from "./useUndoableDelete";
 
 export interface Goal {
   id: string;
@@ -104,29 +105,11 @@ export const useGoals = () => {
     },
   });
 
-  const deleteGoal = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("financial_goals")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["goals"] });
-      toast({
-        title: "Meta excluída",
-        description: "Sua meta foi excluída com sucesso.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro ao excluir meta",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+  const { deleteWithUndo } = useUndoableDelete<Goal>({
+    tableName: "financial_goals",
+    queryKey: ["goals"],
+    itemLabel: "Meta",
+    getItemDescription: (goal) => goal.title,
   });
 
   return {
@@ -134,6 +117,6 @@ export const useGoals = () => {
     isLoading,
     addGoal,
     updateGoal,
-    deleteGoal,
+    deleteGoal: { mutate: deleteWithUndo },
   };
 };

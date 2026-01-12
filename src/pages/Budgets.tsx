@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Wallet, Edit2, Trash2, AlertCircle, TrendingUp } from "lucide-react";
-import { useBudgets } from "@/hooks/useBudgets";
+import { useBudgets, CategoryBudget } from "@/hooks/useBudgets";
 import { useTransactions } from "@/hooks/useTransactions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { StatCardSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
@@ -65,10 +65,8 @@ const Budgets = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir este orçamento?")) {
-      deleteBudget.mutate(id);
-    }
+  const handleDelete = (budget: CategoryBudget) => {
+    deleteBudget.mutate(budget);
   };
 
   const isLoading = loadingBudgets || loadingTransactions;
@@ -272,7 +270,7 @@ const Budgets = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(budget.id)}
+                          onClick={() => handleDelete(budget)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

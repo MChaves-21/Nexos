@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useUndoableDelete } from "./useUndoableDelete";
 
 export interface Investment {
   id: string;
@@ -92,29 +93,11 @@ export const useInvestments = () => {
     },
   });
 
-  const deleteInvestment = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('investments')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['investments'] });
-      toast({
-        title: "Investimento excluído",
-        description: "O investimento foi removido com sucesso.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro",
-        description: `Não foi possível excluir o investimento: ${error.message}`,
-        variant: "destructive",
-      });
-    },
+  const { deleteWithUndo } = useUndoableDelete<Investment>({
+    tableName: "investments",
+    queryKey: ["investments"],
+    itemLabel: "Investimento",
+    getItemDescription: (investment) => investment.asset_name,
   });
 
   return {
@@ -122,6 +105,6 @@ export const useInvestments = () => {
     isLoading,
     addInvestment: addInvestment.mutate,
     updateInvestment: updateInvestment.mutate,
-    deleteInvestment: deleteInvestment.mutate,
+    deleteInvestment: deleteWithUndo,
   };
 };

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useUndoableDelete } from "./useUndoableDelete";
 
 export interface Transaction {
   id: string;
@@ -91,29 +92,11 @@ export const useTransactions = () => {
     },
   });
 
-  const deleteTransaction = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      toast({
-        title: "Transação excluída",
-        description: "A transação foi removida com sucesso.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro",
-        description: `Não foi possível excluir a transação: ${error.message}`,
-        variant: "destructive",
-      });
-    },
+  const { deleteWithUndo } = useUndoableDelete<Transaction>({
+    tableName: "transactions",
+    queryKey: ["transactions"],
+    itemLabel: "Transação",
+    getItemDescription: (transaction) => transaction.description,
   });
 
   return {
@@ -121,6 +104,6 @@ export const useTransactions = () => {
     isLoading,
     addTransaction: addTransaction.mutate,
     updateTransaction: updateTransaction.mutate,
-    deleteTransaction: deleteTransaction.mutate,
+    deleteTransaction: deleteWithUndo,
   };
 };
