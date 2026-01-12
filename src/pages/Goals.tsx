@@ -11,6 +11,7 @@ import { useGoals, Goal } from "@/hooks/useGoals";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { GoalCardSkeleton } from "@/components/skeletons";
+import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
 
 const Goals = () => {
   const { goals, isLoading, addGoal, updateGoal, deleteGoal } = useGoals();
@@ -242,7 +243,7 @@ const Goals = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <AnimatedListContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {goals.map((goal) => {
             const progress = calculateProgress(goal.current_amount, goal.target_amount);
             const daysRemaining = getDaysRemaining(goal.deadline);
@@ -250,84 +251,86 @@ const Goals = () => {
             const isCompleted = goal.completed;
 
             return (
-              <Card key={goal.id} className={`${isCompleted ? 'border-success/40 bg-success/5' : ''}`}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        {isCompleted && <span className="text-success">✓</span>}
-                        {goal.title}
-                      </CardTitle>
-                      {goal.category && (
-                        <CardDescription className="mt-1">
-                          {goal.category}
-                        </CardDescription>
+              <AnimatedItem key={goal.id} itemKey={goal.id}>
+                <Card className={`h-full ${isCompleted ? 'border-success/40 bg-success/5' : ''}`}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle className="flex items-center gap-2">
+                          {isCompleted && <span className="text-success">✓</span>}
+                          {goal.title}
+                        </CardTitle>
+                        {goal.category && (
+                          <CardDescription className="mt-1">
+                            {goal.category}
+                          </CardDescription>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(goal)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(goal.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {goal.description && (
+                      <p className="text-sm text-muted-foreground">{goal.description}</p>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Progresso</span>
+                        <span className="font-semibold">{progress.toFixed(1)}%</span>
+                      </div>
+                      <Progress value={progress} className="h-2" />
+                      <div className="flex justify-between text-sm font-medium">
+                        <span className="text-primary">
+                          R$ {goal.current_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-muted-foreground">
+                          R$ {goal.target_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t space-y-2">
+                      {goal.deadline && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className={isOverdue ? 'text-destructive' : 'text-muted-foreground'}>
+                            {daysRemaining !== null && daysRemaining >= 0
+                              ? `${daysRemaining} dias restantes`
+                              : `Atrasado há ${Math.abs(daysRemaining!)} dias`}
+                          </span>
+                        </div>
+                      )}
+                      {isCompleted && goal.completed_at && (
+                        <div className="flex items-center gap-2 text-sm text-success">
+                          <TrendingUp className="h-4 w-4" />
+                          <span>
+                            Completada em {format(new Date(goal.completed_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                          </span>
+                        </div>
                       )}
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(goal)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(goal.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {goal.description && (
-                    <p className="text-sm text-muted-foreground">{goal.description}</p>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Progresso</span>
-                      <span className="font-semibold">{progress.toFixed(1)}%</span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
-                    <div className="flex justify-between text-sm font-medium">
-                      <span className="text-primary">
-                        R$ {goal.current_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-muted-foreground">
-                        R$ {goal.target_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t space-y-2">
-                    {goal.deadline && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className={isOverdue ? 'text-destructive' : 'text-muted-foreground'}>
-                          {daysRemaining !== null && daysRemaining >= 0
-                            ? `${daysRemaining} dias restantes`
-                            : `Atrasado há ${Math.abs(daysRemaining!)} dias`}
-                        </span>
-                      </div>
-                    )}
-                    {isCompleted && goal.completed_at && (
-                      <div className="flex items-center gap-2 text-sm text-success">
-                        <TrendingUp className="h-4 w-4" />
-                        <span>
-                          Completada em {format(new Date(goal.completed_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </AnimatedItem>
             );
           })}
-        </div>
+        </AnimatedListContainer>
       )}
 
       {/* Edit Dialog */}

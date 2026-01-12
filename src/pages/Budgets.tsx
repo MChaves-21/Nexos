@@ -10,6 +10,7 @@ import { useBudgets } from "@/hooks/useBudgets";
 import { useTransactions } from "@/hooks/useTransactions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { StatCardSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
+import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
 
 const Budgets = () => {
   const { budgets, isLoading: loadingBudgets, upsertBudget, deleteBudget } = useBudgets();
@@ -242,94 +243,96 @@ const Budgets = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <AnimatedListContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {budgetStats.map((budget) => {
             const isOverBudget = budget.percentage > 100;
             const isNearLimit = budget.percentage > 80 && budget.percentage <= 100;
 
             return (
-              <Card key={budget.id} className={`${isOverBudget ? 'border-destructive/40 bg-destructive/5' : ''}`}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        {budget.category}
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        Orçamento mensal
-                      </CardDescription>
+              <AnimatedItem key={budget.id} itemKey={budget.id}>
+                <Card className={`h-full ${isOverBudget ? 'border-destructive/40 bg-destructive/5' : ''}`}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle className="flex items-center gap-2">
+                          {budget.category}
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          Orçamento mensal
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit({ category: budget.category, monthly_budget: budget.monthly_budget })}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(budget.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit({ category: budget.category, monthly_budget: budget.monthly_budget })}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(budget.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Gasto</span>
+                        <span className={`font-semibold ${isOverBudget ? 'text-destructive' : ''}`}>
+                          {budget.percentage.toFixed(1)}%
+                        </span>
+                      </div>
+                      <Progress 
+                        value={Math.min(budget.percentage, 100)} 
+                        className={`h-2 ${isOverBudget ? '[&>div]:bg-destructive' : ''}`}
+                      />
+                      <div className="flex justify-between text-sm font-medium">
+                        <span className={isOverBudget ? 'text-destructive' : 'text-primary'}>
+                          R$ {budget.spent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-muted-foreground">
+                          R$ {budget.monthly_budget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Gasto</span>
-                      <span className={`font-semibold ${isOverBudget ? 'text-destructive' : ''}`}>
-                        {budget.percentage.toFixed(1)}%
-                      </span>
-                    </div>
-                    <Progress 
-                      value={Math.min(budget.percentage, 100)} 
-                      className={`h-2 ${isOverBudget ? '[&>div]:bg-destructive' : ''}`}
-                    />
-                    <div className="flex justify-between text-sm font-medium">
-                      <span className={isOverBudget ? 'text-destructive' : 'text-primary'}>
-                        R$ {budget.spent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-muted-foreground">
-                        R$ {budget.monthly_budget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
 
-                  {isOverBudget && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Excedeu em R$ {Math.abs(budget.remaining).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                    {isOverBudget && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Excedeu em R$ {Math.abs(budget.remaining).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </AlertDescription>
+                      </Alert>
+                    )}
 
-                  {isNearLimit && !isOverBudget && (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Próximo do limite. Restam R$ {budget.remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                    {isNearLimit && !isOverBudget && (
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Próximo do limite. Restam R$ {budget.remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </AlertDescription>
+                      </Alert>
+                    )}
 
-                  {!isOverBudget && !isNearLimit && (
-                    <div className="flex items-center gap-2 text-sm text-success">
-                      <TrendingUp className="h-4 w-4" />
-                      <span>
-                        Restam R$ {budget.remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    {!isOverBudget && !isNearLimit && (
+                      <div className="flex items-center gap-2 text-sm text-success">
+                        <TrendingUp className="h-4 w-4" />
+                        <span>
+                          Restam R$ {budget.remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </AnimatedItem>
             );
           })}
-        </div>
+        </AnimatedListContainer>
       )}
     </div>
   );

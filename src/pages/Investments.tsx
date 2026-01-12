@@ -25,6 +25,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart, PieChart, Pie, Cell, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { StatCardSkeleton, ChartSkeleton, InvestmentCardSkeleton } from "@/components/skeletons";
+import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -1014,67 +1015,68 @@ const Investments = () => {
           ) : investments.length === 0 ? (
             <p className="text-center text-muted-foreground">Nenhum investimento encontrado</p>
           ) : (
-            <div className="space-y-4">
+            <AnimatedListContainer className="space-y-4">
               {investments.map((item) => {
                 const { gain, percentage } = calculateGain(item);
                 const isPositive = gain >= 0;
                 const totalValue = item.current_price * item.quantity;
 
                 return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">{item.asset_name}</p>
-                        <Badge variant="outline" className="text-xs">
-                          {item.asset_type}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {item.quantity} × R$ {item.current_price.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="font-semibold">
-                          R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <AnimatedItem key={item.id} itemKey={item.id}>
+                    <div
+                      className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">{item.asset_name}</p>
+                          <Badge variant="outline" className="text-xs">
+                            {item.asset_type}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {item.quantity} × R$ {item.current_price.toFixed(2)}
                         </p>
-                        <div className="flex items-center gap-1 justify-end mt-1">
-                          {isPositive ? (
-                            <TrendingUp className="h-3 w-3 text-success" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3 text-destructive" />
-                          )}
-                          <span className={`text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
-                            {isPositive ? '+' : ''}{percentage}%
-                          </span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="font-semibold">
+                            R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </p>
+                          <div className="flex items-center gap-1 justify-end mt-1">
+                            {isPositive ? (
+                              <TrendingUp className="h-3 w-3 text-success" />
+                            ) : (
+                              <TrendingDown className="h-3 w-3 text-destructive" />
+                            )}
+                            <span className={`text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                              {isPositive ? '+' : ''}{percentage}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => handleEdit(item)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => deleteInvestment(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => handleEdit(item)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => deleteInvestment(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </div>
-                  </div>
+                  </AnimatedItem>
                 );
               })}
-            </div>
+            </AnimatedListContainer>
           )}
         </CardContent>
       </Card>
