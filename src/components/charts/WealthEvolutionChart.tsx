@@ -1,21 +1,56 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { TrendingUp, TrendingDown, Calendar, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, Calendar, Sparkles, Target, Pencil, X, Check } from "lucide-react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useInvestments } from "@/hooks/useInvestments";
 
 type TimeRange = "6m" | "1y" | "2y" | "all";
 
+const WEALTH_GOAL_KEY = 'nexos-wealth-goal';
+
 const WealthEvolutionChart = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>("1y");
   const [showProjection, setShowProjection] = useState(true);
+  const [wealthGoal, setWealthGoal] = useState<number | null>(null);
+  const [goalInputValue, setGoalInputValue] = useState("");
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
   const { transactions, isLoading: loadingTransactions } = useTransactions();
   const { investments, isLoading: loadingInvestments } = useInvestments();
+
+  // Carregar meta do localStorage
+  useEffect(() => {
+    const savedGoal = localStorage.getItem(WEALTH_GOAL_KEY);
+    if (savedGoal) {
+      const parsed = parseFloat(savedGoal);
+      if (!isNaN(parsed) && parsed > 0) {
+        setWealthGoal(parsed);
+        setGoalInputValue(parsed.toString());
+      }
+    }
+  }, []);
+
+  const handleSaveGoal = () => {
+    const value = parseFloat(goalInputValue.replace(/[^\d.]/g, ''));
+    if (!isNaN(value) && value > 0) {
+      setWealthGoal(value);
+      localStorage.setItem(WEALTH_GOAL_KEY, value.toString());
+      setIsEditingGoal(false);
+    }
+  };
+
+  const handleRemoveGoal = () => {
+    setWealthGoal(null);
+    setGoalInputValue("");
+    localStorage.removeItem(WEALTH_GOAL_KEY);
+    setIsEditingGoal(false);
+  };
 
   const chartData = useMemo(() => {
     if (loadingTransactions || loadingInvestments) return null;
@@ -332,6 +367,50 @@ const WealthEvolutionChart = () => {
                 </Button>
               ))}
             </div>
+            
+            {/* Wealth Goal Control */}
+            <Popover open={isEditingGoal} onOpenChange={setIsEditingGoal}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Target className="h-4 w-4 text-warning" />
+                  {wealthGoal ? 'Meta' : 'Definir Meta'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-warning" />
+                    <p className="font-semibold text-sm">Meta de Patrimônio</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Defina uma meta para visualizar no gráfico e acompanhar seu progresso.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Ex: 100000"
+                      value={goalInputValue}
+                      onChange={(e) => setGoalInputValue(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button size="icon" onClick={handleSaveGoal} className="shrink-0">
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {wealthGoal && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleRemoveGoal} 
+                      className="w-full text-destructive hover:text-destructive"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Remover Meta
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </CardHeader>
@@ -449,6 +528,21 @@ const WealthEvolutionChart = () => {
                 />
               </>
             )}
+            {wealthGoal && (
+              <ReferenceLine 
+                y={wealthGoal} 
+                stroke="hsl(var(--warning))" 
+                strokeWidth={2}
+                strokeDasharray="8 4"
+                label={{ 
+                  value: `Meta: ${formatCurrency(wealthGoal)}`, 
+                  position: 'insideTopLeft', 
+                  fill: 'hsl(var(--warning))', 
+                  fontSize: 12,
+                  fontWeight: 'bold'
+                }}
+              />
+            )}
           </AreaChart>
         </ResponsiveContainer>
 
@@ -468,7 +562,54 @@ const WealthEvolutionChart = () => {
               <span className="text-sm text-muted-foreground">Projeção ({stats.avgMonthlyGrowthRate.toFixed(1)}%/mês)</span>
             </div>
           )}
+          {wealthGoal && (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-0.5 border-t-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))', width: '12px' }} />
+              <span className="text-sm text-muted-foreground">Meta de Patrimônio</span>
+            </div>
+          )}
         </div>
+
+        {/* Goal Progress Card */}
+        {wealthGoal && (
+          <div className="mt-4 p-4 bg-warning/10 rounded-lg border border-warning/20">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-warning" />
+                <div>
+                  <p className="font-semibold text-sm">Meta: {formatCurrency(wealthGoal)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats.currentValue >= wealthGoal 
+                      ? 'Parabéns! Você atingiu sua meta!' 
+                      : `Faltam ${formatCurrency(wealthGoal - stats.currentValue)} para atingir`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Progresso</p>
+                  <p className="text-lg font-bold text-warning">
+                    {Math.min(100, (stats.currentValue / wealthGoal * 100)).toFixed(1)}%
+                  </p>
+                </div>
+                <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-warning rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, (stats.currentValue / wealthGoal * 100))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            {showProjection && stats.currentValue < wealthGoal && projection.finalValue >= wealthGoal && (
+              <div className="mt-3 pt-3 border-t border-warning/20">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-chart-3" />
+                  Com base na projeção, você atingirá sua meta em aproximadamente 12 meses!
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Growth Badge */}
         <div className="flex justify-center gap-2 mt-4 flex-wrap">
