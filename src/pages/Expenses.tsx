@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit2, Trash2, Settings } from "lucide-react";
+import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBudgets } from "@/hooks/useBudgets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +24,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { TransactionRowSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
 
 const Expenses = () => {
@@ -41,6 +55,14 @@ const Expenses = () => {
     category: '',
     monthly_budget: '',
   });
+
+  // Filtros avançados
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>(undefined);
+  const [filterDateTo, setFilterDateTo] = useState<Date | undefined>(undefined);
 
   const { transactions, isLoading, addTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const { budgets, isLoading: isBudgetsLoading, upsertBudget, deleteBudget } = useBudgets();
@@ -157,6 +179,64 @@ const Expenses = () => {
     const budgetCategories = budgets.map(b => b.category);
     return [...new Set([...transactionCategories, ...budgetCategories])].sort();
   }, [transactions, budgets]);
+
+  // Get all unique categories from ALL transactions (including income)
+  const allTransactionCategories = useMemo(() => {
+    return [...new Set(transactions.map(t => t.category))].sort();
+  }, [transactions]);
+
+  // Filtrar transações
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      // Filtro por termo de busca
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const matchesDescription = t.description.toLowerCase().includes(search);
+        const matchesCategory = t.category.toLowerCase().includes(search);
+        if (!matchesDescription && !matchesCategory) return false;
+      }
+
+      // Filtro por tipo
+      if (filterType !== 'all' && t.type !== filterType) return false;
+
+      // Filtro por categoria
+      if (filterCategory !== 'all' && t.category !== filterCategory) return false;
+
+      // Filtro por data inicial
+      if (filterDateFrom) {
+        const transactionDate = new Date(t.date);
+        if (transactionDate < filterDateFrom) return false;
+      }
+
+      // Filtro por data final
+      if (filterDateTo) {
+        const transactionDate = new Date(t.date);
+        const endOfDay = new Date(filterDateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (transactionDate > endOfDay) return false;
+      }
+
+      return true;
+    });
+  }, [transactions, searchTerm, filterType, filterCategory, filterDateFrom, filterDateTo]);
+
+  // Resumo das transações filtradas
+  const filteredSummary = useMemo(() => {
+    const income = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    return { income, expense, balance: income - expense, count: filteredTransactions.length };
+  }, [filteredTransactions]);
+
+  // Verificar se há filtros ativos
+  const hasActiveFilters = searchTerm || filterType !== 'all' || filterCategory !== 'all' || filterDateFrom || filterDateTo;
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setFilterType('all');
+    setFilterCategory('all');
+    setFilterDateFrom(undefined);
+    setFilterDateTo(undefined);
+  };
 
   // Build categories data with real spending and budgets
   const categoriesData = useMemo(() => {
@@ -357,23 +437,194 @@ const Expenses = () => {
         </Card>
       </div>
 
-      {/* Recent Transactions */}
+      {/* Transactions with Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Transações Recentes</CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle>Transações</CardTitle>
+            <div className="flex items-center gap-2">
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground">
+                  <X className="h-4 w-4" />
+                  Limpar Filtros
+                </Button>
+              )}
+              <CollapsibleTrigger asChild>
+                <Button 
+                  variant={hasActiveFilters ? "default" : "outline"} 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                >
+                  <Filter className="h-4 w-4" />
+                  Filtros
+                  {hasActiveFilters && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                      {[searchTerm, filterType !== 'all', filterCategory !== 'all', filterDateFrom, filterDateTo].filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Filters Collapsible */}
+          <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+            <CollapsibleContent className="space-y-4">
+              <div className="p-4 bg-muted/50 rounded-lg border space-y-4">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por descrição ou categoria..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Type Filter */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Tipo</Label>
+                    <Select value={filterType} onValueChange={(value: 'all' | 'income' | 'expense') => setFilterType(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="income">Receitas</SelectItem>
+                        <SelectItem value="expense">Despesas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Category Filter */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Categoria</Label>
+                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {allTransactionCategories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Date From */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Data Início</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !filterDateFrom && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {filterDateFrom ? format(filterDateFrom, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={filterDateFrom}
+                          onSelect={setFilterDateFrom}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Date To */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Data Fim</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !filterDateTo && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {filterDateTo ? format(filterDateTo, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={filterDateTo}
+                          onSelect={setFilterDateTo}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Summary of filtered transactions */}
+          {hasActiveFilters && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Transações</p>
+                <p className="text-lg font-bold">{filteredSummary.count}</p>
+              </div>
+              <div className="bg-success/10 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Receitas</p>
+                <p className="text-lg font-bold text-success">
+                  +R$ {filteredSummary.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="bg-destructive/10 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Despesas</p>
+                <p className="text-lg font-bold text-destructive">
+                  -R$ {filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className={cn("rounded-lg p-3", filteredSummary.balance >= 0 ? "bg-success/10" : "bg-destructive/10")}>
+                <p className="text-xs text-muted-foreground">Saldo</p>
+                <p className={cn("text-lg font-bold", filteredSummary.balance >= 0 ? "text-success" : "text-destructive")}>
+                  {filteredSummary.balance >= 0 ? '+' : ''}R$ {filteredSummary.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Transactions List */}
           {isLoading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
                 <TransactionRowSkeleton key={i} />
               ))}
             </div>
-          ) : transactions.length === 0 ? (
-            <p className="text-center text-muted-foreground">Nenhuma transação encontrada</p>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                {hasActiveFilters ? 'Nenhuma transação encontrada com os filtros aplicados' : 'Nenhuma transação encontrada'}
+              </p>
+              {hasActiveFilters && (
+                <Button variant="link" onClick={clearFilters} className="mt-2">
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
           ) : (
             <div className="space-y-4">
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <div
                   key={transaction.id}
                   className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
