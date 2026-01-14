@@ -439,38 +439,37 @@ const Expenses = () => {
 
       {/* Transactions with Filters */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <CardTitle>Transações</CardTitle>
-            <div className="flex items-center gap-2">
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground">
-                  <X className="h-4 w-4" />
-                  Limpar Filtros
-                </Button>
-              )}
-              <CollapsibleTrigger asChild>
-                <Button 
-                  variant={hasActiveFilters ? "default" : "outline"} 
-                  size="sm" 
-                  className="gap-2"
-                  onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                >
-                  <Filter className="h-4 w-4" />
-                  Filtros
-                  {hasActiveFilters && (
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                      {[searchTerm, filterType !== 'all', filterCategory !== 'all', filterDateFrom, filterDateTo].filter(Boolean).length}
-                    </Badge>
-                  )}
-                </Button>
-              </CollapsibleTrigger>
+        <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <CardTitle>Transações</CardTitle>
+              <div className="flex items-center gap-2">
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground">
+                    <X className="h-4 w-4" />
+                    Limpar Filtros
+                  </Button>
+                )}
+                <CollapsibleTrigger asChild>
+                  <Button 
+                    variant={hasActiveFilters ? "default" : "outline"} 
+                    size="sm" 
+                    className="gap-2"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Filtros
+                    {hasActiveFilters && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {[searchTerm, filterType !== 'all', filterCategory !== 'all', filterDateFrom, filterDateTo].filter(Boolean).length}
+                      </Badge>
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filters Collapsible */}
-          <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Filters Collapsible */}
             <CollapsibleContent className="space-y-4">
               <div className="p-4 bg-muted/50 rounded-lg border space-y-4">
                 {/* Search */}
@@ -574,7 +573,6 @@ const Expenses = () => {
                 </div>
               </div>
             </CollapsibleContent>
-          </Collapsible>
 
           {/* Summary of filtered transactions */}
           {hasActiveFilters && (
@@ -672,7 +670,8 @@ const Expenses = () => {
               ))}
             </div>
           )}
-        </CardContent>
+          </CardContent>
+        </Collapsible>
       </Card>
 
       {/* Edit Transaction Dialog */}
