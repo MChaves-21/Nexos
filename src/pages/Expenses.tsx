@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search } from "lucide-react";
+import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBudgets } from "@/hooks/useBudgets";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -37,6 +37,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { TransactionRowSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 const Expenses = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -225,6 +226,40 @@ const Expenses = () => {
     const income = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
     const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     return { income, expense, balance: income - expense, count: filteredTransactions.length };
+  }, [filteredTransactions]);
+
+  // Dados para o gráfico de pizza (despesas por categoria)
+  const expensesByCategoryData = useMemo(() => {
+    const chartColors = [
+      "hsl(var(--chart-1))",
+      "hsl(var(--chart-2))",
+      "hsl(var(--chart-3))",
+      "hsl(var(--chart-4))",
+      "hsl(var(--chart-5))",
+      "hsl(var(--primary))",
+      "hsl(var(--accent))",
+    ];
+
+    const expenses = filteredTransactions.filter(t => t.type === 'expense');
+    const categoryTotals: { [key: string]: number } = {};
+
+    expenses.forEach(t => {
+      if (!categoryTotals[t.category]) {
+        categoryTotals[t.category] = 0;
+      }
+      categoryTotals[t.category] += t.amount;
+    });
+
+    const total = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
+
+    return Object.entries(categoryTotals)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        percentage: total > 0 ? (value / total * 100).toFixed(1) : 0,
+        color: chartColors[index % chartColors.length],
+      }))
+      .sort((a, b) => b.value - a.value);
   }, [filteredTransactions]);
 
   // Verificar se há filtros ativos
@@ -600,6 +635,86 @@ const Expenses = () => {
                 </p>
               </div>
             </div>
+          )}
+
+          {/* Pie Chart - Expenses by Category */}
+          {expensesByCategoryData.length > 0 && (
+            <Card className="mt-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <PieChartIcon className="h-5 w-5 text-primary" />
+                  Distribuição de Despesas por Categoria
+                </CardTitle>
+                <CardDescription>
+                  {hasActiveFilters ? 'Período filtrado' : 'Todas as transações'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={expensesByCategoryData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={2}
+                          dataKey="value"
+                          nameKey="name"
+                        >
+                          {expensesByCategoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) => [
+                            `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                            'Valor'
+                          ]}
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground mb-3">Detalhamento</p>
+                    {expensesByCategoryData.map((category, index) => (
+                      <div key={category.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: category.color }}
+                          />
+                          <span className="text-sm font-medium">{category.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-semibold">
+                            R$ {category.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            ({category.percentage}%)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-2 mt-2 border-t">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold">Total</span>
+                        <span className="text-sm font-bold text-destructive">
+                          R$ {filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Transactions List */}
