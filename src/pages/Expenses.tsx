@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon } from "lucide-react";
-import { format } from "date-fns";
+import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBudgets } from "@/hooks/useBudgets";
@@ -64,6 +64,9 @@ const Expenses = () => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>(undefined);
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>(undefined);
+  
+  // Filtro rápido por mês
+  const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
 
   const { transactions, isLoading, addTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const { budgets, isLoading: isBudgetsLoading, upsertBudget, deleteBudget } = useBudgets();
@@ -186,6 +189,10 @@ const Expenses = () => {
     return [...new Set(transactions.map(t => t.category))].sort();
   }, [transactions]);
 
+  // Aplicar filtro de mês selecionado às datas
+  const effectiveDateFrom = selectedMonth ? startOfMonth(selectedMonth) : filterDateFrom;
+  const effectiveDateTo = selectedMonth ? endOfMonth(selectedMonth) : filterDateTo;
+
   // Filtrar transações
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
@@ -204,22 +211,22 @@ const Expenses = () => {
       if (filterCategory !== 'all' && t.category !== filterCategory) return false;
 
       // Filtro por data inicial
-      if (filterDateFrom) {
+      if (effectiveDateFrom) {
         const transactionDate = new Date(t.date);
-        if (transactionDate < filterDateFrom) return false;
+        if (transactionDate < effectiveDateFrom) return false;
       }
 
       // Filtro por data final
-      if (filterDateTo) {
+      if (effectiveDateTo) {
         const transactionDate = new Date(t.date);
-        const endOfDay = new Date(filterDateTo);
+        const endOfDay = new Date(effectiveDateTo);
         endOfDay.setHours(23, 59, 59, 999);
         if (transactionDate > endOfDay) return false;
       }
 
       return true;
     });
-  }, [transactions, searchTerm, filterType, filterCategory, filterDateFrom, filterDateTo]);
+  }, [transactions, searchTerm, filterType, filterCategory, effectiveDateFrom, effectiveDateTo]);
 
   // Resumo das transações filtradas
   const filteredSummary = useMemo(() => {
@@ -263,7 +270,7 @@ const Expenses = () => {
   }, [filteredTransactions]);
 
   // Verificar se há filtros ativos
-  const hasActiveFilters = searchTerm || filterType !== 'all' || filterCategory !== 'all' || filterDateFrom || filterDateTo;
+  const hasActiveFilters = searchTerm || filterType !== 'all' || filterCategory !== 'all' || filterDateFrom || filterDateTo || selectedMonth;
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -271,6 +278,30 @@ const Expenses = () => {
     setFilterCategory('all');
     setFilterDateFrom(undefined);
     setFilterDateTo(undefined);
+    setSelectedMonth(null);
+  };
+
+  // Funções para navegação de mês
+  const selectCurrentMonth = () => {
+    setSelectedMonth(new Date());
+    setFilterDateFrom(undefined);
+    setFilterDateTo(undefined);
+  };
+
+  const goToPreviousMonth = () => {
+    setSelectedMonth(prev => prev ? subMonths(prev, 1) : subMonths(new Date(), 1));
+    setFilterDateFrom(undefined);
+    setFilterDateTo(undefined);
+  };
+
+  const goToNextMonth = () => {
+    setSelectedMonth(prev => prev ? addMonths(prev, 1) : addMonths(new Date(), 1));
+    setFilterDateFrom(undefined);
+    setFilterDateTo(undefined);
+  };
+
+  const clearMonthFilter = () => {
+    setSelectedMonth(null);
   };
 
   // Build categories data with real spending and budgets
@@ -495,7 +526,7 @@ const Expenses = () => {
                     Filtros
                     {hasActiveFilters && (
                       <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                        {[searchTerm, filterType !== 'all', filterCategory !== 'all', filterDateFrom, filterDateTo].filter(Boolean).length}
+                        {[searchTerm, filterType !== 'all', filterCategory !== 'all', filterDateFrom, filterDateTo, selectedMonth].filter(Boolean).length}
                       </Badge>
                     )}
                   </Button>
@@ -504,6 +535,59 @@ const Expenses = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Quick Month Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-muted/30 rounded-lg border">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Filtro Rápido:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {!selectedMonth ? (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={selectCurrentMonth}
+                    className="gap-2"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    Mês Atual
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={goToPreviousMonth}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="px-3 py-1.5 bg-primary/10 rounded-md min-w-[140px] text-center">
+                      <span className="text-sm font-medium capitalize">
+                        {format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={goToNextMonth}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={clearMonthFilter}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Filters Collapsible */}
             <CollapsibleContent className="space-y-4">
               <div className="p-4 bg-muted/50 rounded-lg border space-y-4">
