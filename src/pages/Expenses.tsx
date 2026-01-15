@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -37,7 +37,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { TransactionRowSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const Expenses = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -268,6 +268,83 @@ const Expenses = () => {
       }))
       .sort((a, b) => b.value - a.value);
   }, [filteredTransactions]);
+
+  // Dados para comparação mês a mês
+  const monthComparisonData = useMemo(() => {
+    const chartColors = [
+      "hsl(var(--chart-1))",
+      "hsl(var(--chart-2))",
+      "hsl(var(--chart-3))",
+      "hsl(var(--chart-4))",
+      "hsl(var(--chart-5))",
+      "hsl(var(--primary))",
+      "hsl(var(--accent))",
+    ];
+
+    const referenceMonth = selectedMonth || new Date();
+    const currentMonthStart = startOfMonth(referenceMonth);
+    const currentMonthEnd = endOfMonth(referenceMonth);
+    const previousMonthStart = startOfMonth(subMonths(referenceMonth, 1));
+    const previousMonthEnd = endOfMonth(subMonths(referenceMonth, 1));
+
+    // Filtrar despesas do mês atual (ou selecionado)
+    const currentMonthExpenses = transactions.filter(t => {
+      const date = new Date(t.date);
+      return t.type === 'expense' && date >= currentMonthStart && date <= currentMonthEnd;
+    });
+
+    // Filtrar despesas do mês anterior
+    const previousMonthExpenses = transactions.filter(t => {
+      const date = new Date(t.date);
+      return t.type === 'expense' && date >= previousMonthStart && date <= previousMonthEnd;
+    });
+
+    // Calcular totais por categoria
+    const currentTotals: { [key: string]: number } = {};
+    const previousTotals: { [key: string]: number } = {};
+
+    currentMonthExpenses.forEach(t => {
+      currentTotals[t.category] = (currentTotals[t.category] || 0) + t.amount;
+    });
+
+    previousMonthExpenses.forEach(t => {
+      previousTotals[t.category] = (previousTotals[t.category] || 0) + t.amount;
+    });
+
+    // Combinar categorias
+    const allCategories = [...new Set([...Object.keys(currentTotals), ...Object.keys(previousTotals)])];
+
+    const comparisonData = allCategories.map((category, index) => {
+      const current = currentTotals[category] || 0;
+      const previous = previousTotals[category] || 0;
+      const difference = current - previous;
+      const percentChange = previous > 0 ? ((current - previous) / previous) * 100 : current > 0 ? 100 : 0;
+
+      return {
+        category,
+        currentMonth: current,
+        previousMonth: previous,
+        difference,
+        percentChange,
+        color: chartColors[index % chartColors.length],
+      };
+    }).sort((a, b) => b.currentMonth - a.currentMonth);
+
+    const currentTotal = Object.values(currentTotals).reduce((sum, val) => sum + val, 0);
+    const previousTotal = Object.values(previousTotals).reduce((sum, val) => sum + val, 0);
+    const totalDifference = currentTotal - previousTotal;
+    const totalPercentChange = previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : currentTotal > 0 ? 100 : 0;
+
+    return {
+      data: comparisonData,
+      currentMonthLabel: format(referenceMonth, "MMM/yy", { locale: ptBR }),
+      previousMonthLabel: format(subMonths(referenceMonth, 1), "MMM/yy", { locale: ptBR }),
+      currentTotal,
+      previousTotal,
+      totalDifference,
+      totalPercentChange,
+    };
+  }, [transactions, selectedMonth]);
 
   // Verificar se há filtros ativos
   const hasActiveFilters = searchTerm || filterType !== 'all' || filterCategory !== 'all' || filterDateFrom || filterDateTo || selectedMonth;
@@ -793,6 +870,178 @@ const Expenses = () => {
                         <span className="text-sm font-bold text-destructive">
                           R$ {filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Month Comparison */}
+          {monthComparisonData.data.length > 0 && (
+            <Card className="mt-4">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                      Comparação Mês a Mês
+                    </CardTitle>
+                    <CardDescription>
+                      {monthComparisonData.previousMonthLabel} vs {monthComparisonData.currentMonthLabel}
+                    </CardDescription>
+                  </div>
+                  <div className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
+                    monthComparisonData.totalDifference > 0 
+                      ? "bg-destructive/10 text-destructive" 
+                      : monthComparisonData.totalDifference < 0 
+                        ? "bg-success/10 text-success"
+                        : "bg-muted text-muted-foreground"
+                  )}>
+                    {monthComparisonData.totalDifference > 0 ? (
+                      <TrendingUp className="h-4 w-4" />
+                    ) : monthComparisonData.totalDifference < 0 ? (
+                      <TrendingDown className="h-4 w-4" />
+                    ) : (
+                      <Minus className="h-4 w-4" />
+                    )}
+                    <span>
+                      {monthComparisonData.totalDifference > 0 ? '+' : ''}
+                      {monthComparisonData.totalPercentChange.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Bar Chart */}
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={monthComparisonData.data.slice(0, 6)}
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                        <XAxis 
+                          type="number" 
+                          tickFormatter={(value) => `R$${(value / 1000).toFixed(0)}k`}
+                          tick={{ fontSize: 12 }}
+                        />
+                        <YAxis 
+                          type="category" 
+                          dataKey="category" 
+                          width={80}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <Tooltip
+                          formatter={(value: number, name: string) => [
+                            `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                            name === 'previousMonth' ? monthComparisonData.previousMonthLabel : monthComparisonData.currentMonthLabel
+                          ]}
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                        />
+                        <Bar 
+                          dataKey="previousMonth" 
+                          name={monthComparisonData.previousMonthLabel}
+                          fill="hsl(var(--muted-foreground))" 
+                          radius={[0, 4, 4, 0]}
+                          barSize={12}
+                        />
+                        <Bar 
+                          dataKey="currentMonth" 
+                          name={monthComparisonData.currentMonthLabel}
+                          fill="hsl(var(--primary))" 
+                          radius={[0, 4, 4, 0]}
+                          barSize={12}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Comparison Details */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{monthComparisonData.previousMonthLabel}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-primary" />
+                        <span className="text-xs text-muted-foreground">{monthComparisonData.currentMonthLabel}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+                      {monthComparisonData.data.map((item) => (
+                        <div 
+                          key={item.category} 
+                          className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-2 h-2 rounded-full" 
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="text-sm font-medium truncate max-w-[120px]">{item.category}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              R$ {item.currentMonth.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                            <div className={cn(
+                              "flex items-center gap-1 text-xs font-medium min-w-[60px] justify-end",
+                              item.difference > 0 
+                                ? "text-destructive" 
+                                : item.difference < 0 
+                                  ? "text-success"
+                                  : "text-muted-foreground"
+                            )}>
+                              {item.difference > 0 ? (
+                                <TrendingUp className="h-3 w-3" />
+                              ) : item.difference < 0 ? (
+                                <TrendingDown className="h-3 w-3" />
+                              ) : null}
+                              <span>
+                                {item.difference > 0 ? '+' : ''}
+                                {item.percentChange.toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-3 mt-3 border-t">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold">Total</span>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="text-xs text-muted-foreground block">
+                              {monthComparisonData.previousMonthLabel}: R$ {monthComparisonData.previousTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-sm font-bold">
+                              {monthComparisonData.currentMonthLabel}: R$ {monthComparisonData.currentTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className={cn(
+                            "flex items-center gap-1 text-sm font-bold",
+                            monthComparisonData.totalDifference > 0 
+                              ? "text-destructive" 
+                              : monthComparisonData.totalDifference < 0 
+                                ? "text-success"
+                                : "text-muted-foreground"
+                          )}>
+                            {monthComparisonData.totalDifference > 0 ? '+' : ''}
+                            R$ {Math.abs(monthComparisonData.totalDifference).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
