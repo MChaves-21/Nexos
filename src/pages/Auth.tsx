@@ -105,7 +105,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center mb-8 gap-3 opacity-0 animate-fade-in-up">
           <img src="/nexos-logo.webp" alt="NEXOS" className="h-12 w-12 rounded-lg shadow-md" fetchPriority="high" />
@@ -215,7 +215,7 @@ const Auth = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </main>
   );
 };
 
