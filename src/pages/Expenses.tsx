@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
+import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Sparkles, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, getDaysInMonth, getDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBudgets } from "@/hooks/useBudgets";
@@ -345,6 +345,114 @@ const Expenses = () => {
       totalPercentChange,
     };
   }, [transactions, selectedMonth]);
+
+  // Previsão de gastos baseada no histórico
+  const expenseForecastData = useMemo(() => {
+    const now = new Date();
+    const currentDay = getDate(now);
+    const daysInCurrentMonth = getDaysInMonth(now);
+    const currentMonthStart = startOfMonth(now);
+    const currentMonthEnd = endOfMonth(now);
+
+    // Calcular média dos últimos 3 meses por categoria
+    const last3Months = [1, 2, 3].map(i => ({
+      start: startOfMonth(subMonths(now, i)),
+      end: endOfMonth(subMonths(now, i)),
+    }));
+
+    // Gastos do mês atual até agora
+    const currentMonthExpenses = transactions.filter(t => {
+      const date = new Date(t.date);
+      return t.type === 'expense' && date >= currentMonthStart && date <= now;
+    });
+
+    // Calcular totais por categoria no mês atual
+    const currentTotals: { [key: string]: number } = {};
+    currentMonthExpenses.forEach(t => {
+      currentTotals[t.category] = (currentTotals[t.category] || 0) + t.amount;
+    });
+
+    // Calcular média histórica por categoria (últimos 3 meses)
+    const historicalAverages: { [key: string]: number } = {};
+    const allHistoricalCategories = new Set<string>();
+
+    last3Months.forEach(({ start, end }) => {
+      const monthExpenses = transactions.filter(t => {
+        const date = new Date(t.date);
+        return t.type === 'expense' && date >= start && date <= end;
+      });
+
+      monthExpenses.forEach(t => {
+        allHistoricalCategories.add(t.category);
+        if (!historicalAverages[t.category]) {
+          historicalAverages[t.category] = 0;
+        }
+        historicalAverages[t.category] += t.amount / 3;
+      });
+    });
+
+    // Combinar categorias atuais e históricas
+    const allCategories = [...new Set([...Object.keys(currentTotals), ...allHistoricalCategories])];
+
+    // Calcular previsão para cada categoria
+    const forecasts = allCategories.map(category => {
+      const currentSpent = currentTotals[category] || 0;
+      const historicalAvg = historicalAverages[category] || 0;
+      
+      // Projetar gastos do mês atual baseado no ritmo atual
+      const dailyRate = currentSpent / currentDay;
+      const projectedFromRate = dailyRate * daysInCurrentMonth;
+      
+      // Usar média ponderada: 60% baseado no ritmo atual, 40% baseado na média histórica
+      const projected = currentDay > 7 
+        ? (projectedFromRate * 0.6) + (historicalAvg * 0.4)
+        : historicalAvg; // Se muito cedo no mês, usar apenas média histórica
+
+      const budget = budgets.find(b => b.category === category)?.monthly_budget || 0;
+      const percentOfBudget = budget > 0 ? (projected / budget) * 100 : 0;
+      const willExceedBudget = budget > 0 && projected > budget;
+      const differenceFromAvg = projected - historicalAvg;
+      const percentChangeFromAvg = historicalAvg > 0 
+        ? ((projected - historicalAvg) / historicalAvg) * 100 
+        : 0;
+
+      return {
+        category,
+        currentSpent,
+        projected,
+        historicalAvg,
+        budget,
+        percentOfBudget,
+        willExceedBudget,
+        differenceFromAvg,
+        percentChangeFromAvg,
+        daysRemaining: daysInCurrentMonth - currentDay,
+        suggestedDailyBudget: budget > 0 && (daysInCurrentMonth - currentDay) > 0
+          ? Math.max(0, (budget - currentSpent) / (daysInCurrentMonth - currentDay))
+          : 0,
+      };
+    }).filter(f => f.currentSpent > 0 || f.historicalAvg > 0)
+      .sort((a, b) => b.projected - a.projected);
+
+    const totalCurrentSpent = Object.values(currentTotals).reduce((sum, val) => sum + val, 0);
+    const totalProjected = forecasts.reduce((sum, f) => sum + f.projected, 0);
+    const totalHistoricalAvg = Object.values(historicalAverages).reduce((sum, val) => sum + val, 0);
+    const totalBudget = budgets.reduce((sum, b) => sum + b.monthly_budget, 0);
+    
+    return {
+      forecasts,
+      totalCurrentSpent,
+      totalProjected,
+      totalHistoricalAvg,
+      totalBudget,
+      daysElapsed: currentDay,
+      daysRemaining: daysInCurrentMonth - currentDay,
+      totalDaysInMonth: daysInCurrentMonth,
+      percentMonthElapsed: (currentDay / daysInCurrentMonth) * 100,
+      willExceedTotalBudget: totalBudget > 0 && totalProjected > totalBudget,
+      projectedSavings: totalBudget > 0 ? totalBudget - totalProjected : 0,
+    };
+  }, [transactions, budgets]);
 
   // Verificar se há filtros ativos
   const hasActiveFilters = searchTerm || filterType !== 'all' || filterCategory !== 'all' || filterDateFrom || filterDateTo || selectedMonth;
@@ -1044,6 +1152,186 @@ const Expenses = () => {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Expense Forecast */}
+          {expenseForecastData.forecasts.length > 0 && (
+            <Card className="mt-4">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      Previsão de Gastos
+                    </CardTitle>
+                    <CardDescription>
+                      Baseado no histórico dos últimos 3 meses e ritmo atual
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                      <span>{expenseForecastData.daysElapsed} dias passados</span>
+                    </div>
+                    <span>•</span>
+                    <span>{expenseForecastData.daysRemaining} dias restantes</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Progress of the month */}
+                <div className="mb-6">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-muted-foreground">Progresso do mês</span>
+                    <span className="font-medium">{expenseForecastData.percentMonthElapsed.toFixed(0)}%</span>
+                  </div>
+                  <Progress value={expenseForecastData.percentMonthElapsed} className="h-2" />
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Gasto Atual</p>
+                    <p className="text-lg font-bold">
+                      R$ {expenseForecastData.totalCurrentSpent.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "rounded-lg p-3",
+                    expenseForecastData.willExceedTotalBudget ? "bg-destructive/10" : "bg-primary/10"
+                  )}>
+                    <p className="text-xs text-muted-foreground">Projeção do Mês</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      expenseForecastData.willExceedTotalBudget ? "text-destructive" : "text-primary"
+                    )}>
+                      R$ {expenseForecastData.totalProjected.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Média Histórica</p>
+                    <p className="text-lg font-bold">
+                      R$ {expenseForecastData.totalHistoricalAvg.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                  {expenseForecastData.totalBudget > 0 && (
+                    <div className={cn(
+                      "rounded-lg p-3",
+                      expenseForecastData.projectedSavings >= 0 ? "bg-success/10" : "bg-destructive/10"
+                    )}>
+                      <p className="text-xs text-muted-foreground">
+                        {expenseForecastData.projectedSavings >= 0 ? 'Economia Projetada' : 'Déficit Projetado'}
+                      </p>
+                      <p className={cn(
+                        "text-lg font-bold",
+                        expenseForecastData.projectedSavings >= 0 ? "text-success" : "text-destructive"
+                      )}>
+                        R$ {Math.abs(expenseForecastData.projectedSavings).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Category Forecasts */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Previsão por Categoria</p>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {expenseForecastData.forecasts.slice(0, 8).map((forecast) => (
+                      <div 
+                        key={forecast.category}
+                        className="p-3 rounded-lg border hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{forecast.category}</span>
+                            {forecast.willExceedBudget && (
+                              <AlertTriangle className="h-4 w-4 text-destructive" />
+                            )}
+                            {forecast.budget > 0 && !forecast.willExceedBudget && forecast.percentOfBudget < 80 && (
+                              <CheckCircle2 className="h-4 w-4 text-success" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <span className="text-xs text-muted-foreground block">Atual</span>
+                              <span className="text-sm font-semibold">
+                                R$ {forecast.currentSpent.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs text-muted-foreground block">Projeção</span>
+                              <span className={cn(
+                                "text-sm font-bold",
+                                forecast.willExceedBudget ? "text-destructive" : ""
+                              )}>
+                                R$ {forecast.projected.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Progress bar for budget */}
+                        {forecast.budget > 0 && (
+                          <div className="mt-2">
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                              <span>Orçamento: R$ {forecast.budget.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+                              <span>{forecast.percentOfBudget.toFixed(0)}% projetado</span>
+                            </div>
+                            <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                              {/* Current spending */}
+                              <div 
+                                className="absolute h-full bg-primary/50 rounded-full"
+                                style={{ width: `${Math.min((forecast.currentSpent / forecast.budget) * 100, 100)}%` }}
+                              />
+                              {/* Projected spending indicator */}
+                              <div 
+                                className={cn(
+                                  "absolute h-full w-0.5",
+                                  forecast.willExceedBudget ? "bg-destructive" : "bg-primary"
+                                )}
+                                style={{ left: `${Math.min(forecast.percentOfBudget, 100)}%` }}
+                              />
+                            </div>
+                            {forecast.suggestedDailyBudget > 0 && forecast.daysRemaining > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                💡 Sugestão: gaste até R$ {forecast.suggestedDailyBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} por dia
+                              </p>
+                            )}
+                            {forecast.willExceedBudget && (
+                              <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Projeção excede o orçamento em R$ {(forecast.projected - forecast.budget).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Historical comparison */}
+                        {forecast.historicalAvg > 0 && (
+                          <div className="mt-2 flex items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">vs média:</span>
+                            <span className={cn(
+                              "flex items-center gap-1 font-medium",
+                              forecast.differenceFromAvg > 0 ? "text-destructive" : forecast.differenceFromAvg < 0 ? "text-success" : "text-muted-foreground"
+                            )}>
+                              {forecast.differenceFromAvg > 0 ? (
+                                <TrendingUp className="h-3 w-3" />
+                              ) : forecast.differenceFromAvg < 0 ? (
+                                <TrendingDown className="h-3 w-3" />
+                              ) : (
+                                <Minus className="h-3 w-3" />
+                              )}
+                              {forecast.differenceFromAvg > 0 ? '+' : ''}
+                              {forecast.percentChangeFromAvg.toFixed(0)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </CardContent>
