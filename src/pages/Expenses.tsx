@@ -1,7 +1,10 @@
-import { useState, useMemo } from "react";
-import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Sparkles, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { Plus, Edit2, Trash2, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Sparkles, AlertTriangle, CheckCircle2, Download, FileText, FileSpreadsheet } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, getDaysInMonth, getDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { toast } from "@/hooks/use-toast";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBudgets } from "@/hooks/useBudgets";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -489,6 +492,150 @@ const Expenses = () => {
     setSelectedMonth(null);
   };
 
+  // Export to CSV
+  const exportToCSV = useCallback(() => {
+    if (filteredTransactions.length === 0) {
+      toast({
+        title: "Nenhuma transação",
+        description: "Não há transações para exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = ["Data", "Tipo", "Descrição", "Categoria", "Valor"];
+    const rows = filteredTransactions.map(t => [
+      format(new Date(t.date), "dd/MM/yyyy"),
+      t.type === 'income' ? 'Receita' : 'Despesa',
+      t.description,
+      t.category,
+      t.type === 'income' 
+        ? t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+        : `-${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+    ]);
+
+    // Add summary row
+    rows.push([]);
+    rows.push(["", "", "", "Total Receitas", `R$ ${filteredSummary.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]);
+    rows.push(["", "", "", "Total Despesas", `R$ ${filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]);
+    rows.push(["", "", "", "Saldo", `R$ ${filteredSummary.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `transacoes_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Exportação concluída",
+      description: `${filteredTransactions.length} transações exportadas para CSV.`,
+    });
+  }, [filteredTransactions, filteredSummary]);
+
+  // Export to PDF
+  const exportToPDF = useCallback(() => {
+    if (filteredTransactions.length === 0) {
+      toast({
+        title: "Nenhuma transação",
+        description: "Não há transações para exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(18);
+    doc.text("Relatório de Transações", 14, 22);
+    
+    // Period info
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    let periodText = "Período: ";
+    if (selectedMonth) {
+      periodText += format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR });
+    } else if (effectiveDateFrom || effectiveDateTo) {
+      periodText += effectiveDateFrom ? format(effectiveDateFrom, "dd/MM/yyyy") : "início";
+      periodText += " até ";
+      periodText += effectiveDateTo ? format(effectiveDateTo, "dd/MM/yyyy") : "hoje";
+    } else {
+      periodText += "Todas as transações";
+    }
+    doc.text(periodText, 14, 30);
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}`, 14, 36);
+
+    // Summary
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text("Resumo", 14, 48);
+    
+    doc.setFontSize(10);
+    doc.text(`Total de Transações: ${filteredTransactions.length}`, 14, 56);
+    doc.setTextColor(34, 139, 34);
+    doc.text(`Receitas: R$ ${filteredSummary.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 62);
+    doc.setTextColor(220, 53, 69);
+    doc.text(`Despesas: R$ ${filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 68);
+    doc.setTextColor(filteredSummary.balance >= 0 ? 34 : 220, filteredSummary.balance >= 0 ? 139 : 53, filteredSummary.balance >= 0 ? 34 : 69);
+    doc.text(`Saldo: R$ ${filteredSummary.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 74);
+
+    // Table
+    const tableData = filteredTransactions.map(t => [
+      format(new Date(t.date), "dd/MM/yyyy"),
+      t.type === 'income' ? 'Receita' : 'Despesa',
+      t.description.length > 30 ? t.description.substring(0, 30) + "..." : t.description,
+      t.category,
+      `R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+    ]);
+
+    autoTable(doc, {
+      startY: 82,
+      head: [["Data", "Tipo", "Descrição", "Categoria", "Valor"]],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 60 },
+        3: { cellWidth: 35 },
+        4: { cellWidth: 30, halign: 'right' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 1) {
+          if (data.cell.raw === 'Receita') {
+            data.cell.styles.textColor = [34, 139, 34];
+          } else {
+            data.cell.styles.textColor = [220, 53, 69];
+          }
+        }
+      },
+    });
+
+    doc.save(`transacoes_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+
+    toast({
+      title: "Exportação concluída",
+      description: `${filteredTransactions.length} transações exportadas para PDF.`,
+    });
+  }, [filteredTransactions, filteredSummary, selectedMonth, effectiveDateFrom, effectiveDateTo]);
+
   // Build categories data with real spending and budgets
   const categoriesData = useMemo(() => {
     const chartColors = [
@@ -694,7 +841,39 @@ const Expenses = () => {
           <CardHeader>
             <div className="flex items-center justify-between flex-wrap gap-3">
               <CardTitle>Transações</CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Export Buttons */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Download className="h-4 w-4" />
+                      Exportar
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="end">
+                    <div className="space-y-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={exportToPDF}
+                      >
+                        <FileText className="h-4 w-4 text-destructive" />
+                        Exportar PDF
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={exportToCSV}
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-success" />
+                        Exportar CSV
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground">
                     <X className="h-4 w-4" />
