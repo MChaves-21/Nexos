@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { GoalCardSkeleton } from "@/components/skeletons";
 import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 const Goals = () => {
   const { goals, isLoading, addGoal, updateGoal, deleteGoal } = useGoals();
@@ -173,26 +174,21 @@ const Goals = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="target_amount">Valor Alvo</Label>
-                  <Input
+                  <Label htmlFor="target_amount">Valor Alvo (R$)</Label>
+                  <CurrencyInput
                     id="target_amount"
-                    type="number"
-                    step="0.01"
                     value={formData.target_amount}
-                    onChange={(e) => setFormData({ ...formData, target_amount: e.target.value })}
-                    placeholder="0.00"
-                    required
+                    onChange={(value) => setFormData({ ...formData, target_amount: value })}
+                    placeholder="0"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="current_amount">Valor Atual</Label>
-                  <Input
+                  <Label htmlFor="current_amount">Valor Atual (R$)</Label>
+                  <CurrencyInput
                     id="current_amount"
-                    type="number"
-                    step="0.01"
                     value={formData.current_amount}
-                    onChange={(e) => setFormData({ ...formData, current_amount: e.target.value })}
-                    placeholder="0.00"
+                    onChange={(value) => setFormData({ ...formData, current_amount: value })}
+                    placeholder="0"
                   />
                 </div>
               </div>
@@ -339,24 +335,19 @@ const Goals = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit-target">Valor Alvo</Label>
-                <Input
+                <Label htmlFor="edit-target">Valor Alvo (R$)</Label>
+                <CurrencyInput
                   id="edit-target"
-                  type="number"
-                  step="0.01"
                   value={formData.target_amount}
-                  onChange={(e) => setFormData({ ...formData, target_amount: e.target.value })}
-                  required
+                  onChange={(value) => setFormData({ ...formData, target_amount: value })}
                 />
               </div>
               <div>
-                <Label htmlFor="edit-current">Valor Atual</Label>
-                <Input
+                <Label htmlFor="edit-current">Valor Atual (R$)</Label>
+                <CurrencyInput
                   id="edit-current"
-                  type="number"
-                  step="0.01"
                   value={formData.current_amount}
-                  onChange={(e) => setFormData({ ...formData, current_amount: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, current_amount: value })}
                 />
               </div>
             </div>

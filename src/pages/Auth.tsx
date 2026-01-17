@@ -41,10 +41,12 @@ const Auth = () => {
       "Unable to validate email address: invalid format": "Formato de e-mail inválido",
       "Email rate limit exceeded": "Muitas tentativas. Aguarde alguns minutos",
       "For security purposes, you can only request this once every 60 seconds": "Por segurança, aguarde 60 segundos entre tentativas",
+      "Password is known to be weak and easy to guess, please choose a different one": "Senha muito fraca. Evite sequências simples como 123456. Use letras e números",
+      "Password is too weak": "Senha muito fraca. Use uma combinação de letras e números",
     };
     
     for (const [key, value] of Object.entries(translations)) {
-      if (message.includes(key)) return value;
+      if (message.toLowerCase().includes(key.toLowerCase())) return value;
     }
     return message;
   };
@@ -219,7 +221,7 @@ const Auth = () => {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Mínimo de 6 caracteres
+                      Mínimo de 6 caracteres. Evite sequências simples como "123456"
                     </p>
                   </div>
                   <div className="space-y-2">
