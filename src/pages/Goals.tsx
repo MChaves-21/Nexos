@@ -25,7 +25,6 @@ const Goals = () => {
     target_amount: "",
     current_amount: "0",
     deadline: "",
-    category: "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -36,7 +35,7 @@ const Goals = () => {
       target_amount: parseFloat(formData.target_amount),
       current_amount: parseFloat(formData.current_amount),
       deadline: formData.deadline || null,
-      category: formData.category || null,
+      category: null,
     });
     setFormData({
       title: "",
@@ -44,7 +43,6 @@ const Goals = () => {
       target_amount: "",
       current_amount: "0",
       deadline: "",
-      category: "",
     });
     setIsDialogOpen(false);
   };
@@ -57,7 +55,6 @@ const Goals = () => {
       target_amount: goal.target_amount.toString(),
       current_amount: goal.current_amount.toString(),
       deadline: goal.deadline || "",
-      category: goal.category || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -78,7 +75,7 @@ const Goals = () => {
       target_amount: targetAmount,
       current_amount: newCurrentAmount,
       deadline: formData.deadline || null,
-      category: formData.category || null,
+      category: null,
       completed: isNowCompleted,
       completed_at: isNowCompleted && !wasCompleted ? new Date().toISOString() : editingGoal.completed_at,
     });
@@ -90,7 +87,6 @@ const Goals = () => {
       target_amount: "",
       current_amount: "0",
       deadline: "",
-      category: "",
     });
     setIsEditDialogOpen(false);
   };
@@ -175,15 +171,6 @@ const Goals = () => {
                   placeholder="Descreva sua meta..."
                 />
               </div>
-              <div>
-                <Label htmlFor="category">Categoria</Label>
-                <Input
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="Ex: Viagem, Reserva de Emergência"
-                />
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="target_amount">Valor Alvo</Label>
@@ -258,11 +245,6 @@ const Goals = () => {
                           {isCompleted && <span className="text-success">✓</span>}
                           {goal.title}
                         </CardTitle>
-                        {goal.category && (
-                          <CardDescription className="mt-1">
-                            {goal.category}
-                          </CardDescription>
-                        )}
                       </div>
                       <div className="flex gap-1">
                         <Button
@@ -353,14 +335,6 @@ const Goals = () => {
                 id="edit-description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-category">Categoria</Label>
-              <Input
-                id="edit-category"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">

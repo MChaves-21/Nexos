@@ -31,6 +31,24 @@ const Auth = () => {
   }, [navigate]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const translateAuthError = (message: string): string => {
+    const translations: Record<string, string> = {
+      "Invalid login credentials": "E-mail ou senha incorretos",
+      "Email not confirmed": "E-mail não confirmado. Verifique sua caixa de entrada",
+      "User already registered": "Este e-mail já está cadastrado",
+      "Password should be at least 6 characters": "A senha deve ter pelo menos 6 caracteres",
+      "Signup requires a valid password": "É necessário uma senha válida para cadastro",
+      "Unable to validate email address: invalid format": "Formato de e-mail inválido",
+      "Email rate limit exceeded": "Muitas tentativas. Aguarde alguns minutos",
+      "For security purposes, you can only request this once every 60 seconds": "Por segurança, aguarde 60 segundos entre tentativas",
+    };
+    
+    for (const [key, value] of Object.entries(translations)) {
+      if (message.includes(key)) return value;
+    }
+    return message;
+  };
+
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -40,10 +58,20 @@ const Auth = () => {
     const password = formData.get("signup-password") as string;
     const confirmPassword = formData.get("confirm-password") as string;
 
+    if (password.length < 6) {
+      toast({
+        title: "Senha muito curta",
+        description: "A senha deve ter no mínimo 6 caracteres",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast({
-        title: "Erro",
-        description: "As senhas não coincidem",
+        title: "Senhas diferentes",
+        description: "As senhas digitadas não coincidem",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -61,7 +89,7 @@ const Auth = () => {
     if (error) {
       toast({
         title: "Erro ao criar conta",
-        description: error.message,
+        description: translateAuthError(error.message),
         variant: "destructive",
       });
     } else {
@@ -90,7 +118,7 @@ const Auth = () => {
     if (error) {
       toast({
         title: "Erro ao fazer login",
-        description: error.message,
+        description: translateAuthError(error.message),
         variant: "destructive",
       });
     } else {
@@ -190,6 +218,9 @@ const Auth = () => {
                         minLength={6}
                       />
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Mínimo de 6 caracteres
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirmar Senha</Label>
