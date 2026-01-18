@@ -95,53 +95,6 @@ const Simulation = () => {
       earnings
     });
   };
-
-  // Pré-calcular com valores default ao carregar
-  useEffect(() => {
-    // Calcular simulação por meta
-    const initial = parseFloat(goalInitialValue) || 0;
-    const target = parseFloat(goalTarget);
-    const years = parseFloat(goalYears);
-    const annualRate = parseFloat(goalRate) / 100;
-    const monthlyRate = annualRate / 12;
-    const months = years * 12;
-
-    if (target && years) {
-      const futureValueOfInitial = initial * Math.pow(1 + monthlyRate, months);
-      const remainingTarget = target - futureValueOfInitial;
-      
-      if (remainingTarget <= 0) {
-        setGoalResult(0);
-      } else {
-        const futureValueFactor = (Math.pow(1 + monthlyRate, months) - 1) / monthlyRate;
-        const pmt = remainingTarget / futureValueFactor;
-        setGoalResult(Math.max(0, pmt));
-      }
-    }
-
-    // Calcular simulação por aporte
-    const contribInitial = parseFloat(contributionInitialValue) || 0;
-    const pmt = parseFloat(monthlyContribution) || 0;
-    const contribYears = parseFloat(contributionYears);
-    const contribAnnualRate = parseFloat(contributionRate) / 100;
-    const contribMonthlyRate = contribAnnualRate / 12;
-    const contribMonths = contribYears * 12;
-
-    if (contribYears) {
-      const futureValueOfInitial = contribInitial * Math.pow(1 + contribMonthlyRate, contribMonths);
-      const futureValueOfContributions = pmt * ((Math.pow(1 + contribMonthlyRate, contribMonths) - 1) / contribMonthlyRate);
-      const futureValue = futureValueOfInitial + futureValueOfContributions;
-      const totalInvested = contribInitial + (pmt * contribMonths);
-      const earnings = futureValue - totalInvested;
-
-      setContributionResult({
-        futureValue,
-        totalInvested,
-        earnings
-      });
-    }
-  }, []);
-
   // Generate projection chart data for contribution mode
   const projectionChartData = useMemo(() => {
     if (!contributionResult) return [];
