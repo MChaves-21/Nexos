@@ -18,6 +18,7 @@ const Simulation = () => {
   const [goalYears, setGoalYears] = useState("5");
   const [goalRate, setGoalRate] = useState("10");
   const [goalResult, setGoalResult] = useState<number | null>(null);
+  const [goalErrors, setGoalErrors] = useState<{ [key: string]: string }>({});
 
   // Contribution-driven projection (valores default)
   const [contributionInitialValue, setContributionInitialValue] = useState("1000");
@@ -29,6 +30,7 @@ const Simulation = () => {
     totalInvested: number;
     earnings: number;
   } | null>(null);
+  const [contributionErrors, setContributionErrors] = useState<{ [key: string]: string }>({});
 
   // Saved simulations from database
   const { 
@@ -41,15 +43,59 @@ const Simulation = () => {
     isDeleting 
   } = useSavedSimulations();
 
+  const validateGoalForm = (): boolean => {
+    const errors: { [key: string]: string } = {};
+    
+    const target = parseFloat(goalTarget);
+    const years = parseFloat(goalYears);
+    const rate = parseFloat(goalRate);
+
+    if (!target || target <= 0) {
+      errors.target = "Valor desejado deve ser maior que zero";
+    }
+    if (!years || years <= 0) {
+      errors.years = "Prazo deve ser maior que zero";
+    }
+    if (!rate || rate <= 0) {
+      errors.rate = "Taxa deve ser maior que zero";
+    }
+
+    setGoalErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateContributionForm = (): boolean => {
+    const errors: { [key: string]: string } = {};
+    
+    const initial = parseFloat(contributionInitialValue);
+    const pmt = parseFloat(monthlyContribution);
+    const years = parseFloat(contributionYears);
+    const rate = parseFloat(contributionRate);
+
+    if ((!initial || initial <= 0) && (!pmt || pmt <= 0)) {
+      errors.initial = "Informe um valor inicial ou aporte mensal maior que zero";
+      errors.contribution = "Informe um valor inicial ou aporte mensal maior que zero";
+    }
+    if (!years || years <= 0) {
+      errors.years = "Prazo deve ser maior que zero";
+    }
+    if (!rate || rate <= 0) {
+      errors.rate = "Taxa deve ser maior que zero";
+    }
+
+    setContributionErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const calculateMonthlyContribution = () => {
+    if (!validateGoalForm()) return;
+
     const initial = parseFloat(goalInitialValue) || 0;
     const target = parseFloat(goalTarget);
     const years = parseFloat(goalYears);
     const annualRate = parseFloat(goalRate) / 100;
     const monthlyRate = annualRate / 12;
     const months = years * 12;
-
-    if (!target || !years) return;
 
     // Future value of initial investment
     // FV_initial = PV * (1 + i)^n
@@ -72,14 +118,14 @@ const Simulation = () => {
   };
 
   const calculateFutureValue = () => {
+    if (!validateContributionForm()) return;
+
     const initial = parseFloat(contributionInitialValue) || 0;
     const pmt = parseFloat(monthlyContribution) || 0;
     const years = parseFloat(contributionYears);
     const annualRate = parseFloat(contributionRate) / 100;
     const monthlyRate = annualRate / 12;
     const months = years * 12;
-
-    if (!years) return;
 
     // FV = PV * (1 + i)^n + PMT * [((1 + i)^n - 1) / i]
     const futureValueOfInitial = initial * Math.pow(1 + monthlyRate, months);
@@ -453,7 +499,11 @@ const Simulation = () => {
                       placeholder="100.000"
                       value={goalTarget}
                       onChange={(value) => setGoalTarget(value)}
+                      className={goalErrors.target ? "border-destructive" : ""}
                     />
+                    {goalErrors.target && (
+                      <p className="text-xs text-destructive">{goalErrors.target}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="goal-years">Prazo (anos)</Label>
@@ -463,7 +513,11 @@ const Simulation = () => {
                       placeholder="5"
                       value={goalYears}
                       onChange={(e) => setGoalYears(e.target.value)}
+                      className={goalErrors.years ? "border-destructive" : ""}
                     />
+                    {goalErrors.years && (
+                      <p className="text-xs text-destructive">{goalErrors.years}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="goal-rate">Taxa Anual (%)</Label>
@@ -474,7 +528,11 @@ const Simulation = () => {
                       placeholder="10"
                       value={goalRate}
                       onChange={(e) => setGoalRate(e.target.value)}
+                      className={goalErrors.rate ? "border-destructive" : ""}
                     />
+                    {goalErrors.rate && (
+                      <p className="text-xs text-destructive">{goalErrors.rate}</p>
+                    )}
                   </div>
                 </div>
 
@@ -552,7 +610,11 @@ const Simulation = () => {
                       placeholder="0"
                       value={contributionInitialValue}
                       onChange={(value) => setContributionInitialValue(value)}
+                      className={contributionErrors.initial ? "border-destructive" : ""}
                     />
+                    {contributionErrors.initial && (
+                      <p className="text-xs text-destructive">{contributionErrors.initial}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="monthly-contribution">Aporte Mensal (R$)</Label>
@@ -561,7 +623,11 @@ const Simulation = () => {
                       placeholder="500"
                       value={monthlyContribution}
                       onChange={(value) => setMonthlyContribution(value)}
+                      className={contributionErrors.contribution ? "border-destructive" : ""}
                     />
+                    {contributionErrors.contribution && (
+                      <p className="text-xs text-destructive">{contributionErrors.contribution}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="contribution-years">Prazo (anos)</Label>
@@ -571,7 +637,11 @@ const Simulation = () => {
                       placeholder="10"
                       value={contributionYears}
                       onChange={(e) => setContributionYears(e.target.value)}
+                      className={contributionErrors.years ? "border-destructive" : ""}
                     />
+                    {contributionErrors.years && (
+                      <p className="text-xs text-destructive">{contributionErrors.years}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="contribution-rate">Taxa Anual (%)</Label>
@@ -582,7 +652,11 @@ const Simulation = () => {
                       placeholder="10"
                       value={contributionRate}
                       onChange={(e) => setContributionRate(e.target.value)}
+                      className={contributionErrors.rate ? "border-destructive" : ""}
                     />
+                    {contributionErrors.rate && (
+                      <p className="text-xs text-destructive">{contributionErrors.rate}</p>
+                    )}
                   </div>
                 </div>
 
