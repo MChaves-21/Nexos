@@ -41,6 +41,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { TransactionRowSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 const Expenses = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -727,12 +728,11 @@ const Expenses = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="amount">Valor</Label>
-                <Input 
+                <CurrencyInput 
                   id="amount" 
-                  type="number" 
-                  placeholder="0.00"
+                  placeholder="0"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, amount: value })}
                 />
               </div>
               <div className="space-y-2">
@@ -1548,12 +1548,11 @@ const Expenses = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-amount">Valor</Label>
-              <Input 
+              <CurrencyInput 
                 id="edit-amount" 
-                type="number" 
-                placeholder="0.00"
+                placeholder="0"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, amount: value })}
               />
             </div>
             <div className="space-y-2">
@@ -1598,12 +1597,11 @@ const Expenses = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="budget-amount">Orçamento Mensal (R$)</Label>
-              <Input 
+              <CurrencyInput 
                 id="budget-amount" 
-                type="number" 
-                placeholder="0.00"
+                placeholder="0"
                 value={budgetFormData.monthly_budget}
-                onChange={(e) => setBudgetFormData({ ...budgetFormData, monthly_budget: e.target.value })}
+                onChange={(value) => setBudgetFormData({ ...budgetFormData, monthly_budget: value })}
               />
             </div>
             <div className="flex gap-2">

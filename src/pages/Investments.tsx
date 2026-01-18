@@ -26,6 +26,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Progress } from "@/components/ui/progress";
 import { StatCardSkeleton, ChartSkeleton, InvestmentCardSkeleton } from "@/components/skeletons";
 import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -507,22 +508,20 @@ const Investments = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="avg-price">Preço de Compra</Label>
-                <Input 
+                <CurrencyInput 
                   id="avg-price" 
-                  type="number" 
-                  placeholder="0.00"
+                  placeholder="0"
                   value={formData.purchase_price}
-                  onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, purchase_price: value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="current-price">Preço Atual</Label>
-                <Input 
+                <CurrencyInput 
                   id="current-price" 
-                  type="number" 
-                  placeholder="0.00"
+                  placeholder="0"
                   value={formData.current_price}
-                  onChange={(e) => setFormData({ ...formData, current_price: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, current_price: value })}
                 />
               </div>
               <div className="space-y-2">
@@ -1124,22 +1123,20 @@ const Investments = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-avg-price">Preço de Compra</Label>
-              <Input 
+              <CurrencyInput 
                 id="edit-avg-price" 
-                type="number" 
-                placeholder="0.00"
+                placeholder="0"
                 value={formData.purchase_price}
-                onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, purchase_price: value })}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-current-price">Preço Atual</Label>
-              <Input 
+              <CurrencyInput 
                 id="edit-current-price" 
-                type="number" 
-                placeholder="0.00"
+                placeholder="0"
                 value={formData.current_price}
-                onChange={(e) => setFormData({ ...formData, current_price: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, current_price: value })}
               />
             </div>
             <div className="space-y-2">

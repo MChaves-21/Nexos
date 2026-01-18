@@ -9,6 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useSavedSimulations, SavedSimulation } from "@/hooks/useSavedSimulations";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 const Simulation = () => {
   // Goal-driven projection (valores default)
@@ -485,22 +486,20 @@ const Simulation = () => {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-2">
                     <Label htmlFor="goal-initial">Valor Inicial (R$)</Label>
-                    <Input
+                    <CurrencyInput
                       id="goal-initial"
-                      type="number"
                       placeholder="0"
                       value={goalInitialValue}
-                      onChange={(e) => setGoalInitialValue(e.target.value)}
+                      onChange={(value) => setGoalInitialValue(value)}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="goal-target">Valor Desejado (R$)</Label>
-                    <Input
+                    <CurrencyInput
                       id="goal-target"
-                      type="number"
-                      placeholder="100000"
+                      placeholder="100.000"
                       value={goalTarget}
-                      onChange={(e) => setGoalTarget(e.target.value)}
+                      onChange={(value) => setGoalTarget(value)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -595,22 +594,20 @@ const Simulation = () => {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-2">
                     <Label htmlFor="contribution-initial">Valor Inicial (R$)</Label>
-                    <Input
+                    <CurrencyInput
                       id="contribution-initial"
-                      type="number"
                       placeholder="0"
                       value={contributionInitialValue}
-                      onChange={(e) => setContributionInitialValue(e.target.value)}
+                      onChange={(value) => setContributionInitialValue(value)}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="monthly-contribution">Aporte Mensal (R$)</Label>
-                    <Input
+                    <CurrencyInput
                       id="monthly-contribution"
-                      type="number"
                       placeholder="500"
                       value={monthlyContribution}
-                      onChange={(e) => setMonthlyContribution(e.target.value)}
+                      onChange={(value) => setMonthlyContribution(value)}
                     />
                   </div>
                   <div className="space-y-2">
