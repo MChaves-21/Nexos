@@ -11,6 +11,7 @@ import { useTransactions } from "@/hooks/useTransactions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { StatCardSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
 import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 const Budgets = () => {
   const { budgets, isLoading: loadingBudgets, upsertBudget, deleteBudget } = useBudgets();
@@ -168,14 +169,11 @@ const Budgets = () => {
               </div>
               <div>
                 <Label htmlFor="monthly_budget">Orçamento Mensal (R$)</Label>
-                <Input
+                <CurrencyInput
                   id="monthly_budget"
-                  type="number"
-                  step="0.01"
                   value={formData.monthly_budget}
-                  onChange={(e) => setFormData({ ...formData, monthly_budget: e.target.value })}
-                  placeholder="0.00"
-                  required
+                  onChange={(value) => setFormData({ ...formData, monthly_budget: value })}
+                  placeholder="0"
                 />
               </div>
               <Button type="submit" className="w-full">

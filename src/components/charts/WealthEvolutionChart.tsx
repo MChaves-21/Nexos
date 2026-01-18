@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { TrendingUp, TrendingDown, Calendar, Sparkles, Target, X, Check, CalendarClock } from "lucide-react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useInvestments } from "@/hooks/useInvestments";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 type TimeRange = "6m" | "1y" | "2y" | "all";
 type ScenarioType = "base" | "optimistic" | "conservative" | "pessimistic";
@@ -57,7 +57,8 @@ const WealthEvolutionChart = () => {
   }, []);
 
   const handleSaveGoal = () => {
-    const value = parseFloat(goalInputValue.replace(/[^\d.]/g, ''));
+    // CurrencyInput retorna valor já parseado (ex: "1000.50")
+    const value = parseFloat(goalInputValue);
     if (!isNaN(value) && value > 0) {
       setWealthGoal(value);
       localStorage.setItem(WEALTH_GOAL_KEY, value.toString());
@@ -510,11 +511,10 @@ const WealthEvolutionChart = () => {
                     Defina uma meta para visualizar no gráfico e acompanhar seu progresso.
                   </p>
                   <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Ex: 100000"
+                    <CurrencyInput
+                      placeholder="Ex: 100.000"
                       value={goalInputValue}
-                      onChange={(e) => setGoalInputValue(e.target.value)}
+                      onChange={(value) => setGoalInputValue(value)}
                       className="flex-1"
                     />
                     <Button size="icon" onClick={handleSaveGoal} className="shrink-0">
