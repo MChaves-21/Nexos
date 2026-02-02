@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
-import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, Bell } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, Bell, RefreshCw } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
 import { useAllocationTargets } from "@/hooks/useAllocationTargets";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,7 @@ const Investments = () => {
     purchase_date: new Date().toISOString().split('T')[0],
   });
 
+  const queryClient = useQueryClient();
   const { investments, isLoading, addInvestment, updateInvestment, deleteInvestment } = useInvestments();
   const { allocationTargets, upsertAllocationTarget } = useAllocationTargets();
   const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
@@ -50,6 +53,70 @@ const Investments = () => {
     return saved ? parseFloat(saved) : 10;
   });
   const [hasShownNotification, setHasShownNotification] = useState(false);
+  const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
+  const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
+  const [hasAutoUpdated, setHasAutoUpdated] = useState(false);
+
+  // Function to update stock prices from API
+  const updateStockPrices = useCallback(async () => {
+    setIsUpdatingPrices(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para atualizar os preços.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await supabase.functions.invoke('fetch-stock-prices', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const result = response.data;
+      
+      if (result.updated > 0) {
+        toast({
+          title: "Preços atualizados",
+          description: `${result.updated} de ${investments.length} investimentos foram atualizados.`,
+        });
+        // Refresh investments data using react-query
+        queryClient.invalidateQueries({ queryKey: ['investments'] });
+      } else if (result.message) {
+        toast({
+          title: "Atualização concluída",
+          description: result.message,
+        });
+      }
+      
+      setLastPriceUpdate(new Date());
+    } catch (error) {
+      console.error('Error updating prices:', error);
+      toast({
+        title: "Erro ao atualizar preços",
+        description: error instanceof Error ? error.message : "Não foi possível buscar os preços atuais.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingPrices(false);
+    }
+  }, [investments.length, queryClient]);
+
+  // Auto-update prices on page load (only once per session)
+  useEffect(() => {
+    if (!isLoading && investments.length > 0 && !hasAutoUpdated) {
+      setHasAutoUpdated(true);
+      updateStockPrices();
+    }
+  }, [isLoading, investments.length, hasAutoUpdated, updateStockPrices]);
 
   // Get available years from investments
   const availableYears = useMemo(() => {
@@ -458,15 +525,35 @@ const Investments = () => {
           <h2 className="text-3xl font-bold tracking-tight">Investimentos</h2>
           <p className="text-muted-foreground mt-1">
             Acompanhe sua carteira de investimentos
+            {isUpdatingPrices && (
+              <span className="ml-2 text-xs text-primary animate-pulse">
+                Atualizando preços...
+              </span>
+            )}
+            {lastPriceUpdate && !isUpdatingPrices && (
+              <span className="ml-2 text-xs">
+                (Atualizado às {lastPriceUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})
+              </span>
+            )}
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Ativo
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="gap-2" 
+            onClick={updateStockPrices}
+            disabled={isUpdatingPrices}
+          >
+            <RefreshCw className={`h-4 w-4 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
+            {isUpdatingPrices ? 'Atualizando...' : 'Atualizar Preços'}
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Ativo
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Adicionar Investimento</DialogTitle>
@@ -537,6 +624,7 @@ const Investments = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Summary Cards */}
