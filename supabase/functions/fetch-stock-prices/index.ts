@@ -19,27 +19,57 @@ interface PriceResult {
   error?: string;
 }
 
-// Fetch Brazilian stock prices from Brapi API (free, no key required)
-async function fetchBrazilianStockPrice(symbol: string): Promise<number | null> {
+// Fetch stock prices from Yahoo Finance API
+async function fetchYahooPrice(symbol: string, isBrazilian: boolean): Promise<number | null> {
   try {
+    // Brazilian stocks need .SA suffix for B3
+    const yahooSymbol = isBrazilian ? `${symbol}.SA` : symbol;
+    
     const response = await fetch(
-      `https://brapi.dev/api/quote/${symbol}?fundamental=false`
+      `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      }
     );
     
     if (!response.ok) {
-      console.log(`Brapi API error for ${symbol}: ${response.status}`);
+      console.log(`Yahoo API error for ${yahooSymbol}: ${response.status}`);
       return null;
     }
     
     const data = await response.json();
     
-    if (data.results && data.results.length > 0 && data.results[0].regularMarketPrice) {
-      return data.results[0].regularMarketPrice;
+    if (
+      data.chart &&
+      data.chart.result &&
+      data.chart.result[0] &&
+      data.chart.result[0].meta &&
+      data.chart.result[0].meta.regularMarketPrice
+    ) {
+      const price = data.chart.result[0].meta.regularMarketPrice;
+      
+      // If it's a US stock, convert to BRL
+      if (!isBrazilian) {
+        const fxResponse = await fetch(
+          "https://api.exchangerate-api.com/v4/latest/USD"
+        );
+        if (fxResponse.ok) {
+          const fxData = await fxResponse.json();
+          if (fxData.rates && fxData.rates.BRL) {
+            return price * fxData.rates.BRL;
+          }
+        }
+        return price * 5.8; // Fallback rate
+      }
+      
+      return price;
     }
     
     return null;
   } catch (error) {
-    console.error(`Error fetching price for ${symbol}:`, error);
+    console.error(`Error fetching Yahoo price for ${symbol}:`, error);
     return null;
   }
 }
@@ -59,17 +89,25 @@ async function fetchCryptoPrice(symbol: string): Promise<number | null> {
       "SHIB": "shiba-inu",
       "MATIC": "polygon",
       "LTC": "litecoin",
-      "AVAX": "avalanche",
+      "AVAX": "avalanche-2",
       "LINK": "chainlink",
       "UNI": "uniswap",
       "ATOM": "cosmos",
       "XLM": "stellar",
+      "BNB": "binancecoin",
+      "USDT": "tether",
+      "USDC": "usd-coin",
     };
     
     const coinId = cryptoMap[symbol.toUpperCase()] || symbol.toLowerCase();
     
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=brl`
+      `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=brl`,
+      {
+        headers: {
+          'Accept': 'application/json'
+        }
+      }
     );
     
     if (!response.ok) {
@@ -90,68 +128,31 @@ async function fetchCryptoPrice(symbol: string): Promise<number | null> {
   }
 }
 
-// Fetch US stock prices using Yahoo Finance API alternative
-async function fetchUSStockPrice(symbol: string): Promise<number | null> {
-  try {
-    // Use a free Yahoo Finance scraper endpoint
-    const response = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`
-    );
-    
-    if (!response.ok) {
-      console.log(`Yahoo API error for ${symbol}: ${response.status}`);
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (
-      data.chart &&
-      data.chart.result &&
-      data.chart.result[0] &&
-      data.chart.result[0].meta &&
-      data.chart.result[0].meta.regularMarketPrice
-    ) {
-      // Convert USD to BRL (approximate rate - in production you'd want real-time FX)
-      const usdPrice = data.chart.result[0].meta.regularMarketPrice;
-      // Fetch current USD/BRL rate
-      const fxResponse = await fetch(
-        "https://api.exchangerate-api.com/v4/latest/USD"
-      );
-      if (fxResponse.ok) {
-        const fxData = await fxResponse.json();
-        if (fxData.rates && fxData.rates.BRL) {
-          return usdPrice * fxData.rates.BRL;
-        }
-      }
-      return usdPrice * 5.5; // Fallback rate
-    }
-    
-    return null;
-  } catch (error) {
-    console.error(`Error fetching US stock price for ${symbol}:`, error);
-    return null;
-  }
-}
-
 async function fetchPrice(asset_name: string, asset_type: string): Promise<number | null> {
   const symbol = asset_name.toUpperCase();
   
+  // Cryptocurrencies
   if (asset_type === "Criptomoedas") {
     return await fetchCryptoPrice(symbol);
   }
   
-  // Check if it's a US stock (no number suffix, typically 1-4 letters)
-  const isBrazilianStock = /^\w+\d+$/.test(symbol); // Brazilian stocks end with numbers like BBAS3, PETR4
+  // Check if it's a Brazilian stock (ends with number like BBAS3, PETR4, KNSC11)
+  const isBrazilianStock = /^\w+\d+$/.test(symbol);
   
-  if (isBrazilianStock || asset_type === "FIIs" || asset_type === "Ações") {
-    const price = await fetchBrazilianStockPrice(symbol);
+  // Brazilian stocks, FIIs, or explicitly marked as "Ações"
+  if (isBrazilianStock || asset_type === "FIIs") {
+    const price = await fetchYahooPrice(symbol, true);
     if (price) return price;
   }
   
-  // Try US stock if Brazilian didn't work
+  // US stocks or fallback
   if (!isBrazilianStock) {
-    return await fetchUSStockPrice(symbol);
+    return await fetchYahooPrice(symbol, false);
+  }
+  
+  // Try as Brazilian stock if it's marked as "Ações" but didn't match pattern
+  if (asset_type === "Ações") {
+    return await fetchYahooPrice(symbol, true);
   }
   
   return null;
@@ -216,7 +217,7 @@ Deno.serve(async (req) => {
     for (const investment of investments) {
       const newPrice = await fetchPrice(investment.asset_name, investment.asset_type);
       
-      if (newPrice !== null && newPrice !== investment.current_price) {
+      if (newPrice !== null && Math.abs(newPrice - investment.current_price) > 0.01) {
         // Update the investment with new price
         const { error: updateError } = await supabase
           .from("investments")
@@ -232,12 +233,14 @@ Deno.serve(async (req) => {
             symbol: investment.asset_name, 
             price: Math.round(newPrice * 100) / 100 
           });
+          console.log(`Updated ${investment.asset_name}: ${investment.current_price} -> ${Math.round(newPrice * 100) / 100}`);
         } else {
           results.push({ 
             symbol: investment.asset_name, 
             price: null, 
             error: "Failed to update" 
           });
+          console.error(`Failed to update ${investment.asset_name}:`, updateError);
         }
       } else if (newPrice === null) {
         results.push({ 
@@ -245,6 +248,7 @@ Deno.serve(async (req) => {
           price: null, 
           error: "Price not found" 
         });
+        console.log(`Price not found for ${investment.asset_name}`);
       } else {
         results.push({ 
           symbol: investment.asset_name, 
@@ -254,7 +258,7 @@ Deno.serve(async (req) => {
       }
       
       // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
     
     return new Response(
