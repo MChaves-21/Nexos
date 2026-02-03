@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, Bell, RefreshCw } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, RefreshCw, Bell } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
 import { useAllocationTargets } from "@/hooks/useAllocationTargets";
+import { usePriceAlerts, PriceChange } from "@/hooks/usePriceAlerts";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
@@ -29,6 +30,7 @@ import { Progress } from "@/components/ui/progress";
 import { StatCardSkeleton, ChartSkeleton, InvestmentCardSkeleton } from "@/components/skeletons";
 import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { PriceAlertSettings } from "@/components/investments/PriceAlertSettings";
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -46,6 +48,7 @@ const Investments = () => {
   const queryClient = useQueryClient();
   const { investments, isLoading, addInvestment, updateInvestment, deleteInvestment } = useInvestments();
   const { allocationTargets, upsertAllocationTarget } = useAllocationTargets();
+  const { checkPriceAlerts, getThresholdForInvestment, globalThreshold } = usePriceAlerts();
   const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
   const [targetFormData, setTargetFormData] = useState({ asset_type: '', target_percentage: '' });
   const [imbalanceThreshold, setImbalanceThreshold] = useState(() => {
@@ -56,6 +59,8 @@ const Investments = () => {
   const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
   const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
   const [hasAutoUpdated, setHasAutoUpdated] = useState(false);
+  const [hasShownPriceAlerts, setHasShownPriceAlerts] = useState(false);
+  const previousPricesRef = useRef<Map<string, number>>(new Map());
 
   // Function to update stock prices from API
   const updateStockPrices = useCallback(async () => {
@@ -110,6 +115,15 @@ const Investments = () => {
     }
   }, [investments.length, queryClient]);
 
+  // Store previous prices before update
+  useEffect(() => {
+    if (!isLoading && investments.length > 0 && previousPricesRef.current.size === 0) {
+      investments.forEach(inv => {
+        previousPricesRef.current.set(inv.id, inv.current_price);
+      });
+    }
+  }, [isLoading, investments]);
+
   // Auto-update prices on page load (only once per session)
   useEffect(() => {
     if (!isLoading && investments.length > 0 && !hasAutoUpdated) {
@@ -117,6 +131,44 @@ const Investments = () => {
       updateStockPrices();
     }
   }, [isLoading, investments.length, hasAutoUpdated, updateStockPrices]);
+
+  // Check for price alerts after prices are updated
+  useEffect(() => {
+    if (
+      !isLoading && 
+      !isUpdatingPrices && 
+      lastPriceUpdate && 
+      !hasShownPriceAlerts && 
+      investments.length > 0 &&
+      previousPricesRef.current.size > 0
+    ) {
+      const alerts = checkPriceAlerts(previousPricesRef.current, investments);
+      
+      if (alerts.length > 0) {
+        setHasShownPriceAlerts(true);
+        
+        // Show alerts for significant price changes
+        alerts.forEach((alert: PriceChange, index: number) => {
+          const isPositive = alert.change_percentage > 0;
+          const emoji = isPositive ? '📈' : '📉';
+          
+          setTimeout(() => {
+            toast({
+              title: `${emoji} Variação de ${Math.abs(alert.change_percentage)}% em ${alert.asset_name}`,
+              description: `Preço alterou de R$ ${alert.old_price.toFixed(2)} para R$ ${alert.new_price.toFixed(2)} (limite: ${alert.threshold}%)`,
+              variant: isPositive ? "default" : "destructive",
+              duration: 6000,
+            });
+          }, index * 800); // Stagger toasts
+        });
+      }
+      
+      // Update previous prices for next comparison
+      investments.forEach(inv => {
+        previousPricesRef.current.set(inv.id, inv.current_price);
+      });
+    }
+  }, [isLoading, isUpdatingPrices, lastPriceUpdate, hasShownPriceAlerts, investments, checkPriceAlerts]);
 
   // Get available years from investments
   const availableYears = useMemo(() => {
@@ -537,7 +589,8 @@ const Investments = () => {
             )}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <PriceAlertSettings investments={investments} />
           <Button 
             variant="outline" 
             className="gap-2" 
