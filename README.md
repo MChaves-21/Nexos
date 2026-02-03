@@ -1,6 +1,9 @@
 Desenvolvi o Nexos, uma plataforma de gestão financeira inteligente criada para centralizar o controle de património, investimentos e fluxo de caixa. O projeto foi construído utilizando o Lovable, uma plataforma de desenvolvimento baseada em IA que permitiu transformar conceitos complexos em uma interface robusta e funcional de forma ágil. Muito além de uma simples folha de cálculo, o Nexos conecta rendimentos a metas reais, oferecendo uma visão clara para organização e projeções de longo prazo. O objetivo é transformar dados em decisões, ajudando os utilizadores a dominarem as suas carteiras e acelerarem a sua independência financeira.
 # 💰 Nexos - Gestão Financeira Inteligente
 
+![Nexos Dashboard](./public/nexos1.png)
+![Nexos Transações](./public/nexos2.png)
+
 O **Nexos** é uma solução completa para controle de finanças pessoais, desenvolvida para ajudar usuários a organizarem suas receitas e despesas com uma interface intuitiva e um backend robusto e conectado.
 
 ## 🛠️ Funcionalidades Principais
