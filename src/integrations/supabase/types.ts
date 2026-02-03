@@ -41,6 +41,41 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_alert_thresholds: {
+        Row: {
+          created_at: string
+          id: string
+          investment_id: string
+          threshold: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          investment_id: string
+          threshold: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          investment_id?: string
+          threshold?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_alert_thresholds_investment_id_fkey"
+            columns: ["investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       category_budgets: {
         Row: {
           category: string
@@ -147,6 +182,30 @@ export type Database = {
           purchase_date?: string
           purchase_price?: number
           quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      price_alert_settings: {
+        Row: {
+          created_at: string
+          global_threshold: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          global_threshold?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          global_threshold?: number
+          id?: string
           updated_at?: string
           user_id?: string
         }
