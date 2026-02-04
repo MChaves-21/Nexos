@@ -7,11 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock } from "lucide-react";
+import { Mail, Lock, ArrowLeft } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Redirect authenticated users to home
   useEffect(() => {
@@ -49,6 +50,34 @@ const Auth = () => {
       if (message.toLowerCase().includes(key.toLowerCase())) return value;
     }
     return message;
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("reset-email") as string;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth?reset=true`,
+    });
+
+    if (error) {
+      toast({
+        title: "Erro ao enviar e-mail",
+        description: translateAuthError(error.message),
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "E-mail enviado!",
+        description: "Verifique sua caixa de entrada para redefinir sua senha",
+      });
+      setShowForgotPassword(false);
+    }
+
+    setIsLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -144,107 +173,152 @@ const Auth = () => {
 
         <Card className="border-border/50 shadow-lg opacity-0 animate-scale-in" style={{ animationDelay: "0.2s" }}>
           <CardHeader>
-            <CardTitle>Bem-vindo</CardTitle>
-            <CardDescription>Entre ou crie sua conta para começar</CardDescription>
+            <CardTitle>
+              {showForgotPassword ? "Recuperar Senha" : "Bem-vindo"}
+            </CardTitle>
+            <CardDescription>
+              {showForgotPassword 
+                ? "Digite seu e-mail para receber o link de recuperação" 
+                : "Entre ou crie sua conta para começar"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Criar Conta</TabsTrigger>
-              </TabsList>
+            {showForgotPassword ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">E-mail</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="reset-email"
+                      name="reset-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Enviando..." : "Enviar Link de Recuperação"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full gap-2"
+                  onClick={() => setShowForgotPassword(false)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar ao Login
+                </Button>
+              </form>
+            ) : (
+              <Tabs defaultValue="signin" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="signin">Entrar</TabsTrigger>
+                  <TabsTrigger value="signup">Criar Conta</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">E-mail</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-email"
-                        name="signin-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        className="pl-10"
-                        required
-                      />
+                <TabsContent value="signin">
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-email">E-mail</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signin-email"
+                          name="signin-email"
+                          type="email"
+                          placeholder="seu@email.com"
+                          className="pl-10"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Senha</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-password"
-                        name="signin-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        required
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-password">Senha</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signin-password"
+                          name="signin-password"
+                          type="password"
+                          placeholder="••••••••"
+                          className="pl-10"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Entrando..." : "Entrar"}
-                  </Button>
-                </form>
-              </TabsContent>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? "Entrando..." : "Entrar"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="w-full text-muted-foreground hover:text-primary"
+                      onClick={() => setShowForgotPassword(true)}
+                    >
+                      Esqueci minha senha
+                    </Button>
+                  </form>
+                </TabsContent>
 
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">E-mail</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        name="signup-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        className="pl-10"
-                        required
-                      />
+                <TabsContent value="signup">
+                  <form onSubmit={handleSignUp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">E-mail</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-email"
+                          name="signup-email"
+                          type="email"
+                          placeholder="seu@email.com"
+                          className="pl-10"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Senha</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-password"
-                        name="signup-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        required
-                        minLength={6}
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Senha</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-password"
+                          name="signup-password"
+                          type="password"
+                          placeholder="••••••••"
+                          className="pl-10"
+                          required
+                          minLength={6}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Mínimo de 6 caracteres. Evite sequências simples como "123456"
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Mínimo de 6 caracteres. Evite sequências simples como "123456"
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirmar Senha</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="confirm-password"
-                        name="confirm-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        required
-                        minLength={6}
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirmar Senha</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="confirm-password"
+                          name="confirm-password"
+                          type="password"
+                          placeholder="••••••••"
+                          className="pl-10"
+                          required
+                          minLength={6}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Criando..." : "Criar Conta"}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? "Criando..." : "Criar Conta"}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            )}
           </CardContent>
         </Card>
       </div>
