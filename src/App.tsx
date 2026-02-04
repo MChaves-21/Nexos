@@ -14,6 +14,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const Investments = lazy(() => import("./pages/Investments"));
 const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Simulation = lazy(() => import("./pages/Simulation"));
 const Goals = lazy(() => import("./pages/Goals"));
 const Budgets = lazy(() => import("./pages/Budgets"));
@@ -39,6 +40,7 @@ const AnimatedRoutes = () => {
         <Routes location={location}>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
           <Route path="/expenses" element={<Layout><Expenses /></Layout>} />
           <Route path="/investments" element={<Layout><Investments /></Layout>} />
