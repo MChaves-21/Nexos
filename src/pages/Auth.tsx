@@ -8,11 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, ArrowLeft } from "lucide-react";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [signupPassword, setSignupPassword] = useState("");
 
   // Redirect authenticated users to home
   useEffect(() => {
@@ -291,11 +293,11 @@ const Auth = () => {
                           className="pl-10"
                           required
                           minLength={6}
+                          value={signupPassword}
+                          onChange={(e) => setSignupPassword(e.target.value)}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Mínimo de 6 caracteres. Evite sequências simples como "123456"
-                      </p>
+                      <PasswordStrengthIndicator password={signupPassword} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirm-password">Confirmar Senha</Label>

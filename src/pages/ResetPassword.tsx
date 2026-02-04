@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, CheckCircle } from "lucide-react";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const ResetPassword = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     // Check if user has a valid recovery session
@@ -154,11 +156,11 @@ const ResetPassword = () => {
                       required
                       minLength={6}
                       disabled={!isValidSession}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Mínimo de 6 caracteres. Evite sequências simples como "123456"
-                  </p>
+                  <PasswordStrengthIndicator password={newPassword} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
