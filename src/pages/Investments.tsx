@@ -31,6 +31,8 @@ import { StatCardSkeleton, ChartSkeleton, InvestmentCardSkeleton } from "@/compo
 import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { PriceAlertSettings } from "@/components/investments/PriceAlertSettings";
+import { TickerInput } from "@/components/investments/TickerInput";
+import { B3Asset, getAssetTypeByTicker } from "@/data/b3-tickers";
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -44,6 +46,7 @@ const Investments = () => {
     current_price: '',
     purchase_date: new Date().toISOString().split('T')[0],
   });
+  const [isTickerValid, setIsTickerValid] = useState(false);
 
   const queryClient = useQueryClient();
   const { investments, isLoading, addInvestment, updateInvestment, deleteInvestment } = useInvestments();
@@ -463,8 +466,18 @@ const Investments = () => {
     setIsTargetDialogOpen(false);
   };
 
+  const handleTickerChange = (ticker: string, isValid: boolean, asset?: B3Asset) => {
+    setFormData(prev => ({
+      ...prev,
+      asset_name: ticker,
+      // Auto-preencher o tipo de ativo se encontrado
+      asset_type: asset?.type || prev.asset_type,
+    }));
+    setIsTickerValid(isValid);
+  };
+
   const handleSubmit = () => {
-    if (!formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price) {
+    if (!formData.asset_name || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price || !isTickerValid) {
       return;
     }
 
@@ -485,6 +498,7 @@ const Investments = () => {
       current_price: '',
       purchase_date: new Date().toISOString().split('T')[0],
     });
+    setIsTickerValid(false);
     setIsDialogOpen(false);
   };
 
@@ -498,6 +512,7 @@ const Investments = () => {
       current_price: investment.current_price.toString(),
       purchase_date: investment.purchase_date,
     });
+    setIsTickerValid(true); // Assume valid for existing investments
     setIsEditDialogOpen(true);
   };
 
@@ -524,6 +539,7 @@ const Investments = () => {
       current_price: '',
       purchase_date: new Date().toISOString().split('T')[0],
     });
+    setIsTickerValid(false);
     setEditingInvestment(null);
     setIsEditDialogOpen(false);
   };
@@ -627,15 +643,13 @@ const Investments = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="asset-name">Nome/Ticker</Label>
-                <Input 
-                  id="asset-name" 
-                  placeholder="Ex: PETR4, HGLG11"
-                  value={formData.asset_name}
-                  onChange={(e) => setFormData({ ...formData, asset_name: e.target.value })}
-                />
-              </div>
+              <TickerInput
+                id="asset-name"
+                value={formData.asset_name}
+                onChange={handleTickerChange}
+                assetType={formData.asset_type}
+                placeholder="Digite o ticker ou nome"
+              />
               <div className="space-y-2">
                 <Label htmlFor="quantity">Quantidade</Label>
                 <Input 
@@ -673,7 +687,18 @@ const Investments = () => {
                   onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
                 />
               </div>
-              <Button className="w-full" onClick={handleSubmit}>Adicionar</Button>
+              <Button 
+                className="w-full" 
+                onClick={handleSubmit}
+                disabled={!isTickerValid || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price}
+              >
+                Adicionar
+              </Button>
+              {!isTickerValid && formData.asset_name.length >= 2 && (
+                <p className="text-xs text-destructive text-center">
+                  Selecione um ativo válido da lista para adicionar
+                </p>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -1243,15 +1268,13 @@ const Investments = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-asset-name">Nome/Ticker</Label>
-              <Input 
-                id="edit-asset-name" 
-                placeholder="Ex: PETR4, HGLG11"
-                value={formData.asset_name}
-                onChange={(e) => setFormData({ ...formData, asset_name: e.target.value })}
-              />
-            </div>
+            <TickerInput
+              id="edit-asset-name"
+              value={formData.asset_name}
+              onChange={handleTickerChange}
+              assetType={formData.asset_type}
+              placeholder="Digite o ticker ou nome"
+            />
             <div className="space-y-2">
               <Label htmlFor="edit-quantity">Quantidade</Label>
               <Input 
@@ -1289,7 +1312,13 @@ const Investments = () => {
                 onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
               />
             </div>
-            <Button className="w-full" onClick={handleUpdate}>Atualizar</Button>
+            <Button 
+              className="w-full" 
+              onClick={handleUpdate}
+              disabled={!isTickerValid || !formData.asset_type || !formData.quantity || !formData.purchase_price || !formData.current_price}
+            >
+              Atualizar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
