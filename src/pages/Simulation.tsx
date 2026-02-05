@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Target, TrendingUp, FileDown, Plus, X, GitCompare, Loader2 } from "lucide-react";
+import { MarketRateSelector } from "@/components/simulation/MarketRateSelector";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -519,21 +520,12 @@ const Simulation = () => {
                       <p className="text-xs text-destructive">{goalErrors.years}</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="goal-rate">Taxa Anual (%)</Label>
-                    <Input
-                      id="goal-rate"
-                      type="number"
-                      step="0.1"
-                      placeholder="10"
-                      value={goalRate}
-                      onChange={(e) => setGoalRate(e.target.value)}
-                      className={goalErrors.rate ? "border-destructive" : ""}
-                    />
-                    {goalErrors.rate && (
-                      <p className="text-xs text-destructive">{goalErrors.rate}</p>
-                    )}
-                  </div>
+                  <MarketRateSelector
+                    id="goal-rate"
+                    value={goalRate}
+                    onChange={setGoalRate}
+                    error={goalErrors.rate}
+                  />
                 </div>
 
                 <div className="flex gap-2">
@@ -643,21 +635,12 @@ const Simulation = () => {
                       <p className="text-xs text-destructive">{contributionErrors.years}</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contribution-rate">Taxa Anual (%)</Label>
-                    <Input
-                      id="contribution-rate"
-                      type="number"
-                      step="0.1"
-                      placeholder="10"
-                      value={contributionRate}
-                      onChange={(e) => setContributionRate(e.target.value)}
-                      className={contributionErrors.rate ? "border-destructive" : ""}
-                    />
-                    {contributionErrors.rate && (
-                      <p className="text-xs text-destructive">{contributionErrors.rate}</p>
-                    )}
-                  </div>
+                  <MarketRateSelector
+                    id="contribution-rate"
+                    value={contributionRate}
+                    onChange={setContributionRate}
+                    error={contributionErrors.rate}
+                  />
                 </div>
 
                 <div className="flex gap-2">
