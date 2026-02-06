@@ -127,10 +127,10 @@ export function MarketRateSelector({ value, onChange, error, id }: MarketRateSel
       </Select>
 
       {selectedType === "ipca_plus" && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-200 space-y-2">
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">IPCA ({rates.ipca}%) +</span>
-            <div className="relative flex-1 max-w-[100px]">
+        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
+            <span className="text-sm text-muted-foreground shrink-0">IPCA ({rates.ipca}%) +</span>
+            <div className="relative w-20 shrink-0">
               <Input
                 type="number"
                 step="0.5"
@@ -139,13 +139,11 @@ export function MarketRateSelector({ value, onChange, error, id }: MarketRateSel
                 placeholder="5"
                 value={ipcaSpread}
                 onChange={handleSpreadChange}
-                className="pr-6 h-8 text-sm"
+                className="h-9 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-                %
-              </span>
             </div>
-            <span className="text-sm font-medium whitespace-nowrap">
+            <span className="text-sm text-muted-foreground shrink-0">%</span>
+            <span className="text-sm font-medium shrink-0 ml-auto">
               = {ipcaPlusRate.toFixed(2)}% a.a.
             </span>
           </div>
