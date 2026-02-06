@@ -128,22 +128,24 @@ export function MarketRateSelector({ value, onChange, error, id }: MarketRateSel
 
       {selectedType === "ipca_plus" && (
         <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
-            <span className="text-sm text-muted-foreground shrink-0">IPCA ({rates.ipca}%) +</span>
-            <div className="relative w-20 shrink-0">
-              <Input
-                type="number"
-                step="0.5"
-                min="0"
-                max="20"
-                placeholder="5"
-                value={ipcaSpread}
-                onChange={handleSpreadChange}
-                className="h-9 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
+          <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">IPCA ({rates.ipca}%) +</span>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="20"
+                  placeholder="5"
+                  value={ipcaSpread}
+                  onChange={handleSpreadChange}
+                  className="h-8 w-16 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="text-sm text-muted-foreground">%</span>
+              </div>
             </div>
-            <span className="text-sm text-muted-foreground shrink-0">%</span>
-            <span className="text-sm font-medium shrink-0 ml-auto">
+            <span className="text-sm font-medium text-primary">
               = {ipcaPlusRate.toFixed(2)}% a.a.
             </span>
           </div>
