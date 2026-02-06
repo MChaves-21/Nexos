@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type RateType = "custom" | "selic" | "ipca_plus";
@@ -26,7 +30,7 @@ const DEFAULT_RATES: MarketRates = {
   ipca: 4.87,
 };
 
-const IPCA_PLUS_SPREAD = 5; // Spread padrão IPCA+
+const IPCA_PLUS_SPREAD = 5;
 
 export function MarketRateSelector({ value, onChange, error, id }: MarketRateSelectorProps) {
   const [selectedType, setSelectedType] = useState<RateType>("custom");
@@ -69,109 +73,47 @@ export function MarketRateSelector({ value, onChange, error, id }: MarketRateSel
   const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setCustomValue(newValue);
-    setSelectedType("custom");
     onChange(newValue);
   };
 
+  const getDisplayValue = () => {
+    switch (selectedType) {
+      case "selic":
+        return `SELIC (${rates.selic}% a.a.)`;
+      case "ipca_plus":
+        return `IPCA+ (${ipcaPlusRate.toFixed(2)}% a.a.)`;
+      case "custom":
+        return "Personalizado";
+      default:
+        return "Selecione...";
+    }
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <Label htmlFor={id}>Taxa Anual (%)</Label>
 
-      <RadioGroup
-        value={selectedType}
-        onValueChange={(value) => handleTypeChange(value as RateType)}
-        className="grid grid-cols-3 gap-2"
-      >
-        {/* SELIC */}
-        <div>
-          <RadioGroupItem
-            value="selic"
-            id="rate-selic"
-            className="peer sr-only"
-          />
-          <Label
-            htmlFor="rate-selic"
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 cursor-pointer transition-all",
-              "hover:bg-accent hover:text-accent-foreground",
-              selectedType === "selic"
-                ? "border-primary bg-primary/5"
-                : "border-muted"
-            )}
-          >
-            <div className="flex items-center gap-1">
-              <span className="font-semibold text-sm">SELIC</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-3 w-3 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">Taxa básica de juros da economia. Investimentos como Tesouro Selic e CDBs geralmente rendem próximo a essa taxa.</p>
-                </TooltipContent>
-              </Tooltip>
+      <Select value={selectedType} onValueChange={(val) => handleTypeChange(val as RateType)}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Selecione a taxa">{getDisplayValue()}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="selic">
+            <div className="flex items-center justify-between w-full gap-4">
+              <span>SELIC</span>
+              <span className="text-muted-foreground text-sm">{rates.selic}% a.a.</span>
             </div>
-            <span className="text-lg font-bold text-primary">{rates.selic}%</span>
-          </Label>
-        </div>
-
-        {/* IPCA+ */}
-        <div>
-          <RadioGroupItem
-            value="ipca_plus"
-            id="rate-ipca-plus"
-            className="peer sr-only"
-          />
-          <Label
-            htmlFor="rate-ipca-plus"
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 cursor-pointer transition-all",
-              "hover:bg-accent hover:text-accent-foreground",
-              selectedType === "ipca_plus"
-                ? "border-primary bg-primary/5"
-                : "border-muted"
-            )}
-          >
-            <div className="flex items-center gap-1">
-              <span className="font-semibold text-sm">IPCA+</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-3 w-3 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">IPCA ({rates.ipca}%) + {IPCA_PLUS_SPREAD}% fixo. Comum em títulos do Tesouro Direto. Protege contra inflação.</p>
-                </TooltipContent>
-              </Tooltip>
+          </SelectItem>
+          <SelectItem value="ipca_plus">
+            <div className="flex items-center justify-between w-full gap-4">
+              <span>IPCA+</span>
+              <span className="text-muted-foreground text-sm">{ipcaPlusRate.toFixed(2)}% a.a.</span>
             </div>
-            <span className="text-lg font-bold text-primary">{ipcaPlusRate.toFixed(2)}%</span>
-          </Label>
-        </div>
+          </SelectItem>
+          <SelectItem value="custom">Personalizado</SelectItem>
+        </SelectContent>
+      </Select>
 
-        {/* Personalizado */}
-        <div>
-          <RadioGroupItem
-            value="custom"
-            id="rate-custom"
-            className="peer sr-only"
-          />
-          <Label
-            htmlFor="rate-custom"
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 cursor-pointer transition-all",
-              "hover:bg-accent hover:text-accent-foreground",
-              selectedType === "custom"
-                ? "border-primary bg-primary/5"
-                : "border-muted"
-            )}
-          >
-            <span className="font-semibold text-sm">Personalizado</span>
-            <span className="text-lg font-bold text-primary">
-              {selectedType === "custom" && customValue ? `${customValue}%` : "—"}
-            </span>
-          </Label>
-        </div>
-      </RadioGroup>
-
-      {/* Input para valor personalizado */}
       {selectedType === "custom" && (
         <div className="relative animate-in fade-in slide-in-from-top-2 duration-200">
           <Input
