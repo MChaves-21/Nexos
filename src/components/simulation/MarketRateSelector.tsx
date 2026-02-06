@@ -30,14 +30,15 @@ const DEFAULT_RATES: MarketRates = {
   ipca: 4.87,
 };
 
-const IPCA_PLUS_SPREAD = 5;
+const DEFAULT_IPCA_SPREAD = 5;
 
 export function MarketRateSelector({ value, onChange, error, id }: MarketRateSelectorProps) {
   const [selectedType, setSelectedType] = useState<RateType>("custom");
   const [customValue, setCustomValue] = useState(value);
+  const [ipcaSpread, setIpcaSpread] = useState(DEFAULT_IPCA_SPREAD.toString());
   const [rates] = useState<MarketRates>(DEFAULT_RATES);
 
-  const ipcaPlusRate = rates.ipca + IPCA_PLUS_SPREAD;
+  const ipcaPlusRate = rates.ipca + parseFloat(ipcaSpread || "0");
 
   // Detectar tipo baseado no valor atual
   useEffect(() => {
@@ -46,8 +47,11 @@ export function MarketRateSelector({ value, onChange, error, id }: MarketRateSel
     
     if (Math.abs(numValue - rates.selic) < 0.01) {
       setSelectedType("selic");
-    } else if (Math.abs(numValue - ipcaPlusRate) < 0.01) {
+    } else if (numValue > rates.ipca && numValue <= rates.ipca + 10) {
+      // Se valor está entre IPCA e IPCA+10, assumir IPCA+
+      const detectedSpread = numValue - rates.ipca;
       setSelectedType("ipca_plus");
+      setIpcaSpread(detectedSpread.toFixed(2));
     } else {
       setSelectedType("custom");
       setCustomValue(value);
@@ -62,7 +66,8 @@ export function MarketRateSelector({ value, onChange, error, id }: MarketRateSel
         onChange(rates.selic.toString());
         break;
       case "ipca_plus":
-        onChange(ipcaPlusRate.toString());
+        const currentSpread = parseFloat(ipcaSpread) || DEFAULT_IPCA_SPREAD;
+        onChange((rates.ipca + currentSpread).toString());
         break;
       case "custom":
         onChange(customValue || "10");
@@ -76,12 +81,19 @@ export function MarketRateSelector({ value, onChange, error, id }: MarketRateSel
     onChange(newValue);
   };
 
+  const handleSpreadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSpread = e.target.value;
+    setIpcaSpread(newSpread);
+    const spreadNum = parseFloat(newSpread) || 0;
+    onChange((rates.ipca + spreadNum).toString());
+  };
+
   const getDisplayValue = () => {
     switch (selectedType) {
       case "selic":
         return `SELIC (${rates.selic}% a.a.)`;
       case "ipca_plus":
-        return `IPCA+ (${ipcaPlusRate.toFixed(2)}% a.a.)`;
+        return `IPCA + ${ipcaSpread}% (${ipcaPlusRate.toFixed(2)}% a.a.)`;
       case "custom":
         return "Personalizado";
       default:
@@ -107,12 +119,38 @@ export function MarketRateSelector({ value, onChange, error, id }: MarketRateSel
           <SelectItem value="ipca_plus">
             <div className="flex items-center justify-between w-full gap-4">
               <span>IPCA+</span>
-              <span className="text-muted-foreground text-sm">{ipcaPlusRate.toFixed(2)}% a.a.</span>
+              <span className="text-muted-foreground text-sm">Customizável</span>
             </div>
           </SelectItem>
           <SelectItem value="custom">Personalizado</SelectItem>
         </SelectContent>
       </Select>
+
+      {selectedType === "ipca_plus" && (
+        <div className="animate-in fade-in slide-in-from-top-2 duration-200 space-y-2">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">IPCA ({rates.ipca}%) +</span>
+            <div className="relative flex-1 max-w-[100px]">
+              <Input
+                type="number"
+                step="0.5"
+                min="0"
+                max="20"
+                placeholder="5"
+                value={ipcaSpread}
+                onChange={handleSpreadChange}
+                className="pr-6 h-8 text-sm"
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
+                %
+              </span>
+            </div>
+            <span className="text-sm font-medium whitespace-nowrap">
+              = {ipcaPlusRate.toFixed(2)}% a.a.
+            </span>
+          </div>
+        </div>
+      )}
 
       {selectedType === "custom" && (
         <div className="relative animate-in fade-in slide-in-from-top-2 duration-200">
