@@ -16,7 +16,6 @@ const Investments = lazy(() => import("./pages/Investments"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Simulation = lazy(() => import("./pages/Simulation"));
-const Goals = lazy(() => import("./pages/Goals"));
 const Budgets = lazy(() => import("./pages/Budgets"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -45,7 +44,6 @@ const AnimatedRoutes = () => {
           <Route path="/expenses" element={<Layout><Expenses /></Layout>} />
           <Route path="/investments" element={<Layout><Investments /></Layout>} />
           <Route path="/simulation" element={<Layout><Simulation /></Layout>} />
-          <Route path="/goals" element={<Layout><Goals /></Layout>} />
           <Route path="/budgets" element={<Layout><Budgets /></Layout>} />
           <Route path="/reports" element={<Layout><Reports /></Layout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect, useTransition } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Target, Receipt, FileText, Loader2 } from "lucide-react";
+import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Receipt, FileText, Loader2 } from "lucide-react";
 import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/Footer";
@@ -69,7 +69,6 @@ const Layout = ({ children }: LayoutProps) => {
     "/": () => import("@/pages/Index"),
     "/expenses": () => import("@/pages/Expenses"),
     "/investments": () => import("@/pages/Investments"),
-    "/goals": () => import("@/pages/Goals"),
     "/budgets": () => import("@/pages/Budgets"),
     "/simulation": () => import("@/pages/Simulation"),
     "/reports": () => import("@/pages/Reports"),
@@ -95,7 +94,6 @@ const Layout = ({ children }: LayoutProps) => {
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/expenses", icon: Wallet, label: "Gastos" },
     { to: "/investments", icon: TrendingUp, label: "Investimentos" },
-    { to: "/goals", icon: Target, label: "Metas" },
     { to: "/budgets", icon: Receipt, label: "Orçamentos" },
     { to: "/simulation", icon: Calculator, label: "Simulador" },
     { to: "/reports", icon: FileText, label: "Relatórios" },
