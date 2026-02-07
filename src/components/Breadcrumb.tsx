@@ -5,7 +5,6 @@ const routeLabels: Record<string, string> = {
   "/": "Dashboard",
   "/expenses": "Gastos",
   "/investments": "Investimentos",
-  "/goals": "Metas",
   "/budgets": "Orçamentos",
   "/simulation": "Simulador",
   "/reports": "Relatórios",
