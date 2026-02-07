@@ -193,41 +193,51 @@
    { ticker: "POUPANÇA", name: "Poupança", type: "Renda Fixa" },
  ];
  
- // Função para buscar ativos por ticker ou nome
- export function searchAssets(query: string, assetType?: string): B3Asset[] {
-   const normalizedQuery = query.toUpperCase().trim();
-   
-   if (normalizedQuery.length < 2) return [];
-   
-   let assets = B3_ASSETS;
-   
-   // Filtrar por tipo se especificado
-   if (assetType && assetType !== "all") {
-     assets = assets.filter(a => a.type === assetType);
-   }
-   
-   return assets.filter(asset => 
-     asset.ticker.toUpperCase().includes(normalizedQuery) ||
-     asset.name.toUpperCase().includes(normalizedQuery)
-   ).slice(0, 10); // Limitar a 10 resultados
- }
+// Função para buscar ativos por ticker ou nome com filtragem por tipo
+export function searchAssets(query: string, assetType?: string): B3Asset[] {
+  const normalizedQuery = query.toUpperCase().trim();
+  
+  if (normalizedQuery.length < 2) return [];
+  
+  let assets = B3_ASSETS;
+  
+  // Filtrar por tipo se especificado (e não for vazio ou "all")
+  if (assetType && assetType !== "all" && assetType !== "") {
+    assets = assets.filter(a => a.type === assetType);
+  }
+  
+  // Busca híbrida: pesquisa tanto no ticker quanto no nome
+  // Também remove acentos para busca mais flexível
+  const removeAccents = (str: string) => 
+    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  const normalizedQueryNoAccents = removeAccents(normalizedQuery);
+  
+  return assets.filter(asset => {
+    const tickerMatch = asset.ticker.toUpperCase().includes(normalizedQuery);
+    const nameMatch = asset.name.toUpperCase().includes(normalizedQuery);
+    const nameNoAccentsMatch = removeAccents(asset.name.toUpperCase()).includes(normalizedQueryNoAccents);
+    
+    return tickerMatch || nameMatch || nameNoAccentsMatch;
+  }).slice(0, 10); // Limitar a 10 resultados
+}
  
- // Função para validar se um ticker existe
- export function validateTicker(ticker: string, assetType?: string): B3Asset | null {
-   const normalizedTicker = ticker.toUpperCase().trim();
-   
-   let assets = B3_ASSETS;
-   
-   // Filtrar por tipo se especificado
-   if (assetType && assetType !== "all") {
-     assets = assets.filter(a => a.type === assetType);
-   }
-   
-   return assets.find(a => a.ticker === normalizedTicker) || null;
- }
- 
- // Função para obter o tipo de ativo pelo ticker
- export function getAssetTypeByTicker(ticker: string): string | null {
-   const asset = B3_ASSETS.find(a => a.ticker.toUpperCase() === ticker.toUpperCase().trim());
-   return asset ? asset.type : null;
- }
+// Função para validar se um ticker existe
+export function validateTicker(ticker: string, assetType?: string): B3Asset | null {
+  const normalizedTicker = ticker.toUpperCase().trim();
+  
+  let assets = B3_ASSETS;
+  
+  // Filtrar por tipo se especificado (e não for vazio ou "all")
+  if (assetType && assetType !== "all" && assetType !== "") {
+    assets = assets.filter(a => a.type === assetType);
+  }
+  
+  return assets.find(a => a.ticker === normalizedTicker) || null;
+}
+
+// Função para obter o tipo de ativo pelo ticker
+export function getAssetTypeByTicker(ticker: string): string | null {
+  const asset = B3_ASSETS.find(a => a.ticker.toUpperCase() === ticker.toUpperCase().trim());
+  return asset ? asset.type : null;
+}
