@@ -31,7 +31,8 @@
    const [highlightedIndex, setHighlightedIndex] = useState(-1);
    const inputRef = useRef<HTMLInputElement>(null);
    const containerRef = useRef<HTMLDivElement>(null);
-   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+    const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const validateDebounceRef = useRef<NodeJS.Timeout | null>(null);
  
    // Sincronizar com valor externo
    useEffect(() => {
@@ -47,22 +48,22 @@
    }, [value, assetType]);
  
    // Buscar sugestões com debounce
-   const searchWithDebounce = useCallback((query: string) => {
-     if (debounceRef.current) {
-       clearTimeout(debounceRef.current);
-     }
- 
-     debounceRef.current = setTimeout(() => {
-       if (query.length >= 2) {
-         const results = searchAssets(query, assetType);
-         setSuggestions(results);
-         setIsOpen(results.length > 0);
-       } else {
-         setSuggestions([]);
-         setIsOpen(false);
-       }
-     }, 150);
-   }, [assetType]);
+    const searchWithDebounce = useCallback((query: string) => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+
+      searchDebounceRef.current = setTimeout(() => {
+        if (query.length >= 2) {
+          const results = searchAssets(query, assetType);
+          setSuggestions(results);
+          setIsOpen(results.length > 0);
+        } else {
+          setSuggestions([]);
+          setIsOpen(false);
+        }
+      }, 150);
+    }, [assetType]);
  
    // Validar input quando terminar de digitar
    const validateInput = useCallback((ticker: string) => {
@@ -78,20 +79,20 @@
      onChange(ticker, asset !== null, asset || undefined);
    }, [assetType, onChange]);
  
-   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-     const newValue = e.target.value.toUpperCase();
-     setInputValue(newValue);
-     setHighlightedIndex(-1);
-     searchWithDebounce(newValue);
-     
-     // Validar após um delay maior para não interferir na digitação
-     if (debounceRef.current) {
-       clearTimeout(debounceRef.current);
-     }
-     debounceRef.current = setTimeout(() => {
-       validateInput(newValue);
-     }, 500);
-   };
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = e.target.value.toUpperCase();
+      setInputValue(newValue);
+      setHighlightedIndex(-1);
+      searchWithDebounce(newValue);
+      
+      // Validar após um delay maior para não interferir na digitação
+      if (validateDebounceRef.current) {
+        clearTimeout(validateDebounceRef.current);
+      }
+      validateDebounceRef.current = setTimeout(() => {
+        validateInput(newValue);
+      }, 500);
+    };
  
    const handleSelectSuggestion = (asset: B3Asset) => {
      setInputValue(asset.ticker);
