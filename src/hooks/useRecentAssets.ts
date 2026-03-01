@@ -33,10 +33,18 @@ export function useRecentAssets() {
     });
   }, []);
 
+  const removeRecent = useCallback((ticker: string) => {
+    setRecentAssets((prev) => {
+      const updated = prev.filter((a) => a.ticker !== ticker);
+      saveRecent(updated);
+      return updated;
+    });
+  }, []);
+
   const clearRecent = useCallback(() => {
     setRecentAssets([]);
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  return { recentAssets, addRecent, clearRecent };
+  return { recentAssets, addRecent, removeRecent, clearRecent };
 }

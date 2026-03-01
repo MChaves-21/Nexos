@@ -36,7 +36,7 @@ export function TickerInput({
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const validateDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { recentAssets, addRecent, clearRecent } = useRecentAssets();
+  const { recentAssets, addRecent, removeRecent, clearRecent } = useRecentAssets();
 
   // Sincronizar com valor externo
   useEffect(() => {
@@ -299,26 +299,41 @@ export function TickerInput({
                         : "hover:bg-muted"
                     )}
                   >
-                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {showRecent && <Clock className="h-3 w-3 text-muted-foreground shrink-0" />}
+                    <div className="flex items-center justify-between w-full gap-2">
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          {showRecent && <Clock className="h-3 w-3 text-muted-foreground shrink-0" />}
+                          <span className={cn(
+                            "font-mono font-semibold",
+                            tickerMatches && "text-primary"
+                          )}>
+                            {asset.ticker}
+                          </span>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {asset.type}
+                          </Badge>
+                        </div>
                         <span className={cn(
-                          "font-mono font-semibold",
-                          tickerMatches && "text-primary"
+                          "text-sm text-muted-foreground truncate",
+                          showRecent && "ml-5",
+                          nameMatches && !tickerMatches && "text-primary"
                         )}>
-                          {asset.ticker}
+                          {asset.name}
                         </span>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {asset.type}
-                        </Badge>
                       </div>
-                      <span className={cn(
-                        "text-sm text-muted-foreground truncate",
-                        showRecent && "ml-5",
-                        nameMatches && !tickerMatches && "text-primary"
-                      )}>
-                        {asset.name}
-                      </span>
+                      {showRecent && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeRecent(asset.ticker);
+                          }}
+                          className="p-1 rounded hover:bg-destructive/10 transition-colors shrink-0"
+                          title="Remover do histórico"
+                        >
+                          <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                        </button>
+                      )}
                     </div>
                   </li>
                 );
