@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -20,6 +20,7 @@ const Dashboard = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedInvestment, setSelectedInvestment] = useState<string | null>(null);
   const [selectedYears, setSelectedYears] = useState<string[]>(["2024", "2023"]);
+  const [categoryMonthOffset, setCategoryMonthOffset] = useState(0);
 
   const { transactions, isLoading: loadingTransactions } = useTransactions();
   const { investments, isLoading: loadingInvestments } = useInvestments();
@@ -92,26 +93,8 @@ const Dashboard = () => {
       };
     });
 
-    // Gastos por categoria (mês atual)
-    const categoryData: { [key: string]: number } = {};
-    const currentMonth = new Date().getMonth();
-    const currentMonthTransactions = filteredTransactions.filter(t => {
-      const date = new Date(t.date);
-      return t.type === 'expense' && date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-    });
-
-    currentMonthTransactions.forEach(transaction => {
-      if (!categoryData[transaction.category]) {
-        categoryData[transaction.category] = 0;
-      }
-      categoryData[transaction.category] += transaction.amount;
-    });
-
-    const categoriesData = Object.entries(categoryData).map(([name, value], index) => ({
-      name,
-      value,
-      color: `hsl(var(--chart-${(index % 5) + 1}))`
-    }));
+    // Gastos por categoria - calculado externamente com categoryMonthOffset
+    const expenseTransactions = filteredTransactions.filter(t => t.type === 'expense');
 
     // Distribuição de investimentos por tipo (filtrado por período)
     const investmentsByType: { [key: string]: number } = {};
@@ -250,7 +233,7 @@ const Dashboard = () => {
     return {
       patrimonioData,
       fluxoCaixaData,
-      categoriesData,
+      expenseTransactions,
       investmentsData,
       stats: {
         netWorth,
@@ -278,6 +261,35 @@ const Dashboard = () => {
     };
   }, [transactions, investments, goals, loadingTransactions, loadingInvestments, loadingGoals]);
 
+  // Calcular categoriesData dinamicamente com base no mês selecionado
+  const categoryViewDate = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + categoryMonthOffset);
+    return d;
+  }, [categoryMonthOffset]);
+
+  const categoriesData = useMemo(() => {
+    const expTxns = dashboardData?.expenseTransactions ?? [];
+    const targetMonth = categoryViewDate.getMonth();
+    const targetYear = categoryViewDate.getFullYear();
+    
+    const categoryData: { [key: string]: number } = {};
+    expTxns
+      .filter(t => {
+        const date = new Date(t.date);
+        return date.getMonth() === targetMonth && date.getFullYear() === targetYear;
+      })
+      .forEach(t => {
+        categoryData[t.category] = (categoryData[t.category] || 0) + t.amount;
+      });
+
+    return Object.entries(categoryData).map(([name, value], index) => ({
+      name,
+      value,
+      color: `hsl(var(--chart-${(index % 5) + 1}))`
+    }));
+  }, [dashboardData?.expenseTransactions, categoryViewDate]);
+
   if (loadingTransactions || loadingInvestments || loadingGoals || !dashboardData) {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
@@ -287,21 +299,16 @@ const Dashboard = () => {
             Visão completa das suas finanças
           </p>
         </div>
-
-        {/* Stats Cards Skeleton */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCardSkeleton />
           <StatCardSkeleton />
           <StatCardSkeleton />
           <StatCardSkeleton />
         </div>
-
-        {/* Charts Skeleton */}
         <div className="grid gap-6 lg:grid-cols-2">
           <ChartSkeleton height={300} />
           <ChartSkeleton height={300} />
         </div>
-
         <div className="grid gap-6 lg:grid-cols-2">
           <ChartSkeleton height={250} />
           <ChartSkeleton height={250} />
@@ -310,7 +317,7 @@ const Dashboard = () => {
     );
   }
 
-  const { patrimonioData, fluxoCaixaData, categoriesData, investmentsData, stats, yearlyComparisonData, yearlyIncomeData, availableYears, annualStats, goalsData } = dashboardData;
+  const { patrimonioData, fluxoCaixaData, investmentsData, stats, yearlyComparisonData, yearlyIncomeData, availableYears, annualStats, goalsData } = dashboardData;
 
 
   const toggleYear = (year: string) => {
@@ -499,17 +506,35 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>Gastos por Categoria</CardTitle>
-            <CardDescription>
-              {format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })} — Clique em uma categoria para filtrar
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Gastos por Categoria</CardTitle>
+                <CardDescription>Clique em uma categoria para filtrar</CardDescription>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCategoryMonthOffset(o => o - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs capitalize min-w-[120px] justify-center"
+                  onClick={() => setCategoryMonthOffset(0)}
+                >
+                  {format(categoryViewDate, "MMM yyyy", { locale: ptBR })}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCategoryMonthOffset(o => Math.min(o + 1, 0))} disabled={categoryMonthOffset >= 0}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {categoriesData.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
                 <Wallet className="h-12 w-12 mb-3 opacity-50" />
                 <p className="text-sm font-medium">Nenhuma despesa registrada</p>
-                <p className="text-xs mt-1">no mês de {format(new Date(), "MMMM", { locale: ptBR })}</p>
+                <p className="text-xs mt-1">em {format(categoryViewDate, "MMMM 'de' yyyy", { locale: ptBR })}</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
