@@ -500,44 +500,54 @@ const Dashboard = () => {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle>Gastos por Categoria</CardTitle>
-            <CardDescription>Clique em uma categoria para filtrar</CardDescription>
+            <CardDescription>
+              {format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })} — Clique em uma categoria para filtrar
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart onClick={handleCategoryClick}>
-                <Pie
-                  data={categoriesData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  style={{ cursor: 'pointer' }}
-                >
-                  {categoriesData.map((entry, index) => {
-                    const isSelected = selectedCategory === entry.name;
-                    return (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.color} 
-                        opacity={isSelected ? 1 : selectedCategory ? 0.3 : 1}
-                        strokeWidth={isSelected ? 3 : 0}
-                        stroke="hsl(var(--foreground))"
-                      />
-                    );
-                  })}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)"
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {categoriesData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                <Wallet className="h-12 w-12 mb-3 opacity-50" />
+                <p className="text-sm font-medium">Nenhuma despesa registrada</p>
+                <p className="text-xs mt-1">no mês de {format(new Date(), "MMMM", { locale: ptBR })}</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart onClick={handleCategoryClick}>
+                  <Pie
+                    data={categoriesData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {categoriesData.map((entry, index) => {
+                      const isSelected = selectedCategory === entry.name;
+                      return (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.color} 
+                          opacity={isSelected ? 1 : selectedCategory ? 0.3 : 1}
+                          strokeWidth={isSelected ? 3 : 0}
+                          stroke="hsl(var(--foreground))"
+                        />
+                      );
+                    })}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "var(--radius)"
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
