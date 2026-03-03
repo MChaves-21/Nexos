@@ -21,6 +21,7 @@ const Dashboard = () => {
   const [selectedInvestment, setSelectedInvestment] = useState<string | null>(null);
   const [selectedYears, setSelectedYears] = useState<string[]>(["2024", "2023"]);
   const [categoryMonthOffset, setCategoryMonthOffset] = useState(0);
+  const [cashFlowMonthOffset, setCashFlowMonthOffset] = useState(0);
 
   const { transactions, isLoading: loadingTransactions } = useTransactions();
   const { investments, isLoading: loadingInvestments } = useInvestments();
@@ -233,6 +234,7 @@ const Dashboard = () => {
     return {
       patrimonioData,
       fluxoCaixaData,
+      allTransactions: filteredTransactions,
       expenseTransactions,
       investmentsData,
       stats: {
@@ -289,6 +291,39 @@ const Dashboard = () => {
       color: `hsl(var(--chart-${(index % 5) + 1}))`
     }));
   }, [dashboardData?.expenseTransactions, categoryViewDate]);
+
+  // Calcular fluxo de caixa dinamicamente com base no mês selecionado
+  const cashFlowViewDate = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + cashFlowMonthOffset);
+    return d;
+  }, [cashFlowMonthOffset]);
+
+  const cashFlowData = useMemo(() => {
+    const allTxns = dashboardData?.allTransactions ?? [];
+    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+    // Build 6 months ending at cashFlowViewDate
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(cashFlowViewDate);
+      d.setMonth(d.getMonth() - i);
+      months.push({ month: d.getMonth(), year: d.getFullYear(), name: monthNames[d.getMonth()] });
+    }
+
+    return months.map(({ month, year, name }) => {
+      let receitas = 0;
+      let despesas = 0;
+      allTxns.forEach(t => {
+        const date = new Date(t.date);
+        if (date.getMonth() === month && date.getFullYear() === year) {
+          if (t.type === 'income') receitas += t.amount;
+          else despesas += t.amount;
+        }
+      });
+      return { mes: name, receitas, despesas };
+    });
+  }, [dashboardData?.allTransactions, cashFlowViewDate]);
 
   if (loadingTransactions || loadingInvestments || loadingGoals || !dashboardData) {
     return (
@@ -464,11 +499,29 @@ const Dashboard = () => {
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>Fluxo de Caixa</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Fluxo de Caixa</CardTitle>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCashFlowMonthOffset(o => o - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs capitalize min-w-[120px] justify-center"
+                  onClick={() => setCashFlowMonthOffset(0)}
+                >
+                  {format(cashFlowViewDate, "MMM yyyy", { locale: ptBR })}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCashFlowMonthOffset(o => Math.min(o + 1, 0))} disabled={cashFlowMonthOffset >= 0}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={fluxoCaixaData} onClick={handleMonthClick}>
+              <BarChart data={cashFlowData} onClick={handleMonthClick}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="mes" className="text-xs" />
                 <YAxis className="text-xs" />
