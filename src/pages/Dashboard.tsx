@@ -520,35 +520,43 @@ const Dashboard = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={cashFlowData} onClick={handleMonthClick}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="mes" className="text-xs" />
-                <YAxis className="text-xs" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)"
-                  }}
-                />
-                <Legend />
-                <Bar 
-                  dataKey="receitas" 
-                  fill="hsl(var(--success))" 
-                  radius={[4, 4, 0, 0]}
-                  fillOpacity={selectedMonth ? 0.3 : 1}
-                  style={{ cursor: 'pointer' }}
-                />
-                <Bar 
-                  dataKey="despesas" 
-                  fill="hsl(var(--destructive))" 
-                  radius={[4, 4, 0, 0]}
-                  fillOpacity={selectedMonth ? 0.3 : 1}
-                  style={{ cursor: 'pointer' }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            {cashFlowData.every(d => d.receitas === 0 && d.despesas === 0) ? (
+              <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+                <Wallet className="h-12 w-12 mb-3 opacity-50" />
+                <p className="text-sm font-medium">Nenhuma transação registrada</p>
+                <p className="text-xs mt-1">no período até {format(cashFlowViewDate, "MMMM 'de' yyyy", { locale: ptBR })}</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={cashFlowData} onClick={handleMonthClick}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="mes" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "var(--radius)"
+                    }}
+                  />
+                  <Legend />
+                  <Bar 
+                    dataKey="receitas" 
+                    fill="hsl(var(--success))" 
+                    radius={[4, 4, 0, 0]}
+                    fillOpacity={selectedMonth ? 0.3 : 1}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <Bar 
+                    dataKey="despesas" 
+                    fill="hsl(var(--destructive))" 
+                    radius={[4, 4, 0, 0]}
+                    fillOpacity={selectedMonth ? 0.3 : 1}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
