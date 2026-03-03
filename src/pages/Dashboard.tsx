@@ -426,7 +426,6 @@ const Dashboard = () => {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle>Evolução Patrimonial</CardTitle>
-            <CardDescription>Clique em um ponto para filtrar detalhes</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -466,7 +465,6 @@ const Dashboard = () => {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle>Fluxo de Caixa</CardTitle>
-            <CardDescription>Clique em uma barra para filtrar detalhes</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -509,7 +507,6 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Gastos por Categoria</CardTitle>
-                <CardDescription>Clique em uma categoria para filtrar</CardDescription>
               </div>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCategoryMonthOffset(o => o - 1)}>
@@ -579,7 +576,6 @@ const Dashboard = () => {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle>Distribuição de Investimentos</CardTitle>
-            <CardDescription>Clique em um investimento para filtrar</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
