@@ -327,6 +327,13 @@ const Dashboard = () => {
     });
   }, [dashboardData?.allTransactions, cashFlowViewDate]);
 
+  const filteredYearlyIncomeData = useMemo(() => {
+    return (dashboardData?.yearlyIncomeData ?? []).filter(d => {
+      const y = parseInt(d.ano);
+      return y >= parseInt(startYear) && y <= parseInt(endYear);
+    });
+  }, [dashboardData?.yearlyIncomeData, startYear, endYear]);
+
   if (loadingTransactions || loadingInvestments || loadingGoals || !dashboardData) {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
@@ -356,13 +363,6 @@ const Dashboard = () => {
 
   const { patrimonioData, fluxoCaixaData, stats, yearlyIncomeData, availableYears, annualStats, goalsData } = dashboardData;
 
-
-  const filteredYearlyIncomeData = useMemo(() => {
-    return (dashboardData?.yearlyIncomeData ?? []).filter(d => {
-      const y = parseInt(d.ano);
-      return y >= parseInt(startYear) && y <= parseInt(endYear);
-    });
-  }, [dashboardData?.yearlyIncomeData, startYear, endYear]);
 
   const handleMonthClick = (data: any) => {
     setSelectedMonth(selectedMonth === data.mes ? null : data.mes);
