@@ -645,7 +645,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-1">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle>Receitas vs Despesas Anuais</CardTitle>
