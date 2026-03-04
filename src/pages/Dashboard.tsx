@@ -18,7 +18,7 @@ import WealthEvolutionChart from "@/components/charts/WealthEvolutionChart";
 const Dashboard = () => {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedInvestment, setSelectedInvestment] = useState<string | null>(null);
+  
   const [selectedYears, setSelectedYears] = useState<string[]>(["2024", "2023"]);
   const [categoryMonthOffset, setCategoryMonthOffset] = useState(0);
   const [cashFlowMonthOffset, setCashFlowMonthOffset] = useState(0);
@@ -352,7 +352,7 @@ const Dashboard = () => {
     );
   }
 
-  const { patrimonioData, fluxoCaixaData, investmentsData, stats, yearlyComparisonData, yearlyIncomeData, availableYears, annualStats, goalsData } = dashboardData;
+  const { patrimonioData, fluxoCaixaData, stats, yearlyIncomeData, availableYears, annualStats, goalsData } = dashboardData;
 
 
   const toggleYear = (year: string) => {
@@ -368,25 +368,16 @@ const Dashboard = () => {
   const handleMonthClick = (data: any) => {
     setSelectedMonth(selectedMonth === data.mes ? null : data.mes);
     setSelectedCategory(null);
-    setSelectedInvestment(null);
   };
 
   const handleCategoryClick = (data: any) => {
     setSelectedCategory(selectedCategory === data.name ? null : data.name);
     setSelectedMonth(null);
-    setSelectedInvestment(null);
-  };
-
-  const handleInvestmentClick = (data: any) => {
-    setSelectedInvestment(selectedInvestment === data.name ? null : data.name);
-    setSelectedMonth(null);
-    setSelectedCategory(null);
   };
 
   const clearFilters = () => {
     setSelectedMonth(null);
     setSelectedCategory(null);
-    setSelectedInvestment(null);
   };
 
   return (
@@ -397,7 +388,7 @@ const Dashboard = () => {
           Visão completa das suas finanças
         </p>
 
-        {(selectedMonth || selectedCategory || selectedInvestment) && (
+        {(selectedMonth || selectedCategory) && (
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <span className="text-sm text-muted-foreground">Filtros ativos:</span>
             {selectedMonth && (
@@ -408,11 +399,6 @@ const Dashboard = () => {
             {selectedCategory && (
               <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedCategory(null)}>
                 Categoria: {selectedCategory} ✕
-              </Badge>
-            )}
-            {selectedInvestment && (
-              <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedInvestment(null)}>
-                Investimento: {selectedInvestment} ✕
               </Badge>
             )}
             <button onClick={clearFilters} className="text-sm text-primary hover:underline">
@@ -562,7 +548,7 @@ const Dashboard = () => {
       </div>
 
       {/* Charts Row 2 */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -634,48 +620,6 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle>Distribuição de Investimentos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart onClick={handleInvestmentClick}>
-                <Pie
-                  data={investmentsData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  style={{ cursor: 'pointer' }}
-                >
-                  {investmentsData.map((entry, index) => {
-                    const isSelected = selectedInvestment === entry.name;
-                    return (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.color}
-                        opacity={isSelected ? 1 : selectedInvestment ? 0.3 : 1}
-                        strokeWidth={isSelected ? 3 : 0}
-                        stroke="hsl(var(--foreground))"
-                      />
-                    );
-                  })}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)"
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Evolução das Metas Financeiras */}
@@ -743,43 +687,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle>Evolução Patrimonial por Ano</CardTitle>
-              <CardDescription>Comparação mensal entre os anos selecionados</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={yearlyComparisonData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="mes" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
-                    }}
-                  />
-                  <Legend />
-                   {availableYears.map((year, index) => 
-                    selectedYears.includes(year) && (
-                      <Line 
-                        key={year}
-                        type="monotone" 
-                        dataKey={year} 
-                        stroke={`hsl(var(--chart-${(index % 5) + 1}))`}
-                        strokeWidth={2}
-                        dot={{ fill: `hsl(var(--chart-${(index % 5) + 1}))`, r: 4 }}
-                      />
-                    )
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
+        <div className="grid gap-4">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle>Receitas vs Despesas Anuais</CardTitle>
