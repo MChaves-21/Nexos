@@ -19,7 +19,8 @@ const Dashboard = () => {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
-  const [selectedYears, setSelectedYears] = useState<string[]>(["2024", "2023"]);
+  const [startYear, setStartYear] = useState<string>((new Date().getFullYear() - 2).toString());
+  const [endYear, setEndYear] = useState<string>(new Date().getFullYear().toString());
   const [categoryMonthOffset, setCategoryMonthOffset] = useState(0);
   const [cashFlowMonthOffset, setCashFlowMonthOffset] = useState(0);
 
