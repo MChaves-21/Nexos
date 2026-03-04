@@ -444,44 +444,6 @@ const Dashboard = () => {
 
       {/* Charts Row 1 */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle>Evolução Patrimonial</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={patrimonioData} onClick={handleMonthClick}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="mes" className="text-xs" />
-                <YAxis className="text-xs" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)"
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="valor" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={2}
-                  dot={(props) => {
-                    const isSelected = selectedMonth === props.payload.mes;
-                    return (
-                      <circle
-                        {...props}
-                        fill={isSelected ? "hsl(var(--success))" : "hsl(var(--primary))"}
-                        r={isSelected ? 6 : 4}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    );
-                  }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
