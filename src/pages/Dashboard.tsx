@@ -507,10 +507,7 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* Charts Row 2 */}
-      <div className="grid gap-4">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -581,7 +578,6 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
-
       </div>
 
       {/* Evolução das Metas Financeiras */}
