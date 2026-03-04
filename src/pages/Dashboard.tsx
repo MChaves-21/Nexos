@@ -8,6 +8,7 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useInvestments } from "@/hooks/useInvestments";
 import { useGoals } from "@/hooks/useGoals";
@@ -356,15 +357,12 @@ const Dashboard = () => {
   const { patrimonioData, fluxoCaixaData, stats, yearlyIncomeData, availableYears, annualStats, goalsData } = dashboardData;
 
 
-  const toggleYear = (year: string) => {
-    if (selectedYears.includes(year)) {
-      if (selectedYears.length > 1) {
-        setSelectedYears(selectedYears.filter(y => y !== year));
-      }
-    } else {
-      setSelectedYears([...selectedYears, year]);
-    }
-  };
+  const filteredYearlyIncomeData = useMemo(() => {
+    return (dashboardData?.yearlyIncomeData ?? []).filter(d => {
+      const y = parseInt(d.ano);
+      return y >= parseInt(startYear) && y <= parseInt(endYear);
+    });
+  }, [dashboardData?.yearlyIncomeData, startYear, endYear]);
 
   const handleMonthClick = (data: any) => {
     setSelectedMonth(selectedMonth === data.mes ? null : data.mes);
@@ -625,24 +623,35 @@ const Dashboard = () => {
 
       {/* Comparação Ano a Ano */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h3 className="text-2xl font-bold tracking-tight">Comparação Ano a Ano</h3>
             <p className="text-muted-foreground mt-1">
               Visualize a evolução das suas finanças ao longo dos anos
             </p>
           </div>
-          <div className="flex gap-2">
-            {availableYears.map(year => (
-              <Badge
-                key={year}
-                variant={selectedYears.includes(year) ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => toggleYear(year)}
-              >
-                {year}
-              </Badge>
-            ))}
+          <div className="flex items-center gap-2">
+            <Select value={startYear} onValueChange={(v) => { setStartYear(v); if (parseInt(v) > parseInt(endYear)) setEndYear(v); }}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map(year => (
+                  <SelectItem key={year} value={year}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground">até</span>
+            <Select value={endYear} onValueChange={(v) => { setEndYear(v); if (parseInt(v) < parseInt(startYear)) setStartYear(v); }}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map(year => (
+                  <SelectItem key={year} value={year}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -654,7 +663,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={yearlyIncomeData}>
+                <BarChart data={filteredYearlyIncomeData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="ano" className="text-xs" />
                   <YAxis className="text-xs" />
