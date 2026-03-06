@@ -778,12 +778,44 @@ const Investments = () => {
               <XAxis dataKey="mes" className="text-xs" />
               <YAxis className="text-xs" />
               <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)"
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const value = payload[0].value as number;
+                  // Find total invested for the month to calculate percentage
+                  const monthInvestments = investments.filter(inv => {
+                    const d = new Date(inv.purchase_date);
+                    const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+                    return months[d.getMonth()] === label && d.getFullYear() === selectedYear;
+                  });
+                  const totalInvested = monthInvestments.reduce((sum, inv) => sum + inv.purchase_price * inv.quantity, 0);
+                  const pct = totalInvested > 0 ? ((value / totalInvested) * 100).toFixed(2) : null;
+                  const isNeg = value < 0;
+                  return (
+                    <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-sm">
+                      <p className="font-semibold text-foreground mb-1.5">{label}/{selectedYear}</p>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Rendimento:</span>
+                        <span className={`font-medium ${isNeg ? 'text-destructive' : 'text-success'}`}>
+                          {isNeg ? '' : '+'}R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {pct && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Variação:</span>
+                          <span className={`font-medium ${isNeg ? 'text-destructive' : 'text-success'}`}>
+                            {isNeg ? '' : '+'}{pct}%
+                          </span>
+                        </div>
+                      )}
+                      {totalInvested > 0 && (
+                        <div className="flex justify-between gap-4 border-t border-border mt-1.5 pt-1.5">
+                          <span className="text-muted-foreground">Investido:</span>
+                          <span className="font-medium">R$ {totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
                 }}
-                formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Rendimento']}
               />
               <Bar dataKey="rendimento" radius={[4, 4, 0, 0]}>
                 {performanceData.map((entry, index) => (
@@ -1180,12 +1212,40 @@ const Investments = () => {
                   <XAxis dataKey="periodo" className="text-xs" />
                   <YAxis className="text-xs" tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
                   <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      const data = payload[0].payload;
+                      const diff = data.atual - data.investido;
+                      const pct = data.investido > 0 ? ((diff / data.investido) * 100).toFixed(2) : '0.00';
+                      const isPositive = diff >= 0;
+                      return (
+                        <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-sm">
+                          <p className="font-semibold text-foreground mb-1.5">{label}</p>
+                          <div className="space-y-1">
+                            <div className="flex justify-between gap-4">
+                              <span className="text-muted-foreground">Investido:</span>
+                              <span className="font-medium">R$ {data.investido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-muted-foreground">Valor Atual:</span>
+                              <span className="font-medium text-success">R$ {data.atual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between gap-4 border-t border-border pt-1.5 mt-1.5">
+                              <span className="text-muted-foreground">Resultado:</span>
+                              <span className={`font-medium ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                                {isPositive ? '+' : ''}R$ {diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-muted-foreground">Variação:</span>
+                              <span className={`font-medium ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                                {isPositive ? '+' : ''}{pct}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
                     }}
-                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]}
                   />
                   <Legend />
                   <Area 
