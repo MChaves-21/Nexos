@@ -1027,7 +1027,7 @@ const Investments = () => {
               {rebalancingSuggestions.map((suggestion, index) => (
                 <div 
                   key={index}
-                  className={`flex items-center justify-between p-4 rounded-lg border ${
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border gap-3 ${
                     suggestion.priority === 'high' 
                       ? 'border-destructive/50 bg-destructive/5' 
                       : suggestion.priority === 'medium'
@@ -1036,7 +1036,7 @@ const Investments = () => {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${
+                    <div className={`p-2 rounded-full shrink-0 ${
                       suggestion.action === 'buy' 
                         ? 'bg-success/10 text-success' 
                         : 'bg-warning/10 text-warning'
@@ -1048,16 +1048,16 @@ const Investments = () => {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">
+                      <p className="font-medium text-sm">
                         {suggestion.action === 'buy' ? 'Comprar' : 'Vender'} {suggestion.type}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Diferença de {suggestion.percentage.toFixed(1)}% da meta
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
+                    <p className="font-semibold text-sm">
                       R$ {suggestion.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                     <Badge 
@@ -1065,10 +1065,10 @@ const Investments = () => {
                         suggestion.priority === 'high' ? 'destructive' : 
                         suggestion.priority === 'medium' ? 'secondary' : 'outline'
                       }
-                      className="text-xs"
+                      className="text-xs shrink-0"
                     >
                       {suggestion.priority === 'high' ? 'Alta' : 
-                       suggestion.priority === 'medium' ? 'Média' : 'Baixa'} prioridade
+                       suggestion.priority === 'medium' ? 'Média' : 'Baixa'}
                     </Badge>
                   </div>
                 </div>
