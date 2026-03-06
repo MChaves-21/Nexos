@@ -709,39 +709,39 @@ const Investments = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <Card className="border-primary/20">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 p-4">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Investido
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="p-4 pt-0">
+            <div className="text-xl sm:text-2xl font-bold">
               R$ {totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
         <Card className="border-success/20">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 p-4">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Valor Atual
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="p-4 pt-0">
+            <div className="text-xl sm:text-2xl font-bold">
               R$ {totalCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
         <Card className={totalGain >= 0 ? "border-success/20" : "border-destructive/20"}>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 p-4">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Ganho Total
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
+          <CardContent className="p-4 pt-0">
+            <div className={`text-xl sm:text-2xl font-bold ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
               R$ {totalGain.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className={`text-xs mt-1 ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
