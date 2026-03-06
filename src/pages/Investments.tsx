@@ -588,10 +588,10 @@ const Investments = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Investimentos</h2>
-          <p className="text-muted-foreground mt-1">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Investimentos</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
             Acompanhe sua carteira de investimentos
             {isUpdatingPrices && (
               <span className="ml-2 text-xs text-primary animate-pulse">
@@ -609,18 +609,21 @@ const Investments = () => {
           <PriceAlertSettings investments={investments} />
           <Button 
             variant="outline" 
-            className="gap-2" 
+            className="gap-2 text-sm" 
+            size="sm"
             onClick={updateStockPrices}
             disabled={isUpdatingPrices}
           >
             <RefreshCw className={`h-4 w-4 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
-            {isUpdatingPrices ? 'Atualizando...' : 'Atualizar Preços'}
+            <span className="hidden sm:inline">{isUpdatingPrices ? 'Atualizando...' : 'Atualizar Preços'}</span>
+            <span className="sm:hidden">{isUpdatingPrices ? '...' : 'Atualizar'}</span>
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2" size="sm">
                 <Plus className="h-4 w-4" />
-                Novo Ativo
+                <span className="hidden sm:inline">Novo Ativo</span>
+                <span className="sm:hidden">Novo</span>
               </Button>
             </DialogTrigger>
           <DialogContent>
