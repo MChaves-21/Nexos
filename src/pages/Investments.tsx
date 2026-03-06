@@ -1095,9 +1095,9 @@ const Investments = () => {
             <div className="space-y-4">
               {assetTypePerformanceData.map((item) => (
                 <div key={item.type} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-1">
                     <span className="font-medium">{item.type}</span>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 text-xs sm:text-sm flex-wrap">
                       <span className="text-muted-foreground">
                         Investido: <span className="text-foreground font-medium">
                           R$ {item.invested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
