@@ -1294,12 +1294,12 @@ const Investments = () => {
                 return (
                   <AnimatedItem key={item.id} itemKey={item.id}>
                     <div
-                      className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border hover:bg-muted/50 transition-colors gap-2"
                     >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold">{item.asset_name}</p>
-                          <Badge variant="outline" className="text-xs">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold truncate">{item.asset_name}</p>
+                          <Badge variant="outline" className="text-xs shrink-0">
                             {item.asset_type}
                           </Badge>
                         </div>
@@ -1307,12 +1307,12 @@ const Investments = () => {
                           {item.quantity} × R$ {item.current_price.toFixed(2)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-semibold">
+                      <div className="flex items-center justify-between sm:justify-end gap-3">
+                        <div className="text-left sm:text-right">
+                          <p className="font-semibold text-sm sm:text-base">
                             R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </p>
-                          <div className="flex items-center gap-1 justify-end mt-1">
+                          <div className="flex items-center gap-1 sm:justify-end mt-0.5">
                             {isPositive ? (
                               <TrendingUp className="h-3 w-3 text-success" />
                             ) : (
@@ -1323,7 +1323,7 @@ const Investments = () => {
                             </span>
                           </div>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 shrink-0">
                           <Button 
                             variant="ghost" 
                             size="icon" 
