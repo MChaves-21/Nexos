@@ -891,8 +891,8 @@ const Investments = () => {
           </CardTitle>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 text-sm">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Alertar se &gt;</span>
+              <Bell className="h-4 w-4 text-muted-foreground hidden sm:block" />
+              <span className="text-muted-foreground hidden sm:inline">Alertar se &gt;</span>
               <Select 
                 value={imbalanceThreshold.toString()} 
                 onValueChange={(value) => handleThresholdChange(parseFloat(value))}
@@ -965,9 +965,9 @@ const Investments = () => {
               
               return (
                 <div key={item.type} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-1">
                     <span className="font-medium">{item.type}</span>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 text-xs sm:text-sm">
                       <span className="text-muted-foreground">
                         Atual: <span className="text-foreground font-medium">{item.current}%</span>
                       </span>
