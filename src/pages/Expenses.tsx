@@ -1118,9 +1118,9 @@ const Expenses = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Bar Chart */}
-                  <div className="h-[300px]">
+                  <div className="h-[250px] sm:h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={monthComparisonData.data.slice(0, 6)}
@@ -1340,14 +1340,14 @@ const Expenses = () => {
                         key={forecast.category}
                         className="p-3 rounded-lg border hover:bg-muted/30 transition-colors"
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{forecast.category}</span>
+                            <span className="font-medium text-sm truncate">{forecast.category}</span>
                             {forecast.willExceedBudget && (
-                              <AlertTriangle className="h-4 w-4 text-destructive" />
+                              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                             )}
                             {forecast.budget > 0 && !forecast.willExceedBudget && forecast.percentOfBudget < 80 && (
-                              <CheckCircle2 className="h-4 w-4 text-success" />
+                              <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
                             )}
                           </div>
                           <div className="flex items-center gap-3">
