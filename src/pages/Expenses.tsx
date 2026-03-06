@@ -663,16 +663,16 @@ const Expenses = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Gastos e Receitas</h2>
-          <p className="text-muted-foreground mt-1">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Gastos e Receitas</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
             Controle seu fluxo de caixa mensal
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
               Nova Transação
             </Button>
@@ -755,8 +755,8 @@ const Expenses = () => {
       <Card>
         <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
           <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <CardTitle>Transações</CardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-lg">Transações</CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Export Buttons */}
                 <Popover>
@@ -1118,9 +1118,9 @@ const Expenses = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Bar Chart */}
-                  <div className="h-[300px]">
+                  <div className="h-[250px] sm:h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={monthComparisonData.data.slice(0, 6)}
@@ -1340,14 +1340,14 @@ const Expenses = () => {
                         key={forecast.category}
                         className="p-3 rounded-lg border hover:bg-muted/30 transition-colors"
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{forecast.category}</span>
+                            <span className="font-medium text-sm truncate">{forecast.category}</span>
                             {forecast.willExceedBudget && (
-                              <AlertTriangle className="h-4 w-4 text-destructive" />
+                              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                             )}
                             {forecast.budget > 0 && !forecast.willExceedBudget && forecast.percentOfBudget < 80 && (
-                              <CheckCircle2 className="h-4 w-4 text-success" />
+                              <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
                             )}
                           </div>
                           <div className="flex items-center gap-3">
@@ -1456,12 +1456,12 @@ const Expenses = () => {
               {filteredTransactions.map((transaction) => (
                 <div
                   key={transaction.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors gap-2"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{transaction.description}</p>
-                      <Badge variant="outline" className="text-xs">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium truncate">{transaction.description}</p>
+                      <Badge variant="outline" className="text-xs shrink-0">
                         {transaction.category}
                       </Badge>
                     </div>
@@ -1469,16 +1469,16 @@ const Expenses = () => {
                       {new Date(transaction.date).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
                     <span
-                      className={`font-semibold ${
+                      className={`font-semibold text-sm sm:text-base ${
                         transaction.type === 'income' ? 'text-success' : 'text-destructive'
                       }`}
                     >
                       {transaction.type === 'income' ? '+' : '-'} R${' '}
                       {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 shrink-0">
                       <Button 
                         variant="ghost" 
                         size="icon" 

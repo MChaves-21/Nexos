@@ -588,10 +588,10 @@ const Investments = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Investimentos</h2>
-          <p className="text-muted-foreground mt-1">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Investimentos</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
             Acompanhe sua carteira de investimentos
             {isUpdatingPrices && (
               <span className="ml-2 text-xs text-primary animate-pulse">
@@ -609,18 +609,21 @@ const Investments = () => {
           <PriceAlertSettings investments={investments} />
           <Button 
             variant="outline" 
-            className="gap-2" 
+            className="gap-2 text-sm" 
+            size="sm"
             onClick={updateStockPrices}
             disabled={isUpdatingPrices}
           >
             <RefreshCw className={`h-4 w-4 ${isUpdatingPrices ? 'animate-spin' : ''}`} />
-            {isUpdatingPrices ? 'Atualizando...' : 'Atualizar Preços'}
+            <span className="hidden sm:inline">{isUpdatingPrices ? 'Atualizando...' : 'Atualizar Preços'}</span>
+            <span className="sm:hidden">{isUpdatingPrices ? '...' : 'Atualizar'}</span>
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2" size="sm">
                 <Plus className="h-4 w-4" />
-                Novo Ativo
+                <span className="hidden sm:inline">Novo Ativo</span>
+                <span className="sm:hidden">Novo</span>
               </Button>
             </DialogTrigger>
           <DialogContent>
@@ -706,39 +709,39 @@ const Investments = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <Card className="border-primary/20">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 p-4">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Investido
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="p-4 pt-0">
+            <div className="text-xl sm:text-2xl font-bold">
               R$ {totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
         <Card className="border-success/20">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 p-4">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Valor Atual
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="p-4 pt-0">
+            <div className="text-xl sm:text-2xl font-bold">
               R$ {totalCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
         <Card className={totalGain >= 0 ? "border-success/20" : "border-destructive/20"}>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 p-4">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Ganho Total
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
+          <CardContent className="p-4 pt-0">
+            <div className={`text-xl sm:text-2xl font-bold ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
               R$ {totalGain.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className={`text-xs mt-1 ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
@@ -888,8 +891,8 @@ const Investments = () => {
           </CardTitle>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 text-sm">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Alertar se &gt;</span>
+              <Bell className="h-4 w-4 text-muted-foreground hidden sm:block" />
+              <span className="text-muted-foreground hidden sm:inline">Alertar se &gt;</span>
               <Select 
                 value={imbalanceThreshold.toString()} 
                 onValueChange={(value) => handleThresholdChange(parseFloat(value))}
@@ -962,9 +965,9 @@ const Investments = () => {
               
               return (
                 <div key={item.type} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-1">
                     <span className="font-medium">{item.type}</span>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 text-xs sm:text-sm">
                       <span className="text-muted-foreground">
                         Atual: <span className="text-foreground font-medium">{item.current}%</span>
                       </span>
@@ -1024,7 +1027,7 @@ const Investments = () => {
               {rebalancingSuggestions.map((suggestion, index) => (
                 <div 
                   key={index}
-                  className={`flex items-center justify-between p-4 rounded-lg border ${
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border gap-3 ${
                     suggestion.priority === 'high' 
                       ? 'border-destructive/50 bg-destructive/5' 
                       : suggestion.priority === 'medium'
@@ -1033,7 +1036,7 @@ const Investments = () => {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${
+                    <div className={`p-2 rounded-full shrink-0 ${
                       suggestion.action === 'buy' 
                         ? 'bg-success/10 text-success' 
                         : 'bg-warning/10 text-warning'
@@ -1045,16 +1048,16 @@ const Investments = () => {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">
+                      <p className="font-medium text-sm">
                         {suggestion.action === 'buy' ? 'Comprar' : 'Vender'} {suggestion.type}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Diferença de {suggestion.percentage.toFixed(1)}% da meta
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
+                    <p className="font-semibold text-sm">
                       R$ {suggestion.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                     <Badge 
@@ -1062,10 +1065,10 @@ const Investments = () => {
                         suggestion.priority === 'high' ? 'destructive' : 
                         suggestion.priority === 'medium' ? 'secondary' : 'outline'
                       }
-                      className="text-xs"
+                      className="text-xs shrink-0"
                     >
                       {suggestion.priority === 'high' ? 'Alta' : 
-                       suggestion.priority === 'medium' ? 'Média' : 'Baixa'} prioridade
+                       suggestion.priority === 'medium' ? 'Média' : 'Baixa'}
                     </Badge>
                   </div>
                 </div>
@@ -1092,9 +1095,9 @@ const Investments = () => {
             <div className="space-y-4">
               {assetTypePerformanceData.map((item) => (
                 <div key={item.type} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-1">
                     <span className="font-medium">{item.type}</span>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 text-xs sm:text-sm flex-wrap">
                       <span className="text-muted-foreground">
                         Investido: <span className="text-foreground font-medium">
                           R$ {item.invested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1291,12 +1294,12 @@ const Investments = () => {
                 return (
                   <AnimatedItem key={item.id} itemKey={item.id}>
                     <div
-                      className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border hover:bg-muted/50 transition-colors gap-2"
                     >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold">{item.asset_name}</p>
-                          <Badge variant="outline" className="text-xs">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold truncate">{item.asset_name}</p>
+                          <Badge variant="outline" className="text-xs shrink-0">
                             {item.asset_type}
                           </Badge>
                         </div>
@@ -1304,12 +1307,12 @@ const Investments = () => {
                           {item.quantity} × R$ {item.current_price.toFixed(2)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-semibold">
+                      <div className="flex items-center justify-between sm:justify-end gap-3">
+                        <div className="text-left sm:text-right">
+                          <p className="font-semibold text-sm sm:text-base">
                             R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </p>
-                          <div className="flex items-center gap-1 justify-end mt-1">
+                          <div className="flex items-center gap-1 sm:justify-end mt-0.5">
                             {isPositive ? (
                               <TrendingUp className="h-3 w-3 text-success" />
                             ) : (
@@ -1320,7 +1323,7 @@ const Investments = () => {
                             </span>
                           </div>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 shrink-0">
                           <Button 
                             variant="ghost" 
                             size="icon" 
