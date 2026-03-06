@@ -785,7 +785,14 @@ const Investments = () => {
                 }}
                 formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Rendimento']}
               />
-              <Bar dataKey="rendimento" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="rendimento" radius={[4, 4, 0, 0]}>
+                {performanceData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={entry.rendimento < 0 ? "hsl(var(--destructive))" : "hsl(var(--success))"}
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -1111,8 +1118,13 @@ const Investments = () => {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Evolução Acumulada dos Investimentos</CardTitle>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Evolução Acumulada dos Investimentos</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Compare o valor investido com o valor atual ao longo do tempo
+            </p>
+          </div>
           <Select 
             value={selectedAssetType} 
             onValueChange={setSelectedAssetType}
@@ -1136,35 +1148,65 @@ const Investments = () => {
               Adicione investimentos para ver a evolução acumulada
             </p>
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={accumulatedEvolutionData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="periodo" className="text-xs" />
-                <YAxis className="text-xs" tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)"
-                  }}
-                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="investido" 
-                  stroke="hsl(var(--muted-foreground))" 
-                  fill="hsl(var(--muted))" 
-                  name="Total Investido"
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="atual" 
-                  stroke="hsl(var(--success))" 
-                  fill="hsl(var(--success)/0.3)" 
-                  name="Valor Atual"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">Total Investido</p>
+                  <p className="text-sm font-bold">R$ {accumulatedEvolutionData[accumulatedEvolutionData.length - 1]?.investido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">Valor Atual</p>
+                  <p className="text-sm font-bold text-success">R$ {accumulatedEvolutionData[accumulatedEvolutionData.length - 1]?.atual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 col-span-2 sm:col-span-1">
+                  <p className="text-xs text-muted-foreground">Resultado</p>
+                  {(() => {
+                    const last = accumulatedEvolutionData[accumulatedEvolutionData.length - 1];
+                    const diff = last ? last.atual - last.investido : 0;
+                    const pct = last && last.investido > 0 ? ((diff / last.investido) * 100).toFixed(1) : '0.0';
+                    return (
+                      <p className={`text-sm font-bold ${diff >= 0 ? 'text-success' : 'text-destructive'}`}>
+                        {diff >= 0 ? '+' : ''}R$ {diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({pct}%)
+                      </p>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={accumulatedEvolutionData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="periodo" className="text-xs" />
+                  <YAxis className="text-xs" tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "var(--radius)"
+                    }}
+                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]}
+                  />
+                  <Legend />
+                  <Area 
+                    type="monotone" 
+                    dataKey="investido" 
+                    stroke="hsl(var(--muted-foreground))" 
+                    fill="hsl(var(--muted))" 
+                    name="Total Investido"
+                    strokeWidth={2}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="atual" 
+                    stroke="hsl(var(--success))" 
+                    fill="hsl(var(--success)/0.3)" 
+                    name="Valor Atual"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </>
           )}
         </CardContent>
       </Card>
