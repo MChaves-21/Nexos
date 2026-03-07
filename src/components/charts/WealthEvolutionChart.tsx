@@ -750,33 +750,33 @@ const WealthEvolutionChart = () => {
             <span className="text-xs sm:text-sm text-muted-foreground">Investimentos</span>
           </div>
           {showProjection && activeScenarios.includes("base") && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--chart-3))' }} />
-              <span className="text-sm text-muted-foreground">Base ({stats.avgMonthlyGrowthRate.toFixed(1)}%/mês)</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--chart-3))' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Base</span>
             </div>
           )}
           {showProjection && activeScenarios.includes("optimistic") && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--success))' }} />
-              <span className="text-sm text-muted-foreground">Otimista ({(stats.avgMonthlyGrowthRate * 1.5).toFixed(1)}%/mês)</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--success))' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Otimista</span>
             </div>
           )}
           {showProjection && activeScenarios.includes("conservative") && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))' }} />
-              <span className="text-sm text-muted-foreground">Conservador ({(stats.avgMonthlyGrowthRate * 0.6).toFixed(1)}%/mês)</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Conservador</span>
             </div>
           )}
           {showProjection && activeScenarios.includes("pessimistic") && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--destructive))' }} />
-              <span className="text-sm text-muted-foreground">Pessimista ({(stats.avgMonthlyGrowthRate * 0.2).toFixed(1)}%/mês)</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--destructive))' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Pessimista</span>
             </div>
           )}
           {wealthGoal && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-0.5 border-t-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))', width: '12px' }} />
-              <span className="text-sm text-muted-foreground">Meta de Patrimônio</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 border-t-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))', width: '10px' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Meta</span>
             </div>
           )}
         </div>
