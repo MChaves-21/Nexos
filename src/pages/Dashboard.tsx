@@ -1,5 +1,6 @@
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import StatCard from "@/components/StatCard";
