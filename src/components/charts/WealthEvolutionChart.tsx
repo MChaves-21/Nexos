@@ -783,27 +783,27 @@ const WealthEvolutionChart = () => {
 
         {/* Goal Progress Card */}
         {wealthGoal && (
-          <div className="mt-4 p-4 bg-warning/10 rounded-lg border border-warning/20">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-warning" />
-                <div>
-                  <p className="font-semibold text-sm">Meta: {formatCurrency(wealthGoal)}</p>
-                  <p className="text-xs text-muted-foreground">
+          <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-warning/10 rounded-lg border border-warning/20">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Target className="h-4 w-4 sm:h-5 sm:w-5 text-warning shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-xs sm:text-sm truncate">Meta: {formatCurrency(wealthGoal)}</p>
+                  <p className="text-xs text-muted-foreground truncate">
                     {stats.currentValue >= wealthGoal 
-                      ? 'Parabéns! Você atingiu sua meta!' 
-                      : `Faltam ${formatCurrency(wealthGoal - stats.currentValue)} para atingir`}
+                      ? 'Parabéns! Meta atingida!' 
+                      : `Faltam ${formatCurrency(wealthGoal - stats.currentValue)}`}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Progresso</p>
-                  <p className="text-lg font-bold text-warning">
+                  <p className="text-base sm:text-lg font-bold text-warning">
                     {Math.min(100, (stats.currentValue / wealthGoal * 100)).toFixed(1)}%
                   </p>
                 </div>
-                <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                <div className="w-20 sm:w-24 h-2 bg-muted rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-warning rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, (stats.currentValue / wealthGoal * 100))}%` }}
