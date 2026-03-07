@@ -459,25 +459,25 @@ const WealthEvolutionChart = () => {
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <CardHeader className="px-3 sm:px-6">
+        <div className="flex flex-col gap-3">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              Evolução Patrimonial Detalhada
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              Evolução Patrimonial
             </CardTitle>
-            <CardDescription>Acompanhe o crescimento do seu patrimônio ao longo do tempo</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">Crescimento do patrimônio ao longo do tempo</CardDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <Switch
                 id="show-projection"
                 checked={showProjection}
                 onCheckedChange={setShowProjection}
               />
-              <Label htmlFor="show-projection" className="text-sm flex items-center gap-1 cursor-pointer">
-                <Sparkles className="h-4 w-4 text-chart-3" />
-                Projeção
+              <Label htmlFor="show-projection" className="text-xs sm:text-sm flex items-center gap-1 cursor-pointer">
+                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-chart-3" />
+                {isMobile ? "Proj." : "Projeção"}
               </Label>
             </div>
             <div className="flex gap-1">
@@ -486,6 +486,7 @@ const WealthEvolutionChart = () => {
                   key={range}
                   variant={timeRange === range ? "default" : "outline"}
                   size="sm"
+                  className="h-7 sm:h-8 px-2 sm:px-3 text-xs"
                   onClick={() => setTimeRange(range)}
                 >
                   {range === "6m" ? "6M" : range === "1y" ? "1A" : range === "2y" ? "2A" : "Tudo"}
@@ -493,12 +494,11 @@ const WealthEvolutionChart = () => {
               ))}
             </div>
             
-            {/* Wealth Goal Control */}
             <Popover open={isEditingGoal} onOpenChange={setIsEditingGoal}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Target className="h-4 w-4 text-warning" />
-                  {wealthGoal ? 'Meta' : 'Definir Meta'}
+                <Button variant="outline" size="sm" className="gap-1 h-7 sm:h-8 text-xs sm:text-sm">
+                  <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-warning" />
+                  {wealthGoal ? 'Meta' : isMobile ? 'Meta' : 'Definir Meta'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72" align="end">
@@ -508,7 +508,7 @@ const WealthEvolutionChart = () => {
                     <p className="font-semibold text-sm">Meta de Patrimônio</p>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Defina uma meta para visualizar no gráfico e acompanhar seu progresso.
+                    Defina uma meta para visualizar no gráfico.
                   </p>
                   <div className="flex gap-2">
                     <CurrencyInput
@@ -538,7 +538,7 @@ const WealthEvolutionChart = () => {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 sm:px-6">
         {/* Stats Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-muted/50 rounded-lg p-3">
