@@ -25,6 +25,7 @@ const SCENARIO_CONFIG = {
 const WEALTH_GOAL_KEY = 'nexos-wealth-goal';
 
 const WealthEvolutionChart = () => {
+  const isMobile = useIsMobile();
   const [timeRange, setTimeRange] = useState<TimeRange>("1y");
   const [showProjection, setShowProjection] = useState(true);
   const [activeScenarios, setActiveScenarios] = useState<ScenarioType[]>(["base"]);
