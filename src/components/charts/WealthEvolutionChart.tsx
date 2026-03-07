@@ -740,14 +740,14 @@ const WealthEvolutionChart = () => {
         </ResponsiveContainer>
 
         {/* Legend */}
-        <div className="flex justify-center flex-wrap gap-4 md:gap-6 mt-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
-            <span className="text-sm text-muted-foreground">Patrimônio Total</span>
+        <div className="flex justify-center flex-wrap gap-2 sm:gap-4 mt-3 sm:mt-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
+            <span className="text-xs sm:text-sm text-muted-foreground">Patrimônio</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
-            <span className="text-sm text-muted-foreground">Investimentos</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
+            <span className="text-xs sm:text-sm text-muted-foreground">Investimentos</span>
           </div>
           {showProjection && activeScenarios.includes("base") && (
             <div className="flex items-center gap-2">
