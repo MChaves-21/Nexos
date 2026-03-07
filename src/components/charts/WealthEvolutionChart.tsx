@@ -540,50 +540,50 @@ const WealthEvolutionChart = () => {
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
         {/* Stats Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-muted/50 rounded-lg p-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
             <p className="text-xs text-muted-foreground">Patrimônio Atual</p>
-            <p className="text-lg font-bold text-primary">{formatCurrency(stats.currentValue)}</p>
+            <p className="text-sm sm:text-lg font-bold text-primary truncate">{formatCurrency(stats.currentValue)}</p>
           </div>
-          <div className="bg-muted/50 rounded-lg p-3">
+          <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
             <p className="text-xs text-muted-foreground">Variação no Período</p>
             <div className="flex items-center gap-1">
               {stats.isPositive ? (
-                <TrendingUp className="h-4 w-4 text-success" />
+                <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-success" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-destructive" />
+                <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
               )}
-              <span className={`text-lg font-bold ${stats.isPositive ? 'text-success' : 'text-destructive'}`}>
+              <span className={`text-sm sm:text-lg font-bold ${stats.isPositive ? 'text-success' : 'text-destructive'}`}>
                 {stats.percentageChange >= 0 ? '+' : ''}{stats.percentageChange.toFixed(1)}%
               </span>
             </div>
           </div>
           {showProjection ? (
             <>
-              <div className="bg-chart-3/10 rounded-lg p-3 border border-chart-3/20">
+              <div className="bg-chart-3/10 rounded-lg p-2 sm:p-3 border border-chart-3/20">
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Sparkles className="h-3 w-3 text-chart-3" />
-                  Base 12 meses
+                  Base 12m
                 </p>
-                <p className="text-lg font-bold text-chart-3">{formatCurrency(scenarioFinalValues.base)}</p>
+                <p className="text-sm sm:text-lg font-bold text-chart-3 truncate">{formatCurrency(scenarioFinalValues.base)}</p>
               </div>
-              <div className="bg-success/10 rounded-lg p-3 border border-success/20">
+              <div className="bg-success/10 rounded-lg p-2 sm:p-3 border border-success/20">
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <TrendingUp className="h-3 w-3 text-success" />
                   Otimista
                 </p>
-                <p className="text-lg font-bold text-success">{formatCurrency(scenarioFinalValues.optimistic)}</p>
+                <p className="text-sm sm:text-lg font-bold text-success truncate">{formatCurrency(scenarioFinalValues.optimistic)}</p>
               </div>
             </>
           ) : (
             <>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Máximo no Período</p>
-                <p className="text-lg font-bold">{formatCurrency(stats.maxValue)}</p>
+              <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
+                <p className="text-xs text-muted-foreground">Máximo</p>
+                <p className="text-sm sm:text-lg font-bold truncate">{formatCurrency(stats.maxValue)}</p>
               </div>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Média no Período</p>
-                <p className="text-lg font-bold">{formatCurrency(stats.avgValue)}</p>
+              <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
+                <p className="text-xs text-muted-foreground">Média</p>
+                <p className="text-sm sm:text-lg font-bold truncate">{formatCurrency(stats.avgValue)}</p>
               </div>
             </>
           )}
@@ -591,8 +591,8 @@ const WealthEvolutionChart = () => {
 
         {/* Scenario Toggle Buttons */}
         {showProjection && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className="text-sm text-muted-foreground mr-2 self-center">Cenários:</span>
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+            <span className="text-xs sm:text-sm text-muted-foreground mr-1 sm:mr-2 self-center">Cenários:</span>
             {(Object.keys(SCENARIO_CONFIG) as ScenarioType[]).map((scenario) => {
               const config = SCENARIO_CONFIG[scenario];
               const isActive = activeScenarios.includes(scenario);
@@ -601,6 +601,7 @@ const WealthEvolutionChart = () => {
                   key={scenario}
                   variant={isActive ? "default" : "outline"}
                   size="sm"
+                  className="h-7 sm:h-8 text-xs px-2 sm:px-3"
                   onClick={() => toggleScenario(scenario)}
                   className={isActive ? `bg-${config.color} hover:bg-${config.color}/90` : ""}
                   style={isActive ? {
@@ -616,7 +617,7 @@ const WealthEvolutionChart = () => {
         )}
 
         {/* Chart */}
-        <ResponsiveContainer width="100%" height={350}>
+        <ResponsiveContainer width="100%" height={isMobile ? 250 : 350}>
           <AreaChart data={displayData}>
             <defs>
               <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
