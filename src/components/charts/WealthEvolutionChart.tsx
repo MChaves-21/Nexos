@@ -601,9 +601,7 @@ const WealthEvolutionChart = () => {
                   key={scenario}
                   variant={isActive ? "default" : "outline"}
                   size="sm"
-                  className="h-7 sm:h-8 text-xs px-2 sm:px-3"
-                  onClick={() => toggleScenario(scenario)}
-                  className={isActive ? `bg-${config.color} hover:bg-${config.color}/90` : ""}
+                  className={`h-7 sm:h-8 text-xs px-2 sm:px-3 ${isActive ? `bg-${config.color} hover:bg-${config.color}/90` : ""}`}
                   style={isActive ? {
                     backgroundColor: `hsl(var(--${config.color}))`,
                     color: config.color === 'warning' ? 'hsl(var(--foreground))' : undefined
