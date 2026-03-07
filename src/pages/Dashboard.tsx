@@ -18,6 +18,7 @@ import { StatCardSkeleton, ChartSkeleton } from "@/components/skeletons";
 import WealthEvolutionChart from "@/components/charts/WealthEvolutionChart";
 
 const Dashboard = () => {
+  const isMobile = useIsMobile();
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
@@ -475,7 +476,7 @@ const Dashboard = () => {
                 <p className="text-xs mt-1">no período até {format(cashFlowViewDate, "MMMM 'de' yyyy", { locale: ptBR })}</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={window.innerWidth < 640 ? 220 : 300}>
+              <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
                 <BarChart data={cashFlowData} onClick={handleMonthClick}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="mes" className="text-xs" />
@@ -538,15 +539,15 @@ const Dashboard = () => {
                 <p className="text-xs mt-1">em {format(categoryViewDate, "MMMM 'de' yyyy", { locale: ptBR })}</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={window.innerWidth < 640 ? 220 : 300}>
+              <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
                 <PieChart onClick={handleCategoryClick}>
                   <Pie
                     data={categoriesData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={window.innerWidth < 640 ? false : ({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={window.innerWidth < 640 ? 65 : 80}
+                    label={isMobile ? false : ({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={isMobile ? 65 : 80}
                     fill="#8884d8"
                     dataKey="value"
                     style={{ cursor: 'pointer' }}
@@ -661,7 +662,7 @@ const Dashboard = () => {
               <CardDescription>Comparação total por ano</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={window.innerWidth < 640 ? 250 : 350}>
+              <ResponsiveContainer width="100%" height={isMobile ? 250 : 350}>
                 <BarChart data={filteredYearlyIncomeData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="ano" className="text-xs" />
