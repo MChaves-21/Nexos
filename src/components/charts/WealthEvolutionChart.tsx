@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ const SCENARIO_CONFIG = {
 const WEALTH_GOAL_KEY = 'nexos-wealth-goal';
 
 const WealthEvolutionChart = () => {
+  const isMobile = useIsMobile();
   const [timeRange, setTimeRange] = useState<TimeRange>("1y");
   const [showProjection, setShowProjection] = useState(true);
   const [activeScenarios, setActiveScenarios] = useState<ScenarioType[]>(["base"]);
@@ -309,6 +311,45 @@ const WealthEvolutionChart = () => {
     };
   }, [transactions, investments, loadingTransactions, loadingInvestments, timeRange]);
 
+  // Calcular estimativa de quando a meta será atingida
+  const goalEstimate = useMemo(() => {
+    if (!chartData || !wealthGoal || chartData.stats.currentValue >= wealthGoal) {
+      return null;
+    }
+
+    const currentStats = chartData.stats;
+    const monthlyGrowthRate = currentStats.avgMonthlyGrowthRate / 100;
+    const monthlySavings = Math.max(0, currentStats.avgMonthlySavings);
+    
+    if (monthlyGrowthRate <= 0 && monthlySavings <= 0) {
+      return { months: null, reachable: false, estimatedDate: null };
+    }
+
+    let currentValue = currentStats.currentValue;
+    let months = 0;
+    const maxMonths = 360;
+
+    while (currentValue < wealthGoal && months < maxMonths) {
+      currentValue = currentValue * (1 + monthlyGrowthRate) + monthlySavings;
+      months++;
+    }
+
+    if (months >= maxMonths) {
+      return { months: null, reachable: false, estimatedDate: null };
+    }
+
+    const estimatedDate = new Date();
+    estimatedDate.setMonth(estimatedDate.getMonth() + months);
+
+    return {
+      months,
+      reachable: true,
+      estimatedDate,
+      years: Math.floor(months / 12),
+      remainingMonths: months % 12
+    };
+  }, [wealthGoal, chartData]);
+
   if (loadingTransactions || loadingInvestments || !chartData) {
     return (
       <Card className="hover:shadow-lg transition-shadow">
@@ -317,7 +358,7 @@ const WealthEvolutionChart = () => {
           <CardDescription>Carregando dados...</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[350px] animate-pulse bg-muted rounded-lg" />
+          <div className="h-[250px] sm:h-[350px] animate-pulse bg-muted rounded-lg" />
         </CardContent>
       </Card>
     );
@@ -329,47 +370,6 @@ const WealthEvolutionChart = () => {
   const formatCurrency = (value: number) => {
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
-
-  // Calcular estimativa de quando a meta será atingida
-  const goalEstimate = useMemo(() => {
-    if (!wealthGoal || stats.currentValue >= wealthGoal) {
-      return null;
-    }
-
-    const monthlyGrowthRate = stats.avgMonthlyGrowthRate / 100; // Converter de porcentagem
-    const monthlySavings = Math.max(0, stats.avgMonthlySavings);
-    
-    // Se taxa de crescimento é muito baixa ou negativa e não há aportes significativos
-    if (monthlyGrowthRate <= 0 && monthlySavings <= 0) {
-      return { months: null, reachable: false, estimatedDate: null };
-    }
-
-    // Simulação mês a mês para encontrar quando atinge a meta
-    let currentValue = stats.currentValue;
-    let months = 0;
-    const maxMonths = 360; // Limite de 30 anos
-
-    while (currentValue < wealthGoal && months < maxMonths) {
-      currentValue = currentValue * (1 + monthlyGrowthRate) + monthlySavings;
-      months++;
-    }
-
-    if (months >= maxMonths) {
-      return { months: null, reachable: false, estimatedDate: null };
-    }
-
-    // Calcular data estimada
-    const estimatedDate = new Date();
-    estimatedDate.setMonth(estimatedDate.getMonth() + months);
-
-    return {
-      months,
-      reachable: true,
-      estimatedDate,
-      years: Math.floor(months / 12),
-      remainingMonths: months % 12
-    };
-  }, [wealthGoal, stats.currentValue, stats.avgMonthlyGrowthRate, stats.avgMonthlySavings]);
 
   const formatEstimatedDate = (date: Date) => {
     const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
@@ -459,25 +459,25 @@ const WealthEvolutionChart = () => {
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <CardHeader className="px-3 sm:px-6">
+        <div className="flex flex-col gap-3">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              Evolução Patrimonial Detalhada
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              Evolução Patrimonial
             </CardTitle>
-            <CardDescription>Acompanhe o crescimento do seu patrimônio ao longo do tempo</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">Crescimento do patrimônio ao longo do tempo</CardDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <Switch
                 id="show-projection"
                 checked={showProjection}
                 onCheckedChange={setShowProjection}
               />
-              <Label htmlFor="show-projection" className="text-sm flex items-center gap-1 cursor-pointer">
-                <Sparkles className="h-4 w-4 text-chart-3" />
-                Projeção
+              <Label htmlFor="show-projection" className="text-xs sm:text-sm flex items-center gap-1 cursor-pointer">
+                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-chart-3" />
+                {isMobile ? "Proj." : "Projeção"}
               </Label>
             </div>
             <div className="flex gap-1">
@@ -486,6 +486,7 @@ const WealthEvolutionChart = () => {
                   key={range}
                   variant={timeRange === range ? "default" : "outline"}
                   size="sm"
+                  className="h-7 sm:h-8 px-2 sm:px-3 text-xs"
                   onClick={() => setTimeRange(range)}
                 >
                   {range === "6m" ? "6M" : range === "1y" ? "1A" : range === "2y" ? "2A" : "Tudo"}
@@ -493,12 +494,11 @@ const WealthEvolutionChart = () => {
               ))}
             </div>
             
-            {/* Wealth Goal Control */}
             <Popover open={isEditingGoal} onOpenChange={setIsEditingGoal}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Target className="h-4 w-4 text-warning" />
-                  {wealthGoal ? 'Meta' : 'Definir Meta'}
+                <Button variant="outline" size="sm" className="gap-1 h-7 sm:h-8 text-xs sm:text-sm">
+                  <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-warning" />
+                  {wealthGoal ? 'Meta' : isMobile ? 'Meta' : 'Definir Meta'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72" align="end">
@@ -508,7 +508,7 @@ const WealthEvolutionChart = () => {
                     <p className="font-semibold text-sm">Meta de Patrimônio</p>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Defina uma meta para visualizar no gráfico e acompanhar seu progresso.
+                    Defina uma meta para visualizar no gráfico.
                   </p>
                   <div className="flex gap-2">
                     <CurrencyInput
@@ -538,52 +538,52 @@ const WealthEvolutionChart = () => {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 sm:px-6">
         {/* Stats Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-muted/50 rounded-lg p-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
             <p className="text-xs text-muted-foreground">Patrimônio Atual</p>
-            <p className="text-lg font-bold text-primary">{formatCurrency(stats.currentValue)}</p>
+            <p className="text-sm sm:text-lg font-bold text-primary truncate">{formatCurrency(stats.currentValue)}</p>
           </div>
-          <div className="bg-muted/50 rounded-lg p-3">
+          <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
             <p className="text-xs text-muted-foreground">Variação no Período</p>
             <div className="flex items-center gap-1">
               {stats.isPositive ? (
-                <TrendingUp className="h-4 w-4 text-success" />
+                <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-success" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-destructive" />
+                <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
               )}
-              <span className={`text-lg font-bold ${stats.isPositive ? 'text-success' : 'text-destructive'}`}>
+              <span className={`text-sm sm:text-lg font-bold ${stats.isPositive ? 'text-success' : 'text-destructive'}`}>
                 {stats.percentageChange >= 0 ? '+' : ''}{stats.percentageChange.toFixed(1)}%
               </span>
             </div>
           </div>
           {showProjection ? (
             <>
-              <div className="bg-chart-3/10 rounded-lg p-3 border border-chart-3/20">
+              <div className="bg-chart-3/10 rounded-lg p-2 sm:p-3 border border-chart-3/20">
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Sparkles className="h-3 w-3 text-chart-3" />
-                  Base 12 meses
+                  Base 12m
                 </p>
-                <p className="text-lg font-bold text-chart-3">{formatCurrency(scenarioFinalValues.base)}</p>
+                <p className="text-sm sm:text-lg font-bold text-chart-3 truncate">{formatCurrency(scenarioFinalValues.base)}</p>
               </div>
-              <div className="bg-success/10 rounded-lg p-3 border border-success/20">
+              <div className="bg-success/10 rounded-lg p-2 sm:p-3 border border-success/20">
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <TrendingUp className="h-3 w-3 text-success" />
                   Otimista
                 </p>
-                <p className="text-lg font-bold text-success">{formatCurrency(scenarioFinalValues.optimistic)}</p>
+                <p className="text-sm sm:text-lg font-bold text-success truncate">{formatCurrency(scenarioFinalValues.optimistic)}</p>
               </div>
             </>
           ) : (
             <>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Máximo no Período</p>
-                <p className="text-lg font-bold">{formatCurrency(stats.maxValue)}</p>
+              <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
+                <p className="text-xs text-muted-foreground">Máximo</p>
+                <p className="text-sm sm:text-lg font-bold truncate">{formatCurrency(stats.maxValue)}</p>
               </div>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Média no Período</p>
-                <p className="text-lg font-bold">{formatCurrency(stats.avgValue)}</p>
+              <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
+                <p className="text-xs text-muted-foreground">Média</p>
+                <p className="text-sm sm:text-lg font-bold truncate">{formatCurrency(stats.avgValue)}</p>
               </div>
             </>
           )}
@@ -591,8 +591,8 @@ const WealthEvolutionChart = () => {
 
         {/* Scenario Toggle Buttons */}
         {showProjection && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className="text-sm text-muted-foreground mr-2 self-center">Cenários:</span>
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+            <span className="text-xs sm:text-sm text-muted-foreground mr-1 sm:mr-2 self-center">Cenários:</span>
             {(Object.keys(SCENARIO_CONFIG) as ScenarioType[]).map((scenario) => {
               const config = SCENARIO_CONFIG[scenario];
               const isActive = activeScenarios.includes(scenario);
@@ -601,8 +601,7 @@ const WealthEvolutionChart = () => {
                   key={scenario}
                   variant={isActive ? "default" : "outline"}
                   size="sm"
-                  onClick={() => toggleScenario(scenario)}
-                  className={isActive ? `bg-${config.color} hover:bg-${config.color}/90` : ""}
+                  className={`h-7 sm:h-8 text-xs px-2 sm:px-3 ${isActive ? `bg-${config.color} hover:bg-${config.color}/90` : ""}`}
                   style={isActive ? {
                     backgroundColor: `hsl(var(--${config.color}))`,
                     color: config.color === 'warning' ? 'hsl(var(--foreground))' : undefined
@@ -616,7 +615,7 @@ const WealthEvolutionChart = () => {
         )}
 
         {/* Chart */}
-        <ResponsiveContainer width="100%" height={350}>
+        <ResponsiveContainer width="100%" height={isMobile ? 250 : 350}>
           <AreaChart data={displayData}>
             <defs>
               <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
@@ -741,70 +740,70 @@ const WealthEvolutionChart = () => {
         </ResponsiveContainer>
 
         {/* Legend */}
-        <div className="flex justify-center flex-wrap gap-4 md:gap-6 mt-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
-            <span className="text-sm text-muted-foreground">Patrimônio Total</span>
+        <div className="flex justify-center flex-wrap gap-2 sm:gap-4 mt-3 sm:mt-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
+            <span className="text-xs sm:text-sm text-muted-foreground">Patrimônio</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
-            <span className="text-sm text-muted-foreground">Investimentos</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
+            <span className="text-xs sm:text-sm text-muted-foreground">Investimentos</span>
           </div>
           {showProjection && activeScenarios.includes("base") && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--chart-3))' }} />
-              <span className="text-sm text-muted-foreground">Base ({stats.avgMonthlyGrowthRate.toFixed(1)}%/mês)</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--chart-3))' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Base</span>
             </div>
           )}
           {showProjection && activeScenarios.includes("optimistic") && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--success))' }} />
-              <span className="text-sm text-muted-foreground">Otimista ({(stats.avgMonthlyGrowthRate * 1.5).toFixed(1)}%/mês)</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--success))' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Otimista</span>
             </div>
           )}
           {showProjection && activeScenarios.includes("conservative") && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))' }} />
-              <span className="text-sm text-muted-foreground">Conservador ({(stats.avgMonthlyGrowthRate * 0.6).toFixed(1)}%/mês)</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Conservador</span>
             </div>
           )}
           {showProjection && activeScenarios.includes("pessimistic") && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--destructive))' }} />
-              <span className="text-sm text-muted-foreground">Pessimista ({(stats.avgMonthlyGrowthRate * 0.2).toFixed(1)}%/mês)</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-dashed" style={{ borderColor: 'hsl(var(--destructive))' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Pessimista</span>
             </div>
           )}
           {wealthGoal && (
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-0.5 border-t-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))', width: '12px' }} />
-              <span className="text-sm text-muted-foreground">Meta de Patrimônio</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 border-t-2 border-dashed" style={{ borderColor: 'hsl(var(--warning))', width: '10px' }} />
+              <span className="text-xs sm:text-sm text-muted-foreground">Meta</span>
             </div>
           )}
         </div>
 
         {/* Goal Progress Card */}
         {wealthGoal && (
-          <div className="mt-4 p-4 bg-warning/10 rounded-lg border border-warning/20">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-warning" />
-                <div>
-                  <p className="font-semibold text-sm">Meta: {formatCurrency(wealthGoal)}</p>
-                  <p className="text-xs text-muted-foreground">
+          <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-warning/10 rounded-lg border border-warning/20">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Target className="h-4 w-4 sm:h-5 sm:w-5 text-warning shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-xs sm:text-sm truncate">Meta: {formatCurrency(wealthGoal)}</p>
+                  <p className="text-xs text-muted-foreground truncate">
                     {stats.currentValue >= wealthGoal 
-                      ? 'Parabéns! Você atingiu sua meta!' 
-                      : `Faltam ${formatCurrency(wealthGoal - stats.currentValue)} para atingir`}
+                      ? 'Parabéns! Meta atingida!' 
+                      : `Faltam ${formatCurrency(wealthGoal - stats.currentValue)}`}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Progresso</p>
-                  <p className="text-lg font-bold text-warning">
+                  <p className="text-base sm:text-lg font-bold text-warning">
                     {Math.min(100, (stats.currentValue / wealthGoal * 100)).toFixed(1)}%
                   </p>
                 </div>
-                <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                <div className="w-20 sm:w-24 h-2 bg-muted rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-warning rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, (stats.currentValue / wealthGoal * 100))}%` }}

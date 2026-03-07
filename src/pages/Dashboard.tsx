@@ -1,5 +1,6 @@
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import StatCard from "@/components/StatCard";
@@ -17,6 +18,7 @@ import { StatCardSkeleton, ChartSkeleton } from "@/components/skeletons";
 import WealthEvolutionChart from "@/components/charts/WealthEvolutionChart";
 
 const Dashboard = () => {
+  const isMobile = useIsMobile();
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
@@ -380,35 +382,35 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard Financeiro</h2>
-        <p className="text-muted-foreground mt-1">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard Financeiro</h2>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">
           Visão completa das suas finanças
         </p>
 
         {(selectedMonth || selectedCategory) && (
-          <div className="mt-4 flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground">Filtros ativos:</span>
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span className="text-xs sm:text-sm text-muted-foreground">Filtros:</span>
             {selectedMonth && (
-              <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedMonth(null)}>
-                Mês: {selectedMonth} ✕
+              <Badge variant="secondary" className="cursor-pointer text-xs" onClick={() => setSelectedMonth(null)}>
+                {selectedMonth} ✕
               </Badge>
             )}
             {selectedCategory && (
-              <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedCategory(null)}>
-                Categoria: {selectedCategory} ✕
+              <Badge variant="secondary" className="cursor-pointer text-xs" onClick={() => setSelectedCategory(null)}>
+                {selectedCategory} ✕
               </Badge>
             )}
-            <button onClick={clearFilters} className="text-sm text-primary hover:underline">
-              Limpar todos
+            <button onClick={clearFilters} className="text-xs sm:text-sm text-primary hover:underline">
+              Limpar
             </button>
           </div>
         )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Patrimônio Líquido"
           value={`R$ ${stats.netWorth.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -442,39 +444,39 @@ const Dashboard = () => {
       <WealthEvolutionChart />
 
       {/* Charts Row 1 */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
 
         <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Fluxo de Caixa</CardTitle>
+          <CardHeader className="px-3 sm:px-6 pb-2 sm:pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <CardTitle className="text-base sm:text-lg">Fluxo de Caixa</CardTitle>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCashFlowMonthOffset(o => o - 1)}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setCashFlowMonthOffset(o => o - 1)}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs capitalize min-w-[120px] justify-center"
+                  className="text-xs capitalize min-w-[90px] sm:min-w-[120px] justify-center h-7 sm:h-8"
                   onClick={() => setCashFlowMonthOffset(0)}
                 >
                   {format(cashFlowViewDate, "MMM yyyy", { locale: ptBR })}
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCashFlowMonthOffset(o => Math.min(o + 1, 0))} disabled={cashFlowMonthOffset >= 0}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setCashFlowMonthOffset(o => Math.min(o + 1, 0))} disabled={cashFlowMonthOffset >= 0}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 sm:px-6">
             {cashFlowData.every(d => d.receitas === 0 && d.despesas === 0) ? (
-              <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
-                <Wallet className="h-12 w-12 mb-3 opacity-50" />
+              <div className="flex flex-col items-center justify-center h-[200px] sm:h-[300px] text-muted-foreground">
+                <Wallet className="h-10 w-10 sm:h-12 sm:w-12 mb-3 opacity-50" />
                 <p className="text-sm font-medium">Nenhuma transação registrada</p>
                 <p className="text-xs mt-1">no período até {format(cashFlowViewDate, "MMMM 'de' yyyy", { locale: ptBR })}</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
                 <BarChart data={cashFlowData} onClick={handleMonthClick}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="mes" className="text-xs" />
@@ -508,46 +510,44 @@ const Dashboard = () => {
         </Card>
 
         <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Gastos por Categoria</CardTitle>
-              </div>
+          <CardHeader className="px-3 sm:px-6 pb-2 sm:pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <CardTitle className="text-base sm:text-lg">Gastos por Categoria</CardTitle>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCategoryMonthOffset(o => o - 1)}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setCategoryMonthOffset(o => o - 1)}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs capitalize min-w-[120px] justify-center"
+                  className="text-xs capitalize min-w-[90px] sm:min-w-[120px] justify-center h-7 sm:h-8"
                   onClick={() => setCategoryMonthOffset(0)}
                 >
                   {format(categoryViewDate, "MMM yyyy", { locale: ptBR })}
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCategoryMonthOffset(o => Math.min(o + 1, 0))} disabled={categoryMonthOffset >= 0}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setCategoryMonthOffset(o => Math.min(o + 1, 0))} disabled={categoryMonthOffset >= 0}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 sm:px-6">
             {categoriesData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
-                <Wallet className="h-12 w-12 mb-3 opacity-50" />
+              <div className="flex flex-col items-center justify-center h-[200px] sm:h-[300px] text-muted-foreground">
+                <Wallet className="h-10 w-10 sm:h-12 sm:w-12 mb-3 opacity-50" />
                 <p className="text-sm font-medium">Nenhuma despesa registrada</p>
                 <p className="text-xs mt-1">em {format(categoryViewDate, "MMMM 'de' yyyy", { locale: ptBR })}</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
                 <PieChart onClick={handleCategoryClick}>
                   <Pie
                     data={categoriesData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
+                    label={isMobile ? false : ({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={isMobile ? 65 : 80}
                     fill="#8884d8"
                     dataKey="value"
                     style={{ cursor: 'pointer' }}
@@ -582,36 +582,36 @@ const Dashboard = () => {
       {/* Evolução das Metas Financeiras */}
       {goalsData.length > 0 && (
         <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
+          <CardHeader className="px-3 sm:px-6">
             <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
+              <Target className="h-5 w-5 text-primary shrink-0" />
               <div>
-                <CardTitle>Evolução das Metas Financeiras</CardTitle>
-                <CardDescription>Acompanhe o progresso das suas metas</CardDescription>
+                <CardTitle className="text-base sm:text-lg">Metas Financeiras</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Acompanhe o progresso</CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 sm:space-y-6 px-3 sm:px-6">
             {goalsData.map((goal, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{goal.name}</span>
+              <div key={index} className="space-y-1.5 sm:space-y-2">
+                <div className="flex justify-between items-center gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-medium text-sm sm:text-base truncate">{goal.name}</span>
                     {goal.concluida && (
-                      <Badge variant="default" className="bg-success text-success-foreground">
-                        Concluída
+                      <Badge variant="default" className="bg-success text-success-foreground text-xs shrink-0">
+                        ✓
                       </Badge>
                     )}
                   </div>
-                  <span className="text-sm font-semibold text-primary">
+                  <span className="text-xs sm:text-sm font-semibold text-primary shrink-0">
                     {goal.progresso.toFixed(1)}%
                   </span>
                 </div>
                 <Progress 
                   value={goal.progresso} 
-                  className={`h-3 ${goal.concluida ? '[&>div]:bg-success' : ''}`}
+                  className={`h-2.5 sm:h-3 ${goal.concluida ? '[&>div]:bg-success' : ''}`}
                 />
-                <div className="flex justify-between text-sm text-muted-foreground">
+                <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
                   <span>R$ {goal.atual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   <span>R$ {goal.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
@@ -623,16 +623,16 @@ const Dashboard = () => {
 
       {/* Comparação Ano a Ano */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-2xl font-bold tracking-tight">Comparação Ano a Ano</h3>
-            <p className="text-muted-foreground mt-1">
-              Visualize a evolução das suas finanças ao longo dos anos
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight">Comparação Anual</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Evolução ao longo dos anos
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Select value={startYear} onValueChange={(v) => { setStartYear(v); if (parseInt(v) > parseInt(endYear)) setEndYear(v); }}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-[80px] sm:w-[100px] h-8 sm:h-9 text-xs sm:text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -641,9 +641,9 @@ const Dashboard = () => {
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-sm text-muted-foreground">até</span>
+            <span className="text-xs sm:text-sm text-muted-foreground">até</span>
             <Select value={endYear} onValueChange={(v) => { setEndYear(v); if (parseInt(v) < parseInt(startYear)) setStartYear(v); }}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-[80px] sm:w-[100px] h-8 sm:h-9 text-xs sm:text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -662,7 +662,7 @@ const Dashboard = () => {
               <CardDescription>Comparação total por ano</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={350}>
+              <ResponsiveContainer width="100%" height={isMobile ? 250 : 350}>
                 <BarChart data={filteredYearlyIncomeData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="ano" className="text-xs" />
@@ -684,50 +684,50 @@ const Dashboard = () => {
         </div>
 
         {/* Cards de Estatísticas Anuais */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
           <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Crescimento Patrimonial ({new Date().getFullYear() - 1}-{new Date().getFullYear()})
+            <CardHeader className="pb-2 px-3 sm:px-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                Crescimento ({new Date().getFullYear() - 1}-{new Date().getFullYear()})
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${annualStats.wealthGrowth.percentage >= 0 ? 'text-success' : 'text-destructive'}`}>
+            <CardContent className="px-3 sm:px-6">
+              <div className={`text-xl sm:text-2xl font-bold ${annualStats.wealthGrowth.percentage >= 0 ? 'text-success' : 'text-destructive'}`}>
                 {annualStats.wealthGrowth.percentage >= 0 ? '+' : ''}{annualStats.wealthGrowth.percentage.toFixed(1)}%
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                De R$ {annualStats.wealthGrowth.from.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para R$ {annualStats.wealthGrowth.to.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <p className="text-xs text-muted-foreground mt-1 sm:mt-2 line-clamp-2">
+                De R$ {annualStats.wealthGrowth.from.toLocaleString('pt-BR', { minimumFractionDigits: 0 })} para R$ {annualStats.wealthGrowth.to.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
               </p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardHeader className="pb-2 px-3 sm:px-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Economia Média Anual
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">
-                R$ {annualStats.averageAnnualSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <CardContent className="px-3 sm:px-6">
+              <div className="text-xl sm:text-2xl font-bold text-primary">
+                R$ {annualStats.averageAnnualSavings.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-1 sm:mt-2">
                 Baseado nos anos com dados
               </p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Taxa de Crescimento Anual
+            <CardHeader className="pb-2 px-3 sm:px-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+                Taxa Cresc. Anual
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${annualStats.averageGrowthRate >= 0 ? 'text-warning' : 'text-destructive'}`}>
+            <CardContent className="px-3 sm:px-6">
+              <div className={`text-xl sm:text-2xl font-bold ${annualStats.averageGrowthRate >= 0 ? 'text-warning' : 'text-destructive'}`}>
                 {annualStats.averageGrowthRate >= 0 ? '+' : ''}{annualStats.averageGrowthRate.toFixed(1)}%
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-1 sm:mt-2">
                 Média dos últimos anos
               </p>
             </CardContent>

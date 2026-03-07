@@ -28,22 +28,22 @@ const StatCard = ({ title, value, icon: Icon, trend, variant = "default" }: Stat
 
   return (
     <Card className={cn("transition-all hover:shadow-lg", variantStyles[variant])}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+      <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+        <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground truncate pr-2">
           {title}
         </CardTitle>
-        <div className={cn("p-2 rounded-lg", iconBgStyles[variant])}>
-          <Icon className="h-4 w-4" />
+        <div className={cn("p-1.5 sm:p-2 rounded-lg shrink-0", iconBgStyles[variant])}>
+          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+      <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+        <div className="text-lg sm:text-2xl font-bold truncate">{value}</div>
         {trend && (
           <p className={cn(
-            "text-xs mt-1",
+            "text-xs mt-0.5 sm:mt-1 truncate",
             trend.positive ? "text-success" : "text-destructive"
           )}>
-            {trend.positive ? "+" : ""}{trend.value} vs mês anterior
+            {trend.positive ? "+" : ""}{trend.value} vs anterior
           </p>
         )}
       </CardContent>
