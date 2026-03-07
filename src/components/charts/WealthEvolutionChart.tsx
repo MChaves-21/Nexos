@@ -311,6 +311,45 @@ const WealthEvolutionChart = () => {
     };
   }, [transactions, investments, loadingTransactions, loadingInvestments, timeRange]);
 
+  // Calcular estimativa de quando a meta será atingida
+  const goalEstimate = useMemo(() => {
+    if (!chartData || !wealthGoal || chartData.stats.currentValue >= wealthGoal) {
+      return null;
+    }
+
+    const currentStats = chartData.stats;
+    const monthlyGrowthRate = currentStats.avgMonthlyGrowthRate / 100;
+    const monthlySavings = Math.max(0, currentStats.avgMonthlySavings);
+    
+    if (monthlyGrowthRate <= 0 && monthlySavings <= 0) {
+      return { months: null, reachable: false, estimatedDate: null };
+    }
+
+    let currentValue = currentStats.currentValue;
+    let months = 0;
+    const maxMonths = 360;
+
+    while (currentValue < wealthGoal && months < maxMonths) {
+      currentValue = currentValue * (1 + monthlyGrowthRate) + monthlySavings;
+      months++;
+    }
+
+    if (months >= maxMonths) {
+      return { months: null, reachable: false, estimatedDate: null };
+    }
+
+    const estimatedDate = new Date();
+    estimatedDate.setMonth(estimatedDate.getMonth() + months);
+
+    return {
+      months,
+      reachable: true,
+      estimatedDate,
+      years: Math.floor(months / 12),
+      remainingMonths: months % 12
+    };
+  }, [wealthGoal, chartData]);
+
   if (loadingTransactions || loadingInvestments || !chartData) {
     return (
       <Card className="hover:shadow-lg transition-shadow">
@@ -319,7 +358,7 @@ const WealthEvolutionChart = () => {
           <CardDescription>Carregando dados...</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[350px] animate-pulse bg-muted rounded-lg" />
+          <div className="h-[250px] sm:h-[350px] animate-pulse bg-muted rounded-lg" />
         </CardContent>
       </Card>
     );
@@ -331,47 +370,6 @@ const WealthEvolutionChart = () => {
   const formatCurrency = (value: number) => {
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
-
-  // Calcular estimativa de quando a meta será atingida
-  const goalEstimate = useMemo(() => {
-    if (!wealthGoal || stats.currentValue >= wealthGoal) {
-      return null;
-    }
-
-    const monthlyGrowthRate = stats.avgMonthlyGrowthRate / 100; // Converter de porcentagem
-    const monthlySavings = Math.max(0, stats.avgMonthlySavings);
-    
-    // Se taxa de crescimento é muito baixa ou negativa e não há aportes significativos
-    if (monthlyGrowthRate <= 0 && monthlySavings <= 0) {
-      return { months: null, reachable: false, estimatedDate: null };
-    }
-
-    // Simulação mês a mês para encontrar quando atinge a meta
-    let currentValue = stats.currentValue;
-    let months = 0;
-    const maxMonths = 360; // Limite de 30 anos
-
-    while (currentValue < wealthGoal && months < maxMonths) {
-      currentValue = currentValue * (1 + monthlyGrowthRate) + monthlySavings;
-      months++;
-    }
-
-    if (months >= maxMonths) {
-      return { months: null, reachable: false, estimatedDate: null };
-    }
-
-    // Calcular data estimada
-    const estimatedDate = new Date();
-    estimatedDate.setMonth(estimatedDate.getMonth() + months);
-
-    return {
-      months,
-      reachable: true,
-      estimatedDate,
-      years: Math.floor(months / 12),
-      remainingMonths: months % 12
-    };
-  }, [wealthGoal, stats.currentValue, stats.avgMonthlyGrowthRate, stats.avgMonthlySavings]);
 
   const formatEstimatedDate = (date: Date) => {
     const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
