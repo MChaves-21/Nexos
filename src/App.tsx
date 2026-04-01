@@ -19,6 +19,7 @@ const Simulation = lazy(() => import("./pages/Simulation"));
 const Budgets = lazy(() => import("./pages/Budgets"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const OpenFinance = lazy(() => import("./pages/OpenFinance"));
 
 const queryClient = new QueryClient();
 
