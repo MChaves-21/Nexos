@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect, useTransition } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Receipt, FileText, Loader2 } from "lucide-react";
+import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Receipt, FileText, Loader2, Building2 } from "lucide-react";
 import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/Footer";
