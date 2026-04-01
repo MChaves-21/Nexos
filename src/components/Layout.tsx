@@ -122,6 +122,10 @@ const Layout = ({
     to: "/reports",
     icon: FileText,
     label: "Relatórios"
+  }, {
+    to: "/open-finance",
+    icon: Building2,
+    label: "Open Finance"
   }];
   const NavLinks = () => <>
       {navItems.map(({
