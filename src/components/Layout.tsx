@@ -82,7 +82,8 @@ const Layout = ({
     "/investments": () => import("@/pages/Investments"),
     "/budgets": () => import("@/pages/Budgets"),
     "/simulation": () => import("@/pages/Simulation"),
-    "/reports": () => import("@/pages/Reports")
+    "/reports": () => import("@/pages/Reports"),
+    "/open-finance": () => import("@/pages/OpenFinance")
   };
   const handlePrefetch = (to: string) => {
     const prefetch = prefetchMap[to];
