@@ -76,6 +76,39 @@ export type Database = {
           },
         ]
       }
+      bank_connections: {
+        Row: {
+          created_at: string
+          id: string
+          institution_name: string
+          last_sync_at: string | null
+          pluggy_item_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          institution_name: string
+          last_sync_at?: string | null
+          pluggy_item_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          institution_name?: string
+          last_sync_at?: string | null
+          pluggy_item_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       category_budgets: {
         Row: {
           category: string
@@ -282,6 +315,68 @@ export type Database = {
           years?: number
         }
         Relationships: []
+      }
+      synced_transactions: {
+        Row: {
+          ai_category: string | null
+          ai_confidence: number | null
+          amount: number
+          bank_connection_id: string
+          created_at: string
+          date: string
+          description: string
+          external_id: string
+          id: string
+          is_reviewed: boolean
+          original_category: string | null
+          synced_at: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_category?: string | null
+          ai_confidence?: number | null
+          amount: number
+          bank_connection_id: string
+          created_at?: string
+          date: string
+          description: string
+          external_id: string
+          id?: string
+          is_reviewed?: boolean
+          original_category?: string | null
+          synced_at?: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_category?: string | null
+          ai_confidence?: number | null
+          amount?: number
+          bank_connection_id?: string
+          created_at?: string
+          date?: string
+          description?: string
+          external_id?: string
+          id?: string
+          is_reviewed?: boolean
+          original_category?: string | null
+          synced_at?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synced_transactions_bank_connection_id_fkey"
+            columns: ["bank_connection_id"]
+            isOneToOne: false
+            referencedRelation: "bank_connections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {
