@@ -33,8 +33,8 @@ export function TickerInput({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const validateDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const validateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { recentAssets, addRecent, removeRecent, clearRecent } = useRecentAssets();
 
