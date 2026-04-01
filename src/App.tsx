@@ -19,6 +19,7 @@ const Simulation = lazy(() => import("./pages/Simulation"));
 const Budgets = lazy(() => import("./pages/Budgets"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const OpenFinance = lazy(() => import("./pages/OpenFinance"));
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const AnimatedRoutes = () => {
           <Route path="/simulation" element={<Layout><Simulation /></Layout>} />
           <Route path="/budgets" element={<Layout><Budgets /></Layout>} />
           <Route path="/reports" element={<Layout><Reports /></Layout>} />
+          <Route path="/open-finance" element={<Layout><OpenFinance /></Layout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
