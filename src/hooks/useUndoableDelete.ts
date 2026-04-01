@@ -17,7 +17,7 @@ export function useUndoableDelete<T extends { id: string }>({
   getItemDescription,
 }: UseUndoableDeleteOptions<T>) {
   const queryClient = useQueryClient();
-  const pendingDeleteRef = useRef<{ item: T; timeoutId: NodeJS.Timeout } | null>(null);
+  const pendingDeleteRef = useRef<{ item: T; timeoutId: ReturnType<typeof setTimeout> } | null>(null);
 
   const deleteWithUndo = useCallback(
     async (item: T) => {
