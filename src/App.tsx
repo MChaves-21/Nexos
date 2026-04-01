@@ -47,6 +47,7 @@ const AnimatedRoutes = () => {
           <Route path="/simulation" element={<Layout><Simulation /></Layout>} />
           <Route path="/budgets" element={<Layout><Budgets /></Layout>} />
           <Route path="/reports" element={<Layout><Reports /></Layout>} />
+          <Route path="/open-finance" element={<Layout><OpenFinance /></Layout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
