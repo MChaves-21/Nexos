@@ -52,9 +52,8 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    const apiKey = await getPluggyApiKey();
-
     if (action === "create-connect-token") {
+      const apiKey = await getPluggyApiKey();
       // Create a connect token for the Pluggy Connect widget
       const resp = await fetch(`${PLUGGY_API_URL}/connect_token`, {
         method: "POST",
