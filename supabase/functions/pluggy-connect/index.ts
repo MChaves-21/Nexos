@@ -44,17 +44,16 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(authHeader.replace("Bearer ", ""));
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    const apiKey = await getPluggyApiKey();
-
     if (action === "create-connect-token") {
+      const apiKey = await getPluggyApiKey();
       // Create a connect token for the Pluggy Connect widget
       const resp = await fetch(`${PLUGGY_API_URL}/connect_token`, {
         method: "POST",
@@ -82,7 +81,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "itemId and institutionName required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const userId = claimsData.claims.sub;
+      const userId = user.id;
 
       const { data, error } = await supabase
         .from("bank_connections")
@@ -103,7 +102,7 @@ serve(async (req) => {
     }
 
     if (action === "list-connections") {
-      const userId = claimsData.claims.sub;
+      const userId = user.id;
       const { data, error } = await supabase
         .from("bank_connections")
         .select("*")
