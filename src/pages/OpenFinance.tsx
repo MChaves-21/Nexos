@@ -27,6 +27,7 @@ const OpenFinance = () => {
         </AlertDescription>
       </Alert>
 
+      <BankConnectionsManager />
       <SyncedDashboard />
       <SyncedTransactionsList />
     </div>
