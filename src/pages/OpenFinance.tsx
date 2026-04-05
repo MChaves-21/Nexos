@@ -2,8 +2,10 @@ import BankConnectionsManager from "@/components/openfinance/BankConnectionsMana
 import SyncedTransactionsList from "@/components/openfinance/SyncedTransactionsList";
 import { Shield, Lock } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useRealtimeSyncNotifications } from "@/hooks/useRealtimeSyncNotifications";
 
 const OpenFinance = () => {
+  useRealtimeSyncNotifications();
   return (
     <div className="space-y-6">
       <div>
