@@ -81,7 +81,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "itemId and institutionName required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const userId = claimsData.claims.sub;
+      const userId = user.id;
 
       const { data, error } = await supabase
         .from("bank_connections")
@@ -102,7 +102,7 @@ serve(async (req) => {
     }
 
     if (action === "list-connections") {
-      const userId = claimsData.claims.sub;
+      const userId = user.id;
       const { data, error } = await supabase
         .from("bank_connections")
         .select("*")
