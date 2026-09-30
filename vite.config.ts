@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Módulos puros compartilhados com as Edge Functions
+      "@shared": path.resolve(__dirname, "./supabase/functions/_shared"),
     },
   },
   build: {

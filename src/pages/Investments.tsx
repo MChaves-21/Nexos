@@ -32,6 +32,7 @@ import { AnimatedListContainer, AnimatedItem } from "@/components/AnimatedList";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { PriceAlertSettings } from "@/components/investments/PriceAlertSettings";
 import { TickerInput } from "@/components/investments/TickerInput";
+import SyncedInvestmentsCard from "@/components/openfinance/SyncedInvestmentsCard";
 import { B3Asset, getAssetTypeByTicker } from "@/data/b3-tickers";
 
 const Investments = () => {
@@ -750,6 +751,9 @@ const Investments = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Investimentos sincronizados via Open Finance (só aparece se houver) */}
+      <SyncedInvestmentsCard hideWhenEmpty />
 
       {/* Performance Chart */}
       <Card>

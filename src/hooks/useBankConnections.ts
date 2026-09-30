@@ -1,34 +1,35 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { extractKeyword } from "@shared/categorization";
+import type { Tables } from "@/integrations/supabase/types";
 
-export interface BankConnection {
-  id: string;
-  user_id: string;
-  institution_name: string;
-  pluggy_item_id: string;
+export type BankConnection = Tables<"bank_connections">;
+export type BankAccount = Tables<"bank_accounts">;
+export type SyncedTransaction = Tables<"synced_transactions">;
+export type SyncedInvestment = Tables<"synced_investments">;
+
+export interface SyncResult {
+  synced: number;
+  total: number;
+  accounts: number;
+  investments: number;
   status: string;
-  last_sync_at: string | null;
-  created_at: string;
-  updated_at: string;
+  detail: string | null;
 }
 
-export interface SyncedTransaction {
-  id: string;
-  user_id: string;
-  bank_connection_id: string;
-  external_id: string;
-  description: string;
-  amount: number;
-  date: string;
-  type: string;
-  original_category: string | null;
-  ai_category: string | null;
-  ai_confidence: number | null;
-  is_reviewed: boolean;
-  synced_at: string;
-  created_at: string;
-  updated_at: string;
+/** Chama uma Edge Function e devolve a mensagem de erro dela em vez do genérico "non-2xx". */
+async function invokeFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const payload = await error.context.json().catch(() => null);
+      throw new Error(payload?.error || error.message);
+    }
+    throw error;
+  }
+  return data as T;
 }
 
 export const useBankConnections = () => {
@@ -46,51 +47,56 @@ export const useBankConnections = () => {
     },
   });
 
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["bank-accounts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("bank_accounts").select("*").order("name");
+      if (error) throw error;
+      return data as BankAccount[];
+    },
+  });
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["bank-connections"] });
+    queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+    queryClient.invalidateQueries({ queryKey: ["synced-transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["synced-investments"] });
+  };
+
+  /** Sem itemId: nova conexão. Com itemId: widget em modo de atualização (reconectar). */
   const createConnectToken = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("pluggy-connect", {
-        body: {},
-        headers: {},
+    mutationFn: (itemId?: string) =>
+      invokeFunction<{ accessToken: string }>("pluggy-connect", { action: "create-connect-token", itemId }),
+    onError: (error) => {
+      toast({ title: "Erro ao abrir a Pluggy", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const syncTransactions = useMutation({
+    mutationFn: (connectionId: string) => invokeFunction<SyncResult>("pluggy-sync", { connectionId }),
+    onSuccess: (data) => {
+      invalidateAll();
+      const investments = data.investments ? ` · ${data.investments} investimentos atualizados` : "";
+      toast({
+        title: data.status === "reauth_required" ? "Reconexão necessária" : "Sincronização concluída",
+        description: data.detail ?? `${data.synced} novas transações de ${data.total} encontradas${investments}.`,
+        variant: data.status === "reauth_required" ? "destructive" : "default",
       });
-      // The function uses query params, so we need to use fetch directly
-      const session = await supabase.auth.getSession();
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pluggy-connect?action=create-connect-token`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.data.session?.access_token}`,
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-        }
-      );
-      if (!resp.ok) throw new Error("Failed to create connect token");
-      return resp.json();
+    },
+    onError: (error) => {
+      invalidateAll();
+      toast({ title: "Erro na sincronização", description: error.message, variant: "destructive" });
     },
   });
 
   const saveConnection = useMutation({
-    mutationFn: async ({ itemId, institutionName }: { itemId: string; institutionName: string }) => {
-      const session = await supabase.auth.getSession();
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pluggy-connect?action=save-connection`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.data.session?.access_token}`,
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ itemId, institutionName }),
-        }
-      );
-      if (!resp.ok) throw new Error("Failed to save connection");
-      return resp.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bank-connections"] });
-      toast({ title: "Banco conectado", description: "Conexão bancária salva com sucesso." });
+    mutationFn: ({ itemId, institutionName }: { itemId: string; institutionName?: string }) =>
+      invokeFunction<BankConnection>("pluggy-connect", { action: "save-connection", itemId, institutionName }),
+    onSuccess: (connection) => {
+      invalidateAll();
+      toast({ title: "Banco conectado", description: "Buscando contas, transações e investimentos..." });
+      // Primeira sincronização logo após conectar
+      syncTransactions.mutate(connection.id);
     },
     onError: (error) => {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -98,26 +104,10 @@ export const useBankConnections = () => {
   });
 
   const deleteConnection = useMutation({
-    mutationFn: async (connectionId: string) => {
-      const session = await supabase.auth.getSession();
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pluggy-connect?action=delete-connection`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.data.session?.access_token}`,
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ connectionId }),
-        }
-      );
-      if (!resp.ok) throw new Error("Failed to delete connection");
-      return resp.json();
-    },
+    mutationFn: (connectionId: string) =>
+      invokeFunction<{ success: boolean }>("pluggy-connect", { action: "delete-connection", connectionId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bank-connections"] });
-      queryClient.invalidateQueries({ queryKey: ["synced-transactions"] });
+      invalidateAll();
       toast({ title: "Conexão removida", description: "Banco desconectado com sucesso." });
     },
     onError: (error) => {
@@ -125,47 +115,26 @@ export const useBankConnections = () => {
     },
   });
 
-  const syncTransactions = useMutation({
-    mutationFn: async (connectionId: string) => {
-      const session = await supabase.auth.getSession();
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pluggy-sync`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.data.session?.access_token}`,
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ connectionId }),
-        }
-      );
-      if (!resp.ok) {
-        const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to sync");
-      }
-      return resp.json();
+  const setAutoSync = useMutation({
+    mutationFn: async ({ id, autoSync }: { id: string; autoSync: boolean }) => {
+      const { error } = await supabase.from("bank_connections").update({ auto_sync: autoSync }).eq("id", id);
+      if (error) throw error;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["bank-connections"] });
-      queryClient.invalidateQueries({ queryKey: ["synced-transactions"] });
-      toast({
-        title: "Sincronização concluída",
-        description: `${data.synced} novas transações sincronizadas de ${data.total} encontradas.`,
-      });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["bank-connections"] }),
     onError: (error) => {
-      toast({ title: "Erro na sincronização", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
 
   return {
     connections,
+    accounts,
     isLoading,
     createConnectToken,
     saveConnection,
     deleteConnection,
     syncTransactions,
+    setAutoSync,
   };
 };
 
@@ -190,40 +159,81 @@ export const useSyncedTransactions = (connectionId?: string) => {
     },
   });
 
+  /**
+   * Corrige a categoria e aprende a regra: a palavra-chave da descrição passa a valer
+   * para as próximas importações e para as transações pendentes parecidas.
+   * Escolher categoria não marca como importada (is_reviewed é só da importação).
+   */
   const approveCategory = useMutation({
     mutationFn: async ({ id, category }: { id: string; category: string }) => {
       const { error } = await supabase
         .from("synced_transactions")
-        .update({ ai_category: category, is_reviewed: true })
+        .update({ ai_category: category, ai_confidence: 1, category_source: "user" })
         .eq("id", id);
       if (error) throw error;
+
+      const tx = transactions.find((t) => t.id === id);
+      const keyword = tx ? extractKeyword(tx.description) : "";
+      if (!keyword) return { keyword: null, applied: 0 };
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error: ruleError } = await supabase
+        .from("categorization_rules")
+        .upsert({ user_id: user.id, keyword, category }, { onConflict: "user_id,keyword" });
+      if (ruleError) throw ruleError;
+
+      // Aplica às pendentes com a mesma palavra-chave que não foram escolhidas à mão
+      const similarIds = transactions
+        .filter((t) => t.id !== id && !t.is_reviewed && t.category_source !== "user" && extractKeyword(t.description) === keyword)
+        .map((t) => t.id);
+      if (similarIds.length) {
+        await supabase
+          .from("synced_transactions")
+          .update({ ai_category: category, ai_confidence: 1, category_source: "rule" })
+          .in("id", similarIds);
+      }
+      return { keyword, applied: similarIds.length };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["synced-transactions"] });
+      if (result.keyword && result.applied > 0) {
+        toast({
+          title: "Regra aprendida",
+          description: `"${result.keyword}" aplicada a mais ${result.applied} transaç${result.applied > 1 ? "ões" : "ão"}.`,
+        });
+      }
+    },
+    onError: (error) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
     },
   });
 
   const importToTransactions = useMutation({
     mutationFn: async (syncedTxIds: string[]) => {
-      const toImport = transactions.filter((t) => syncedTxIds.includes(t.id));
+      const toImport = transactions.filter((t) => syncedTxIds.includes(t.id) && !t.is_reviewed);
+      if (!toImport.length) return;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      for (const tx of toImport) {
-        await supabase.from("transactions").insert({
+      const { error } = await supabase.from("transactions").insert(
+        toImport.map((tx) => ({
           user_id: user.id,
           type: tx.type,
-          description: tx.description,
+          description: tx.installment_info ? `${tx.description} (${tx.installment_info})` : tx.description,
           category: tx.ai_category || tx.original_category || "Outros",
           amount: tx.amount,
           date: tx.date,
-        });
+        })),
+      );
+      if (error) throw error;
 
-        await supabase
-          .from("synced_transactions")
-          .update({ is_reviewed: true })
-          .eq("id", tx.id);
-      }
+      const { error: updateError } = await supabase
+        .from("synced_transactions")
+        .update({ is_reviewed: true })
+        .in("id", toImport.map((t) => t.id));
+      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["synced-transactions"] });
@@ -241,4 +251,20 @@ export const useSyncedTransactions = (connectionId?: string) => {
     approveCategory,
     importToTransactions,
   };
+};
+
+export const useSyncedInvestments = () => {
+  const { data: investments = [], isLoading } = useQuery({
+    queryKey: ["synced-investments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("synced_investments")
+        .select("*")
+        .order("balance", { ascending: false });
+      if (error) throw error;
+      return data as SyncedInvestment[];
+    },
+  });
+
+  return { investments, isLoading };
 };
