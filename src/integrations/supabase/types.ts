@@ -76,34 +76,132 @@ export type Database = {
           },
         ]
       }
-      bank_connections: {
+      bank_accounts: {
         Row: {
+          available_credit_limit: number | null
+          balance: number
+          bank_connection_id: string
           created_at: string
+          credit_limit: number | null
+          currency_code: string
+          external_id: string
           id: string
-          institution_name: string
-          last_sync_at: string | null
-          pluggy_item_id: string
-          status: string
+          name: string
+          number: string | null
+          subtype: string | null
+          type: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          available_credit_limit?: number | null
+          balance?: number
+          bank_connection_id: string
           created_at?: string
+          credit_limit?: number | null
+          currency_code?: string
+          external_id: string
           id?: string
-          institution_name: string
-          last_sync_at?: string | null
-          pluggy_item_id: string
-          status?: string
+          name: string
+          number?: string | null
+          subtype?: string | null
+          type: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          available_credit_limit?: number | null
+          balance?: number
+          bank_connection_id?: string
+          created_at?: string
+          credit_limit?: number | null
+          currency_code?: string
+          external_id?: string
+          id?: string
+          name?: string
+          number?: string | null
+          subtype?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_bank_connection_id_fkey"
+            columns: ["bank_connection_id"]
+            isOneToOne: false
+            referencedRelation: "bank_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_connections: {
+        Row: {
+          auto_sync: boolean
+          consent_expires_at: string | null
+          created_at: string
+          id: string
+          institution_name: string
+          last_sync_at: string | null
+          pluggy_item_id: string | null
+          provider: string
+          status: string
+          status_detail: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_sync?: boolean
+          consent_expires_at?: string | null
+          created_at?: string
+          id?: string
+          institution_name: string
+          last_sync_at?: string | null
+          pluggy_item_id?: string | null
+          provider?: string
+          status?: string
+          status_detail?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_sync?: boolean
+          consent_expires_at?: string | null
           created_at?: string
           id?: string
           institution_name?: string
           last_sync_at?: string | null
-          pluggy_item_id?: string
+          pluggy_item_id?: string | null
+          provider?: string
           status?: string
+          status_detail?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      categorization_rules: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          keyword: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          keyword: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          keyword?: string
           updated_at?: string
           user_id?: string
         }
@@ -316,19 +414,110 @@ export type Database = {
         }
         Relationships: []
       }
+      synced_investments: {
+        Row: {
+          amount_original: number | null
+          amount_profit: number | null
+          balance: number
+          bank_connection_id: string
+          code: string | null
+          created_at: string
+          currency_code: string
+          due_date: string | null
+          external_id: string
+          id: string
+          issuer: string | null
+          name: string
+          quantity: number | null
+          rate: number | null
+          rate_type: string | null
+          reference_date: string | null
+          status: string | null
+          subtype: string | null
+          synced_at: string
+          type: string
+          unit_value: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_original?: number | null
+          amount_profit?: number | null
+          balance?: number
+          bank_connection_id: string
+          code?: string | null
+          created_at?: string
+          currency_code?: string
+          due_date?: string | null
+          external_id: string
+          id?: string
+          issuer?: string | null
+          name: string
+          quantity?: number | null
+          rate?: number | null
+          rate_type?: string | null
+          reference_date?: string | null
+          status?: string | null
+          subtype?: string | null
+          synced_at?: string
+          type: string
+          unit_value?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_original?: number | null
+          amount_profit?: number | null
+          balance?: number
+          bank_connection_id?: string
+          code?: string | null
+          created_at?: string
+          currency_code?: string
+          due_date?: string | null
+          external_id?: string
+          id?: string
+          issuer?: string | null
+          name?: string
+          quantity?: number | null
+          rate?: number | null
+          rate_type?: string | null
+          reference_date?: string | null
+          status?: string | null
+          subtype?: string | null
+          synced_at?: string
+          type?: string
+          unit_value?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synced_investments_bank_connection_id_fkey"
+            columns: ["bank_connection_id"]
+            isOneToOne: false
+            referencedRelation: "bank_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       synced_transactions: {
         Row: {
           ai_category: string | null
           ai_confidence: number | null
           amount: number
+          bank_account_id: string | null
           bank_connection_id: string
+          category_source: string | null
           created_at: string
           date: string
           description: string
           external_id: string
+          hash: string | null
           id: string
+          installment_info: string | null
           is_reviewed: boolean
           original_category: string | null
+          source: string
           synced_at: string
           type: string
           updated_at: string
@@ -338,14 +527,19 @@ export type Database = {
           ai_category?: string | null
           ai_confidence?: number | null
           amount: number
+          bank_account_id?: string | null
           bank_connection_id: string
+          category_source?: string | null
           created_at?: string
           date: string
           description: string
           external_id: string
+          hash?: string | null
           id?: string
+          installment_info?: string | null
           is_reviewed?: boolean
           original_category?: string | null
+          source?: string
           synced_at?: string
           type?: string
           updated_at?: string
@@ -355,20 +549,32 @@ export type Database = {
           ai_category?: string | null
           ai_confidence?: number | null
           amount?: number
+          bank_account_id?: string | null
           bank_connection_id?: string
+          category_source?: string | null
           created_at?: string
           date?: string
           description?: string
           external_id?: string
+          hash?: string | null
           id?: string
+          installment_info?: string | null
           is_reviewed?: boolean
           original_category?: string | null
+          source?: string
           synced_at?: string
           type?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "synced_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "synced_transactions_bank_connection_id_fkey"
             columns: ["bank_connection_id"]
