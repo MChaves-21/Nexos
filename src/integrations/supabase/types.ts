@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -76,105 +76,34 @@ export type Database = {
           },
         ]
       }
-      bank_accounts: {
-        Row: {
-          available_credit_limit: number | null
-          balance: number
-          bank_connection_id: string
-          created_at: string
-          credit_limit: number | null
-          currency_code: string
-          external_id: string
-          id: string
-          name: string
-          number: string | null
-          subtype: string | null
-          type: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          available_credit_limit?: number | null
-          balance?: number
-          bank_connection_id: string
-          created_at?: string
-          credit_limit?: number | null
-          currency_code?: string
-          external_id: string
-          id?: string
-          name: string
-          number?: string | null
-          subtype?: string | null
-          type: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          available_credit_limit?: number | null
-          balance?: number
-          bank_connection_id?: string
-          created_at?: string
-          credit_limit?: number | null
-          currency_code?: string
-          external_id?: string
-          id?: string
-          name?: string
-          number?: string | null
-          subtype?: string | null
-          type?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bank_accounts_bank_connection_id_fkey"
-            columns: ["bank_connection_id"]
-            isOneToOne: false
-            referencedRelation: "bank_connections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       bank_connections: {
         Row: {
-          auto_sync: boolean
-          consent_expires_at: string | null
           created_at: string
           id: string
           institution_name: string
           last_sync_at: string | null
-          pluggy_item_id: string | null
-          provider: string
+          pluggy_item_id: string
           status: string
-          status_detail: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          auto_sync?: boolean
-          consent_expires_at?: string | null
           created_at?: string
           id?: string
           institution_name: string
           last_sync_at?: string | null
-          pluggy_item_id?: string | null
-          provider?: string
+          pluggy_item_id: string
           status?: string
-          status_detail?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          auto_sync?: boolean
-          consent_expires_at?: string | null
           created_at?: string
           id?: string
           institution_name?: string
           last_sync_at?: string | null
-          pluggy_item_id?: string | null
-          provider?: string
+          pluggy_item_id?: string
           status?: string
-          status_detail?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -202,33 +131,6 @@ export type Database = {
           created_at?: string
           id?: string
           monthly_budget?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      categorization_rules: {
-        Row: {
-          category: string
-          created_at: string
-          id: string
-          keyword: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          category: string
-          created_at?: string
-          id?: string
-          keyword: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          category?: string
-          created_at?: string
-          id?: string
-          keyword?: string
           updated_at?: string
           user_id?: string
         }
@@ -414,110 +316,19 @@ export type Database = {
         }
         Relationships: []
       }
-      synced_investments: {
-        Row: {
-          amount_original: number | null
-          amount_profit: number | null
-          balance: number
-          bank_connection_id: string
-          code: string | null
-          created_at: string
-          currency_code: string
-          due_date: string | null
-          external_id: string
-          id: string
-          issuer: string | null
-          name: string
-          quantity: number | null
-          rate: number | null
-          rate_type: string | null
-          reference_date: string | null
-          status: string | null
-          subtype: string | null
-          synced_at: string
-          type: string
-          unit_value: number | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount_original?: number | null
-          amount_profit?: number | null
-          balance?: number
-          bank_connection_id: string
-          code?: string | null
-          created_at?: string
-          currency_code?: string
-          due_date?: string | null
-          external_id: string
-          id?: string
-          issuer?: string | null
-          name: string
-          quantity?: number | null
-          rate?: number | null
-          rate_type?: string | null
-          reference_date?: string | null
-          status?: string | null
-          subtype?: string | null
-          synced_at?: string
-          type: string
-          unit_value?: number | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount_original?: number | null
-          amount_profit?: number | null
-          balance?: number
-          bank_connection_id?: string
-          code?: string | null
-          created_at?: string
-          currency_code?: string
-          due_date?: string | null
-          external_id?: string
-          id?: string
-          issuer?: string | null
-          name?: string
-          quantity?: number | null
-          rate?: number | null
-          rate_type?: string | null
-          reference_date?: string | null
-          status?: string | null
-          subtype?: string | null
-          synced_at?: string
-          type?: string
-          unit_value?: number | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "synced_investments_bank_connection_id_fkey"
-            columns: ["bank_connection_id"]
-            isOneToOne: false
-            referencedRelation: "bank_connections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       synced_transactions: {
         Row: {
           ai_category: string | null
           ai_confidence: number | null
           amount: number
-          bank_account_id: string | null
           bank_connection_id: string
-          category_source: string | null
           created_at: string
           date: string
           description: string
           external_id: string
-          hash: string | null
           id: string
-          installment_info: string | null
           is_reviewed: boolean
           original_category: string | null
-          source: string
           synced_at: string
           type: string
           updated_at: string
@@ -527,19 +338,14 @@ export type Database = {
           ai_category?: string | null
           ai_confidence?: number | null
           amount: number
-          bank_account_id?: string | null
           bank_connection_id: string
-          category_source?: string | null
           created_at?: string
           date: string
           description: string
           external_id: string
-          hash?: string | null
           id?: string
-          installment_info?: string | null
           is_reviewed?: boolean
           original_category?: string | null
-          source?: string
           synced_at?: string
           type?: string
           updated_at?: string
@@ -549,32 +355,20 @@ export type Database = {
           ai_category?: string | null
           ai_confidence?: number | null
           amount?: number
-          bank_account_id?: string | null
           bank_connection_id?: string
-          category_source?: string | null
           created_at?: string
           date?: string
           description?: string
           external_id?: string
-          hash?: string | null
           id?: string
-          installment_info?: string | null
           is_reviewed?: boolean
           original_category?: string | null
-          source?: string
           synced_at?: string
           type?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "synced_transactions_bank_account_id_fkey"
-            columns: ["bank_account_id"]
-            isOneToOne: false
-            referencedRelation: "bank_accounts"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "synced_transactions_bank_connection_id_fkey"
             columns: ["bank_connection_id"]
@@ -644,12 +438,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -673,11 +467,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -698,11 +492,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -723,11 +517,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -740,11 +534,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
