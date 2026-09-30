@@ -29,6 +29,9 @@ async function invokeFunction<T>(name: string, body: Record<string, unknown>): P
     }
     throw error;
   }
+  if (data && typeof data === "object" && "error" in data && (data as { error?: unknown }).error) {
+    throw new Error(String((data as { error: unknown }).error));
+  }
   return data as T;
 }
 
