@@ -1,740 +1,161 @@
-import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useMemo } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { format } from "date-fns";
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { Wallet, TrendingUp, TrendingDown, Landmark } from "lucide-react";
+import { format, startOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import StatCard from "@/components/StatCard";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useTransactions } from "@/hooks/useTransactions";
-import { useInvestments } from "@/hooks/useInvestments";
-import { useGoals } from "@/hooks/useGoals";
-import { cn } from "@/lib/utils";
-import { StatCardSkeleton, ChartSkeleton } from "@/components/skeletons";
-import WealthEvolutionChart from "@/components/charts/WealthEvolutionChart";
+import { StatCardSkeleton } from "@/components/skeletons";
+import { useBankConnections, useSyncedInvestments, useSyncedTransactions } from "@/hooks/useBankConnections";
+
+const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+const COLORS = ["hsl(var(--primary))", "hsl(var(--success))", "hsl(var(--destructive))", "hsl(var(--warning, 38 92% 50%))", "hsl(var(--accent-foreground))", "hsl(var(--muted-foreground))"];
+
+/** Ignora transferências e aplicações para não inflar receitas/despesas. */
+const isFlow = (category: string | null) => category !== "Transferência" && category !== "Investimento";
 
 const Dashboard = () => {
-  const isMobile = useIsMobile();
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  
-  const [startYear, setStartYear] = useState<string>((new Date().getFullYear() - 2).toString());
-  const [endYear, setEndYear] = useState<string>(new Date().getFullYear().toString());
-  const [categoryMonthOffset, setCategoryMonthOffset] = useState(0);
-  const [cashFlowMonthOffset, setCashFlowMonthOffset] = useState(0);
+  const { connections, accounts, isLoading: loadingConn } = useBankConnections();
+  const { transactions, isLoading: loadingTx } = useSyncedTransactions();
+  const { investments, isLoading: loadingInv } = useSyncedInvestments();
+  const loading = loadingConn || loadingTx || loadingInv;
 
-  const { transactions, isLoading: loadingTransactions } = useTransactions();
-  const { investments, isLoading: loadingInvestments } = useInvestments();
-  const { goals, isLoading: loadingGoals } = useGoals();
+  const data = useMemo(() => {
+    const cash = accounts.filter((a) => a.type !== "CREDIT").reduce((s, a) => s + Number(a.balance), 0);
+    const debt = accounts.filter((a) => a.type === "CREDIT").reduce((s, a) => s + Math.abs(Number(a.balance)), 0);
+    const invested = investments.reduce((s, i) => s + Number(i.balance), 0);
+    const netWorth = cash - debt + invested;
 
-  // Calcular dados reais a partir das transações e investimentos
-  const dashboardData = useMemo(() => {
-    if (loadingTransactions || loadingInvestments || loadingGoals) {
-      return null;
+    const monthKey = (d: string) => d.slice(0, 7);
+    const now = new Date();
+    const months = Array.from({ length: 12 }, (_, i) => format(subMonths(startOfMonth(now), 11 - i), "yyyy-MM"));
+    const flows = new Map<string, { income: number; expense: number }>(months.map((m) => [m, { income: 0, expense: 0 }]));
+    const currentKey = format(now, "yyyy-MM");
+    const byCategory = new Map<string, number>();
+
+    for (const t of transactions) {
+      const cat = t.ai_category || t.original_category || "Outros";
+      if (!isFlow(cat)) continue;
+      const f = flows.get(monthKey(t.date));
+      if (f) f[t.type === "income" ? "income" : "expense"] += Number(t.amount);
+      if (t.type === "expense" && monthKey(t.date) === currentKey) byCategory.set(cat, (byCategory.get(cat) ?? 0) + Number(t.amount));
     }
 
-    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-    const currentYear = new Date().getFullYear();
-    
-    // Usar todas as transações (sem filtro de período)
-    const filteredTransactions = transactions;
-
-    // Usar todos os investimentos (sem filtro de período)
-    const filteredInvestments = investments;
-    
-    // Agrupar transações por mês
-    const monthlyData: { [key: string]: { income: number; expense: number; month: number; year: number } } = {};
-    
-    filteredTransactions.forEach(transaction => {
-      const date = new Date(transaction.date);
-      const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
-      
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { income: 0, expense: 0, month: date.getMonth(), year: date.getFullYear() };
-      }
-      
-      if (transaction.type === 'income') {
-        monthlyData[monthKey].income += transaction.amount;
-      } else {
-        monthlyData[monthKey].expense += transaction.amount;
-      }
-    });
-
-    // Calcular patrimônio acumulado por mês (últimos 6 meses)
-    const last6Months = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      last6Months.push({
-        month: date.getMonth(),
-        year: date.getFullYear(),
-        name: monthNames[date.getMonth()]
-      });
-    }
-
-    let accumulatedWealth = 0;
-    const patrimonioData = last6Months.map(({ month, year, name }) => {
-      const key = `${year}-${month}`;
-      const data = monthlyData[key] || { income: 0, expense: 0 };
-      accumulatedWealth += data.income - data.expense;
-      return {
-        mes: name,
-        valor: Math.max(0, accumulatedWealth)
-      };
-    });
-
-    // Fluxo de caixa (últimos 6 meses)
-    const fluxoCaixaData = last6Months.map(({ month, year, name }) => {
-      const key = `${year}-${month}`;
-      const data = monthlyData[key] || { income: 0, expense: 0 };
-      return {
-        mes: name,
-        receitas: data.income,
-        despesas: data.expense
-      };
-    });
-
-    // Gastos por categoria - calculado externamente com categoryMonthOffset
-    const expenseTransactions = filteredTransactions.filter(t => t.type === 'expense');
-
-    // Distribuição de investimentos por tipo (filtrado por período)
-    const investmentsByType: { [key: string]: number } = {};
-    filteredInvestments.forEach(investment => {
-      const currentValue = investment.current_price * investment.quantity;
-      if (!investmentsByType[investment.asset_type]) {
-        investmentsByType[investment.asset_type] = 0;
-      }
-      investmentsByType[investment.asset_type] += currentValue;
-    });
-
-    const investmentsData = Object.entries(investmentsByType).map(([name, value], index) => ({
-      name,
-      value,
-      color: `hsl(var(--chart-${(index % 5) + 1}))`
-    }));
-
-    // Calcular totais (usando investimentos filtrados)
-    const totalInvested = filteredInvestments.reduce((sum, inv) => sum + (inv.purchase_price * inv.quantity), 0);
-    const totalCurrentInvestments = filteredInvestments.reduce((sum, inv) => sum + (inv.current_price * inv.quantity), 0);
-    
-    const currentMonthIncome = fluxoCaixaData[fluxoCaixaData.length - 1]?.receitas || 0;
-    const currentMonthExpense = fluxoCaixaData[fluxoCaixaData.length - 1]?.despesas || 0;
-    const previousMonthIncome = fluxoCaixaData[fluxoCaixaData.length - 2]?.receitas || 0;
-    const previousMonthExpense = fluxoCaixaData[fluxoCaixaData.length - 2]?.despesas || 0;
-
-    const netWorth = patrimonioData[patrimonioData.length - 1]?.valor || 0;
-    const previousNetWorth = patrimonioData[patrimonioData.length - 2]?.valor || 0;
-    
-    const incomeTrend = previousMonthIncome > 0 
-      ? ((currentMonthIncome - previousMonthIncome) / previousMonthIncome * 100).toFixed(1)
-      : "0.0";
-    const expenseTrend = previousMonthExpense > 0
-      ? ((currentMonthExpense - previousMonthExpense) / previousMonthExpense * 100).toFixed(1)
-      : "0.0";
-    const wealthTrend = previousNetWorth > 0
-      ? ((netWorth - previousNetWorth) / previousNetWorth * 100).toFixed(1)
-      : "0.0";
-    const investmentTrend = totalInvested > 0
-      ? (((totalCurrentInvestments - totalInvested) / totalInvested) * 100).toFixed(1)
-      : "0.0";
-
-    // Dados de comparação ano a ano
-    const yearlyData: { [key: string]: { [month: number]: number } } = {};
-    const years = [currentYear, currentYear - 1, currentYear - 2];
-    
-    years.forEach(year => {
-      yearlyData[year] = {};
-      for (let month = 0; month < 12; month++) {
-        yearlyData[year][month] = 0;
-      }
-    });
-
-    // Calcular patrimônio acumulado por ano
-    years.forEach(year => {
-      let accumulated = 0;
-      for (let month = 0; month < 12; month++) {
-        const key = `${year}-${month}`;
-        const data = monthlyData[key] || { income: 0, expense: 0 };
-        accumulated += data.income - data.expense;
-        yearlyData[year][month] = Math.max(0, accumulated);
-      }
-    });
-
-    const yearlyComparisonData = monthNames.map((mes, index) => {
-      const dataPoint: any = { mes };
-      years.forEach(year => {
-        dataPoint[year.toString()] = yearlyData[year][index];
-      });
-      return dataPoint;
-    });
-
-    // Receitas vs Despesas Anuais (filtrado por período)
-    const yearlyIncomeData = years.map(year => {
-      let totalIncome = 0;
-      let totalExpense = 0;
-      
-      filteredTransactions.forEach(transaction => {
-        const date = new Date(transaction.date);
-        if (date.getFullYear() === year) {
-          if (transaction.type === 'income') {
-            totalIncome += transaction.amount;
-          } else {
-            totalExpense += transaction.amount;
-          }
-        }
-      });
-
-      return {
-        ano: year.toString(),
-        receitas: totalIncome,
-        despesas: totalExpense,
-        economia: totalIncome - totalExpense
-      };
+    // Evolução: parte do patrimônio atual e desconta o saldo de cada mês para trás
+    let running = netWorth;
+    const evolution = [...months].reverse().map((m) => {
+      const point = { month: m, value: running };
+      const f = flows.get(m)!;
+      running -= f.income - f.expense;
+      return point;
     }).reverse();
 
-    // Calcular estatísticas anuais
-    const currentYearWealth = yearlyData[currentYear][11] || 0; // Dezembro do ano atual
-    const lastYearWealth = yearlyData[currentYear - 1][11] || 0; // Dezembro do ano anterior
-    
-    const wealthGrowthPercentage = lastYearWealth > 0 
-      ? (((currentYearWealth - lastYearWealth) / lastYearWealth) * 100)
-      : 0;
-
-    // Economia média anual (últimos anos com dados)
-    const yearsWithData = yearlyIncomeData.filter(y => y.economia > 0);
-    const averageAnnualSavings = yearsWithData.length > 0
-      ? yearsWithData.reduce((sum, y) => sum + y.economia, 0) / yearsWithData.length
-      : 0;
-
-    // Taxa de crescimento anual média (últimos 3 anos)
-    const growthRates = [];
-    for (let i = 0; i < years.length - 1; i++) {
-      const currentYearData = yearlyData[years[i]][11] || 0;
-      const previousYearData = yearlyData[years[i + 1]][11] || 0;
-      
-      if (previousYearData > 0) {
-        const rate = ((currentYearData - previousYearData) / previousYearData) * 100;
-        growthRates.push(rate);
-      }
-    }
-    
-    const averageGrowthRate = growthRates.length > 0
-      ? growthRates.reduce((sum, rate) => sum + rate, 0) / growthRates.length
-      : 0;
-
-    // Dados de evolução das metas
-    const goalsData = goals.map(goal => ({
-      name: goal.title,
-      progresso: Math.min((goal.current_amount / goal.target_amount) * 100, 100),
-      atual: goal.current_amount,
-      meta: goal.target_amount,
-      concluida: goal.completed
-    })).sort((a, b) => b.progresso - a.progresso);
-
+    const label = (m: string) => format(new Date(`${m}-15`), "MMM/yy", { locale: ptBR });
     return {
-      patrimonioData,
-      fluxoCaixaData,
-      allTransactions: filteredTransactions,
-      expenseTransactions,
-      investmentsData,
-      stats: {
-        netWorth,
-        totalCurrentInvestments,
-        currentMonthIncome,
-        currentMonthExpense,
-        wealthTrend: parseFloat(wealthTrend),
-        investmentTrend: parseFloat(investmentTrend),
-        incomeTrend: parseFloat(incomeTrend),
-        expenseTrend: parseFloat(expenseTrend)
-      },
-      yearlyComparisonData,
-      yearlyIncomeData,
-      availableYears: years.map(y => y.toString()),
-      annualStats: {
-        wealthGrowth: {
-          percentage: wealthGrowthPercentage,
-          from: lastYearWealth,
-          to: currentYearWealth
-        },
-        averageAnnualSavings,
-        averageGrowthRate
-      },
-      goalsData
+      cash, debt, invested, netWorth,
+      month: flows.get(currentKey)!,
+      evolution: evolution.map((p) => ({ ...p, label: label(p.month) })),
+      cashFlow: months.slice(-6).map((m) => ({ label: label(m), Receitas: flows.get(m)!.income, Despesas: flows.get(m)!.expense })),
+      categories: Array.from(byCategory.entries()).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value })),
     };
-  }, [transactions, investments, goals, loadingTransactions, loadingInvestments, loadingGoals]);
+  }, [accounts, investments, transactions]);
 
-  // Calcular categoriesData dinamicamente com base no mês selecionado
-  const categoryViewDate = useMemo(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + categoryMonthOffset);
-    return d;
-  }, [categoryMonthOffset]);
-
-  const categoriesData = useMemo(() => {
-    const expTxns = dashboardData?.expenseTransactions ?? [];
-    const targetMonth = categoryViewDate.getMonth();
-    const targetYear = categoryViewDate.getFullYear();
-    
-    const categoryData: { [key: string]: number } = {};
-    expTxns
-      .filter(t => {
-        const date = new Date(t.date);
-        return date.getMonth() === targetMonth && date.getFullYear() === targetYear;
-      })
-      .forEach(t => {
-        categoryData[t.category] = (categoryData[t.category] || 0) + t.amount;
-      });
-
-    return Object.entries(categoryData).map(([name, value], index) => ({
-      name,
-      value,
-      color: `hsl(var(--chart-${(index % 5) + 1}))`
-    }));
-  }, [dashboardData?.expenseTransactions, categoryViewDate]);
-
-  // Calcular fluxo de caixa dinamicamente com base no mês selecionado
-  const cashFlowViewDate = useMemo(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + cashFlowMonthOffset);
-    return d;
-  }, [cashFlowMonthOffset]);
-
-  const cashFlowData = useMemo(() => {
-    const allTxns = dashboardData?.allTransactions ?? [];
-    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-    // Build 6 months ending at cashFlowViewDate
-    const months = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(cashFlowViewDate);
-      d.setMonth(d.getMonth() - i);
-      months.push({ month: d.getMonth(), year: d.getFullYear(), name: monthNames[d.getMonth()] });
-    }
-
-    return months.map(({ month, year, name }) => {
-      let receitas = 0;
-      let despesas = 0;
-      allTxns.forEach(t => {
-        const date = new Date(t.date);
-        if (date.getMonth() === month && date.getFullYear() === year) {
-          if (t.type === 'income') receitas += t.amount;
-          else despesas += t.amount;
-        }
-      });
-      return { mes: name, receitas, despesas };
-    });
-  }, [dashboardData?.allTransactions, cashFlowViewDate]);
-
-  const filteredYearlyIncomeData = useMemo(() => {
-    return (dashboardData?.yearlyIncomeData ?? []).filter(d => {
-      const y = parseInt(d.ano);
-      return y >= parseInt(startYear) && y <= parseInt(endYear);
-    });
-  }, [dashboardData?.yearlyIncomeData, startYear, endYear]);
-
-  if (loadingTransactions || loadingInvestments || loadingGoals || !dashboardData) {
-    return (
-      <div className="space-y-6 animate-in fade-in duration-500">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard Financeiro</h2>
-          <p className="text-muted-foreground mt-1">
-            Visão completa das suas finanças
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <ChartSkeleton height={300} />
-          <ChartSkeleton height={300} />
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <ChartSkeleton height={250} />
-          <ChartSkeleton height={250} />
-        </div>
-      </div>
-    );
-  }
-
-  const { patrimonioData, fluxoCaixaData, stats, yearlyIncomeData, availableYears, annualStats, goalsData } = dashboardData;
-
-
-  const handleMonthClick = (data: any) => {
-    setSelectedMonth(selectedMonth === data.mes ? null : data.mes);
-    setSelectedCategory(null);
-  };
-
-  const handleCategoryClick = (data: any) => {
-    setSelectedCategory(selectedCategory === data.name ? null : data.name);
-    setSelectedMonth(null);
-  };
-
-  const clearFilters = () => {
-    setSelectedMonth(null);
-    setSelectedCategory(null);
-  };
+  const hasBank = connections.some((c) => c.provider === "pluggy");
 
   return (
-    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+    <main className="space-y-6">
       <div>
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard Financeiro</h2>
-        <p className="text-sm sm:text-base text-muted-foreground mt-1">
-          Visão completa das suas finanças
-        </p>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground text-sm mt-1">Tudo aqui vem das suas contas conectadas</p>
+      </div>
 
-        {(selectedMonth || selectedCategory) && (
-          <div className="mt-3 flex items-center gap-2 flex-wrap">
-            <span className="text-xs sm:text-sm text-muted-foreground">Filtros:</span>
-            {selectedMonth && (
-              <Badge variant="secondary" className="cursor-pointer text-xs" onClick={() => setSelectedMonth(null)}>
-                {selectedMonth} ✕
-              </Badge>
+      {!loading && !hasBank ? (
+        <Card>
+          <CardContent className="py-12 text-center space-y-3">
+            <Landmark className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Nenhum banco conectado</h2>
+            <p className="text-sm text-muted-foreground">Conecte seu banco para ver patrimônio, receitas e despesas.</p>
+            <Button asChild><Link to="/open-finance">Conectar banco</Link></Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+            {loading ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />) : (
+              <>
+                <StatCard title="Patrimônio líquido" value={brl(data.netWorth)} icon={Wallet} />
+                <StatCard title="Receitas do mês" value={brl(data.month.income)} icon={TrendingUp} variant="success" />
+                <StatCard title="Despesas do mês" value={brl(data.month.expense)} icon={TrendingDown} variant="destructive" />
+                <StatCard title="Investimentos" value={brl(data.invested)} icon={Landmark} />
+              </>
             )}
-            {selectedCategory && (
-              <Badge variant="secondary" className="cursor-pointer text-xs" onClick={() => setSelectedCategory(null)}>
-                {selectedCategory} ✕
-              </Badge>
-            )}
-            <button onClick={clearFilters} className="text-xs sm:text-sm text-primary hover:underline">
-              Limpar
-            </button>
           </div>
-        )}
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Patrimônio Líquido"
-          value={`R$ ${stats.netWorth.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          icon={PiggyBank}
-          trend={{ value: `${Math.abs(stats.wealthTrend).toFixed(1)}%`, positive: stats.wealthTrend >= 0 }}
-          variant="success"
-        />
-        <StatCard
-          title="Investimentos"
-          value={`R$ ${stats.totalCurrentInvestments.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          icon={TrendingUp}
-          trend={{ value: `${Math.abs(stats.investmentTrend).toFixed(1)}%`, positive: stats.investmentTrend >= 0 }}
-          variant="success"
-        />
-        <StatCard
-          title="Receitas (mês)"
-          value={`R$ ${stats.currentMonthIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          icon={TrendingUp}
-          trend={{ value: `${Math.abs(stats.incomeTrend).toFixed(1)}%`, positive: stats.incomeTrend >= 0 }}
-        />
-        <StatCard
-          title="Despesas (mês)"
-          value={`R$ ${stats.currentMonthExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          icon={TrendingDown}
-          trend={{ value: `${Math.abs(stats.expenseTrend).toFixed(1)}%`, positive: stats.expenseTrend < 0 }}
-          variant="destructive"
-        />
-      </div>
-
-      {/* Gráfico de Evolução Patrimonial Detalhada */}
-      <WealthEvolutionChart />
-
-      {/* Charts Row 1 */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="px-3 sm:px-6 pb-2 sm:pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <CardTitle className="text-base sm:text-lg">Fluxo de Caixa</CardTitle>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setCashFlowMonthOffset(o => o - 1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs capitalize min-w-[90px] sm:min-w-[120px] justify-center h-7 sm:h-8"
-                  onClick={() => setCashFlowMonthOffset(0)}
-                >
-                  {format(cashFlowViewDate, "MMM yyyy", { locale: ptBR })}
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setCashFlowMonthOffset(o => Math.min(o + 1, 0))} disabled={cashFlowMonthOffset >= 0}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="px-2 sm:px-6">
-            {cashFlowData.every(d => d.receitas === 0 && d.despesas === 0) ? (
-              <div className="flex flex-col items-center justify-center h-[200px] sm:h-[300px] text-muted-foreground">
-                <Wallet className="h-10 w-10 sm:h-12 sm:w-12 mb-3 opacity-50" />
-                <p className="text-sm font-medium">Nenhuma transação registrada</p>
-                <p className="text-xs mt-1">no período até {format(cashFlowViewDate, "MMMM 'de' yyyy", { locale: ptBR })}</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
-                <BarChart data={cashFlowData} onClick={handleMonthClick}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="mes" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
-                    }}
-                  />
-                  <Legend />
-                  <Bar 
-                    dataKey="receitas" 
-                    fill="hsl(var(--success))" 
-                    radius={[4, 4, 0, 0]}
-                    fillOpacity={selectedMonth ? 0.3 : 1}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <Bar 
-                    dataKey="despesas" 
-                    fill="hsl(var(--destructive))" 
-                    radius={[4, 4, 0, 0]}
-                    fillOpacity={selectedMonth ? 0.3 : 1}
-                    style={{ cursor: 'pointer' }}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="px-3 sm:px-6 pb-2 sm:pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <CardTitle className="text-base sm:text-lg">Gastos por Categoria</CardTitle>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setCategoryMonthOffset(o => o - 1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs capitalize min-w-[90px] sm:min-w-[120px] justify-center h-7 sm:h-8"
-                  onClick={() => setCategoryMonthOffset(0)}
-                >
-                  {format(categoryViewDate, "MMM yyyy", { locale: ptBR })}
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => setCategoryMonthOffset(o => Math.min(o + 1, 0))} disabled={categoryMonthOffset >= 0}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="px-2 sm:px-6">
-            {categoriesData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-[200px] sm:h-[300px] text-muted-foreground">
-                <Wallet className="h-10 w-10 sm:h-12 sm:w-12 mb-3 opacity-50" />
-                <p className="text-sm font-medium">Nenhuma despesa registrada</p>
-                <p className="text-xs mt-1">em {format(categoryViewDate, "MMMM 'de' yyyy", { locale: ptBR })}</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={isMobile ? 220 : 300}>
-                <PieChart onClick={handleCategoryClick}>
-                  <Pie
-                    data={categoriesData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={isMobile ? false : ({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={isMobile ? 65 : 80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {categoriesData.map((entry, index) => {
-                      const isSelected = selectedCategory === entry.name;
-                      return (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color} 
-                          opacity={isSelected ? 1 : selectedCategory ? 0.3 : 1}
-                          strokeWidth={isSelected ? 3 : 0}
-                          stroke="hsl(var(--foreground))"
-                        />
-                      );
-                    })}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Evolução das Metas Financeiras */}
-      {goalsData.length > 0 && (
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="px-3 sm:px-6">
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary shrink-0" />
-              <div>
-                <CardTitle className="text-base sm:text-lg">Metas Financeiras</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">Acompanhe o progresso</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 sm:space-y-6 px-3 sm:px-6">
-            {goalsData.map((goal, index) => (
-              <div key={index} className="space-y-1.5 sm:space-y-2">
-                <div className="flex justify-between items-center gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="font-medium text-sm sm:text-base truncate">{goal.name}</span>
-                    {goal.concluida && (
-                      <Badge variant="default" className="bg-success text-success-foreground text-xs shrink-0">
-                        ✓
-                      </Badge>
-                    )}
-                  </div>
-                  <span className="text-xs sm:text-sm font-semibold text-primary shrink-0">
-                    {goal.progresso.toFixed(1)}%
-                  </span>
-                </div>
-                <Progress 
-                  value={goal.progresso} 
-                  className={`h-2.5 sm:h-3 ${goal.concluida ? '[&>div]:bg-success' : ''}`}
-                />
-                <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
-                  <span>R$ {goal.atual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  <span>R$ {goal.meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Comparação Ano a Ano */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight">Comparação Anual</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Evolução ao longo dos anos
+          {!loading && (
+            <p className="text-xs text-muted-foreground">
+              Contas {brl(data.cash)} · Fatura do cartão −{brl(data.debt)} · Investimentos {brl(data.invested)}
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Select value={startYear} onValueChange={(v) => { setStartYear(v); if (parseInt(v) > parseInt(endYear)) setEndYear(v); }}>
-              <SelectTrigger className="w-[80px] sm:w-[100px] h-8 sm:h-9 text-xs sm:text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableYears.map(year => (
-                  <SelectItem key={year} value={year}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="text-xs sm:text-sm text-muted-foreground">até</span>
-            <Select value={endYear} onValueChange={(v) => { setEndYear(v); if (parseInt(v) < parseInt(startYear)) setStartYear(v); }}>
-              <SelectTrigger className="w-[80px] sm:w-[100px] h-8 sm:h-9 text-xs sm:text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableYears.map(year => (
-                  <SelectItem key={year} value={year}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+          )}
 
-        <div className="grid gap-4 md:grid-cols-1">
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card>
             <CardHeader>
-              <CardTitle>Receitas vs Despesas Anuais</CardTitle>
-              <CardDescription>Comparação total por ano</CardDescription>
+              <CardTitle className="text-base sm:text-lg">Evolução patrimonial</CardTitle>
+              <CardDescription>Últimos 12 meses, estimada a partir das entradas e saídas do banco</CardDescription>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={isMobile ? 250 : 350}>
-                <BarChart data={filteredYearlyIncomeData}>
+            <CardContent className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data.evolution}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="ano" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="receitas" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="despesas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                  <XAxis dataKey="label" fontSize={12} />
+                  <YAxis fontSize={12} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                  <Tooltip formatter={(v: number) => brl(v)} />
+                  <Area type="monotone" dataKey="value" name="Patrimônio" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.15)" />
+                </AreaChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Cards de Estatísticas Anuais */}
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-          <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
-            <CardHeader className="pb-2 px-3 sm:px-6">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
-                Crescimento ({new Date().getFullYear() - 1}-{new Date().getFullYear()})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              <div className={`text-xl sm:text-2xl font-bold ${annualStats.wealthGrowth.percentage >= 0 ? 'text-success' : 'text-destructive'}`}>
-                {annualStats.wealthGrowth.percentage >= 0 ? '+' : ''}{annualStats.wealthGrowth.percentage.toFixed(1)}%
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 sm:mt-2 line-clamp-2">
-                De R$ {annualStats.wealthGrowth.from.toLocaleString('pt-BR', { minimumFractionDigits: 0 })} para R$ {annualStats.wealthGrowth.to.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardHeader className="pb-2 px-3 sm:px-6">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
-                Economia Média Anual
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              <div className="text-xl sm:text-2xl font-bold text-primary">
-                R$ {annualStats.averageAnnualSavings.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 sm:mt-2">
-                Baseado nos anos com dados
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20">
-            <CardHeader className="pb-2 px-3 sm:px-6">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
-                Taxa Cresc. Anual
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-6">
-              <div className={`text-xl sm:text-2xl font-bold ${annualStats.averageGrowthRate >= 0 ? 'text-warning' : 'text-destructive'}`}>
-                {annualStats.averageGrowthRate >= 0 ? '+' : ''}{annualStats.averageGrowthRate.toFixed(1)}%
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 sm:mt-2">
-                Média dos últimos anos
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle className="text-base sm:text-lg">Receitas x Despesas</CardTitle></CardHeader>
+              <CardContent className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.cashFlow}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="label" fontSize={12} />
+                    <YAxis fontSize={12} />
+                    <Tooltip formatter={(v: number) => brl(v)} />
+                    <Legend />
+                    <Bar dataKey="Receitas" fill="hsl(var(--success))" />
+                    <Bar dataKey="Despesas" fill="hsl(var(--destructive))" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-base sm:text-lg">Despesas do mês por categoria</CardTitle></CardHeader>
+              <CardContent className="h-72">
+                {data.categories.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center pt-24">Nenhuma despesa neste mês.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={data.categories} dataKey="value" nameKey="name" outerRadius={90} innerRadius={50}>
+                        {data.categories.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: number) => brl(v)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+    </main>
   );
 };
 
