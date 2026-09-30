@@ -1,145 +1,105 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-const PLUGGY_API_URL = "https://api.pluggy.ai";
-
-async function getPluggyApiKey(): Promise<string> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) throw new Error("Pluggy credentials not configured");
-
-  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Pluggy auth failed [${resp.status}]: ${t}`);
-  }
-
-  const { apiKey } = await resp.json();
-  return apiKey;
-}
+import { corsHeaders, errorMessage, getUserClient, jsonResponse } from "../_shared/http.ts";
+import { getPluggyApiKey, PluggyError, pluggyRequest } from "../_shared/pluggy.ts";
+import { mapItemStatus, type PluggyItem } from "../_shared/pluggy-mappers.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Validate user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const auth = await getUserClient(req);
+    if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { supabase, userId } = auth;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action");
+    const body = await req.json().catch(() => ({}));
+    // A ação pode vir no corpo (supabase.functions.invoke) ou na query string (versão antiga do front)
+    const action = body.action ?? new URL(req.url).searchParams.get("action");
 
     if (action === "create-connect-token") {
-      const apiKey = await getPluggyApiKey();
-      // Create a connect token for the Pluggy Connect widget
-      const resp = await fetch(`${PLUGGY_API_URL}/connect_token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": apiKey,
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (!resp.ok) {
-        const t = await resp.text();
-        throw new Error(`Failed to create connect token [${resp.status}]: ${t}`);
+      // Com itemId, o widget abre em modo de atualização (reautorizar consentimento expirado)
+      const { itemId } = body;
+      if (itemId) {
+        const { data: owned } = await supabase
+          .from("bank_connections")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("pluggy_item_id", itemId)
+          .maybeSingle();
+        if (!owned) return jsonResponse({ error: "Connection not found" }, 404);
       }
 
-      const data = await resp.json();
-      return new Response(JSON.stringify({ accessToken: data.accessToken }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const apiKey = await getPluggyApiKey();
+      const data = await pluggyRequest<{ accessToken: string }>(apiKey, "/connect_token", {
+        method: "POST",
+        body: JSON.stringify({
+          ...(itemId ? { itemId } : {}),
+          options: { clientUserId: userId, avoidDuplicates: true },
+        }),
       });
+      return jsonResponse({ accessToken: data.accessToken });
     }
 
     if (action === "save-connection") {
-      const { itemId, institutionName } = await req.json();
-      if (!itemId || !institutionName) {
-        return new Response(JSON.stringify({ error: "itemId and institutionName required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { itemId } = body;
+      if (!itemId || typeof itemId !== "string") return jsonResponse({ error: "itemId required" }, 400);
+
+      // Valida o item na Pluggy (importante para IDs colados à mão, ex.: Meu Pluggy)
+      const apiKey = await getPluggyApiKey();
+      let item: PluggyItem;
+      try {
+        item = await pluggyRequest<PluggyItem>(apiKey, `/items/${encodeURIComponent(itemId.trim())}`);
+      } catch (e) {
+        if (e instanceof PluggyError && (e.status === 404 || e.status === 400)) {
+          return jsonResponse({ error: "Item não encontrado na Pluggy. Confira o Item ID." }, 404);
+        }
+        throw e;
       }
 
-      const userId = user.id;
+      const institutionName = (body.institutionName as string | undefined)?.trim() || item.connector?.name || "Banco";
+      const { status, detail, consentExpiresAt } = mapItemStatus(item);
 
-      const { data, error } = await supabase
+      const { data: existing } = await supabase
         .from("bank_connections")
-        .insert({
-          user_id: userId,
-          pluggy_item_id: itemId,
-          institution_name: institutionName,
-          status: "connected",
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (action === "list-connections") {
-      const userId = user.id;
-      const { data, error } = await supabase
-        .from("bank_connections")
-        .select("*")
+        .select("id")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+        .eq("pluggy_item_id", item.id)
+        .maybeSingle();
 
+      const fields = {
+        institution_name: institutionName,
+        status,
+        status_detail: detail,
+        consent_expires_at: consentExpiresAt,
+      };
+
+      const query = existing
+        ? supabase.from("bank_connections").update(fields).eq("id", existing.id)
+        : supabase.from("bank_connections").insert({ ...fields, user_id: userId, pluggy_item_id: item.id, provider: "pluggy" });
+
+      const { data, error } = await query.select().single();
       if (error) throw error;
-
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(data);
     }
 
     if (action === "delete-connection") {
-      const { connectionId } = await req.json();
-      if (!connectionId) {
-        return new Response(JSON.stringify({ error: "connectionId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const { connectionId } = body;
+      if (!connectionId) return jsonResponse({ error: "connectionId required" }, 400);
 
+      // Apaga só no Nexos. O item continua na Pluggy/Meu Pluggy, onde o consentimento
+      // pode ser revogado pelo próprio usuário.
       const { error } = await supabase
         .from("bank_connections")
         .delete()
-        .eq("id", connectionId);
-
+        .eq("id", connectionId)
+        .eq("user_id", userId);
       if (error) throw error;
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ success: true });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return jsonResponse({ error: "Invalid action" }, 400);
   } catch (e) {
-    console.error("pluggy-connect error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("pluggy-connect error:", errorMessage(e));
+    return jsonResponse({ error: errorMessage(e) }, 500);
   }
 });

@@ -1,1 +1,5 @@
 project_id = "pbwkhfqggfpxjqrlqxyd"
+
+# Chamada pelo pg_cron, sem JWT de usuário; autenticada pelo header x-cron-secret
+[functions.pluggy-sync-all]
+verify_jwt = false

@@ -1,6 +1,7 @@
 import BankConnectionsManager from "@/components/openfinance/BankConnectionsManager";
 import SyncedDashboard from "@/components/openfinance/SyncedDashboard";
 import SyncedTransactionsList from "@/components/openfinance/SyncedTransactionsList";
+import SyncedInvestmentsCard from "@/components/openfinance/SyncedInvestmentsCard";
 import { Shield, Lock } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRealtimeSyncNotifications } from "@/hooks/useRealtimeSyncNotifications";
@@ -22,12 +23,13 @@ const OpenFinance = () => {
         <AlertDescription className="text-xs text-muted-foreground">
           <div className="flex items-start gap-1 mt-1">
             <Lock className="h-3 w-3 mt-0.5 flex-shrink-0" />
-            <span>Conexão criptografada de ponta a ponta via Pluggy · Em conformidade com a LGPD · Seus dados nunca são compartilhados com terceiros</span>
+            <span>Conexão via Open Finance pela Pluggy: o Nexos nunca vê sua senha do banco · Arquivos CSV/OFX são lidos no seu navegador · Descrições sem regra de categoria são enviadas à IA para sugerir a categoria</span>
           </div>
         </AlertDescription>
       </Alert>
 
       <BankConnectionsManager />
+      <SyncedInvestmentsCard />
       <SyncedDashboard />
       <SyncedTransactionsList />
     </div>

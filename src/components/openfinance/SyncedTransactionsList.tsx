@@ -10,11 +10,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 
-const CATEGORIES = [
-  "Alimentação", "Transporte", "Moradia", "Saúde", "Educação",
-  "Lazer", "Vestuário", "Serviços", "Assinaturas", "Compras",
-  "Transferência", "Investimento", "Salário", "Freelance", "Outros"
-];
+import { CATEGORIES } from "@shared/categorization";
 
 const SyncedTransactionsList = () => {
   const { transactions, isLoading, approveCategory, importToTransactions } = useSyncedTransactions();
@@ -113,7 +109,7 @@ const SyncedTransactionsList = () => {
           <div className="text-center py-8 text-muted-foreground">
             <Brain className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p className="text-sm font-medium">Nenhuma transação pendente</p>
-            <p className="text-xs mt-1">Sincronize um banco para ver transações aqui</p>
+            <p className="text-xs mt-1">Sincronize um banco ou importe um arquivo para ver transações aqui</p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -178,8 +174,12 @@ function TransactionRow({
         )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{tx.description}</p>
-          <p className="text-xs text-muted-foreground">
-            {format(new Date(tx.date), "dd/MM/yyyy", { locale: ptBR })}
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+            {format(new Date(`${tx.date}T00:00:00`), "dd/MM/yyyy", { locale: ptBR })}
+            {tx.installment_info && (
+              <Badge variant="outline" className="text-[10px] px-1 py-0">Parcela {tx.installment_info}</Badge>
+            )}
+            {tx.category_source === "rule" && <span title="Categoria definida por regra">· regra</span>}
           </p>
         </div>
       </div>
