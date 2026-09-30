@@ -50,7 +50,8 @@ serve(async (req) => {
         item = await pluggyRequest<PluggyItem>(apiKey, `/items/${encodeURIComponent(itemId.trim())}`);
       } catch (e) {
         if (e instanceof PluggyError && (e.status === 404 || e.status === 400)) {
-          return jsonResponse({ error: "Item não encontrado na Pluggy. Confira o Item ID." }, 404);
+          // 200 com erro de validação: o front mostra um aviso sem tratar como falha do servidor
+          return jsonResponse({ error: "Item não encontrado na Pluggy. Use o botão Abrir Pluggy Connect ou confira o Item ID." }, 200);
         }
         throw e;
       }
