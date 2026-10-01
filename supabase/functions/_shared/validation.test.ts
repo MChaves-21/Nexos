@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertItemOwnership,
   errorStatus,
+  isMissingRelation,
   isUuid,
   MAX_CATEGORIZE_ITEMS,
   parseCategorizeInput,
@@ -74,5 +75,14 @@ describe("parsePluggyCredentials", () => {
     expect(() => parsePluggyCredentials({ clientId: "", clientSecret: "x" })).toThrow(/Client ID/);
     expect(() => parsePluggyCredentials({ clientId: "abc def 123", clientSecret: "s3cr3t-value" })).toThrow();
     expect(() => parsePluggyCredentials(null)).toThrow();
+  });
+});
+
+describe("isMissingRelation", () => {
+  it("detects tables/columns not migrated yet", () => {
+    expect(isMissingRelation({ code: "PGRST205", message: "Could not find the table 'public.pluggy_credentials' in the schema cache" })).toBe(true);
+    expect(isMissingRelation({ code: "42P01", message: 'relation "pluggy_credentials" does not exist' })).toBe(true);
+    expect(isMissingRelation({ code: "23505", message: "duplicate key" })).toBe(false);
+    expect(isMissingRelation(null)).toBe(false);
   });
 });
