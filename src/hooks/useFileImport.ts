@@ -53,11 +53,34 @@ export const useFileImport = () => {
       }
 
       const { data: rules } = await supabase.from("categorization_rules").select("keyword, category");
-      const rows = (await toSyncedRows(transactions, { source, accountKey: name, userRules: rules ?? [] })).map((r) => ({
+      const allRows = (await toSyncedRows(transactions, { source, accountKey: name, userRules: rules ?? [] })).map((r) => ({
         ...r,
         user_id: user.id,
         bank_connection_id: connectionId!,
       }));
+
+      // Não duplica o que já veio pela Pluggy: mesma data, valor e tipo (consome cada par uma vez)
+      const dates = allRows.map((r) => r.date).sort();
+      const pluggyCount = new Map<string, number>();
+      if (dates.length) {
+        const { data: pluggyTx } = await supabase
+          .from("synced_transactions")
+          .select("date, amount, type")
+          .eq("source", "pluggy")
+          .gte("date", dates[0])
+          .lte("date", dates[dates.length - 1]);
+        for (const t of pluggyTx ?? []) {
+          const k = `${t.date}|${Number(t.amount).toFixed(2)}|${t.type}`;
+          pluggyCount.set(k, (pluggyCount.get(k) ?? 0) + 1);
+        }
+      }
+      const rows = allRows.filter((r) => {
+        const k = `${r.date}|${r.amount.toFixed(2)}|${r.type}`;
+        const n = pluggyCount.get(k) ?? 0;
+        if (n > 0) { pluggyCount.set(k, n - 1); return false; }
+        return true;
+      });
+      const skippedPluggy = allRows.length - rows.length;
 
       let inserted = 0;
       const toCategorize: Array<{ id: string; description: string }> = [];
@@ -83,7 +106,7 @@ export const useFileImport = () => {
           .catch(() => undefined);
       }
 
-      return { total: rows.length, inserted, duplicates: rows.length - inserted };
+      return { total: allRows.length, inserted, duplicates: allRows.length - inserted };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["bank-connections"] });
