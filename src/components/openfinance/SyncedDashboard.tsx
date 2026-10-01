@@ -125,10 +125,10 @@ const SyncedDashboard = () => {
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
               Receitas
             </div>
-            <p className="text-lg font-bold text-emerald-500">
+            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
               {formatCurrency(stats.totalIncome)}
             </p>
           </CardContent>
@@ -136,10 +136,10 @@ const SyncedDashboard = () => {
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-              <TrendingDown className="h-3.5 w-3.5 text-red-500" />
+              <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
               Despesas
             </div>
-            <p className="text-lg font-bold text-red-500">
+            <p className="text-lg font-bold text-red-600 dark:text-red-400">
               {formatCurrency(stats.totalExpense)}
             </p>
           </CardContent>
@@ -159,15 +159,15 @@ const SyncedDashboard = () => {
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               {stats.pending > 0 ? (
-                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                <Clock className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
               ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
               )}
               Revisão
             </div>
             <div className="space-y-1">
               <p className="text-lg font-bold">{reviewProgress}%</p>
-              <Progress value={reviewProgress} className="h-1.5" />
+              <Progress value={reviewProgress} className="h-1.5" aria-label="Transações revisadas" />
               <p className="text-[10px] text-muted-foreground">
                 {stats.reviewed}/{stats.total} revisadas
               </p>
@@ -202,7 +202,7 @@ const SyncedDashboard = () => {
                         paddingAngle={2}
                       >
                         {stats.categoryData.map((entry, i) => (
-                          <Cell key={i} fill={entry.color} />
+                          <Cell key={i} fill={entry.color} aria-label={`${entry.name}: ${entry.value}`} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -320,7 +320,7 @@ const SyncedDashboard = () => {
                     paddingAngle={3}
                   >
                     {confidenceData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
+                      <Cell key={i} fill={entry.color} aria-label={`${entry.name}: ${entry.value}`} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -354,7 +354,7 @@ const SyncedDashboard = () => {
           </div>
           {stats.confidenceBuckets.low > 0 && (
             <div className="mt-3 flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20">
-              <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium text-amber-600">{stats.confidenceBuckets.low} transações</span> com baixa confiança na categorização. Revise-as manualmente para melhorar a precisão.
               </p>

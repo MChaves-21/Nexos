@@ -142,7 +142,7 @@ export const PriceAlertSettings = ({ investments }: PriceAlertSettingsProps) => 
                       value={selectedInvestment}
                       onValueChange={setSelectedInvestment}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger aria-label="Selecionar ativo">
                         <SelectValue placeholder="Escolha um ativo" />
                       </SelectTrigger>
                       <SelectContent>

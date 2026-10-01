@@ -41,7 +41,7 @@ const PasswordStrengthIndicator = ({ password }: PasswordStrengthIndicatorProps)
             <span className={cn(
               "text-xs font-medium",
               strength.level === 1 && "text-destructive",
-              strength.level === 2 && "text-orange-500",
+              strength.level === 2 && "text-orange-700 dark:text-orange-400",
               strength.level === 3 && "text-yellow-600 dark:text-yellow-500",
               strength.level === 4 && "text-emerald-600 dark:text-emerald-500"
             )}>

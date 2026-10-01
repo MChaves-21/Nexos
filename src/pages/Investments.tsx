@@ -34,6 +34,9 @@ import { PriceAlertSettings } from "@/components/investments/PriceAlertSettings"
 import { TickerInput } from "@/components/investments/TickerInput";
 import { parseISO } from "date-fns";
 import SyncedInvestmentsCard from "@/components/openfinance/SyncedInvestmentsCard";
+import BenchmarkCard from "@/components/investments/BenchmarkCard";
+import InfoHint from "@/components/InfoHint";
+import TipCard from "@/components/TipCard";
 import { B3Asset, getAssetTypeByTicker } from "@/data/b3-tickers";
 
 const Investments = () => {
@@ -564,7 +567,7 @@ const Investments = () => {
       <div className="space-y-6 animate-in fade-in duration-500">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Investimentos</h2>
+            <h1 className="text-3xl font-bold tracking-tight">Investimentos</h1>
             <p className="text-muted-foreground mt-1">
               Acompanhe sua carteira de investimentos
             </p>
@@ -592,7 +595,7 @@ const Investments = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Investimentos</h2>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Investimentos</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Acompanhe sua carteira de investimentos
             {isUpdatingPrices && (
@@ -753,6 +756,11 @@ const Investments = () => {
         </Card>
       </div>
 
+      <TipCard page="investments" />
+
+      {/* Carteira manual comparada com CDI e inflação (só aparece com investimentos) */}
+      <BenchmarkCard investments={investments} />
+
       {/* Investimentos sincronizados via Open Finance (só aparece se houver) */}
       <SyncedInvestmentsCard hideWhenEmpty />
 
@@ -766,7 +774,7 @@ const Investments = () => {
               value={selectedYear.toString()} 
               onValueChange={(value) => setSelectedYear(parseInt(value))}
             >
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-[100px]" aria-label="Ano">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -864,7 +872,7 @@ const Investments = () => {
                     labelLine={false}
                   >
                     {portfolioDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={entry.color} aria-label={`${entry.name}: ${entry.value}`} />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -891,8 +899,9 @@ const Investments = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
+            <Target className="h-5 w-5" aria-hidden />
             Metas de Alocação
+            <InfoHint term="alocacao" />
           </CardTitle>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 text-sm">
@@ -902,7 +911,7 @@ const Investments = () => {
                 value={imbalanceThreshold.toString()} 
                 onValueChange={(value) => handleThresholdChange(parseFloat(value))}
               >
-                <SelectTrigger className="w-[80px] h-8">
+                <SelectTrigger className="w-[80px] h-8" aria-label="Alertar quando a diferença passar de">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1169,7 +1178,7 @@ const Investments = () => {
             value={selectedAssetType} 
             onValueChange={setSelectedAssetType}
           >
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-[150px]" aria-label="Tipo de ativo">
               <SelectValue placeholder="Tipo de Ativo" />
             </SelectTrigger>
             <SelectContent>
@@ -1334,16 +1343,18 @@ const Investments = () => {
                             size="icon" 
                             className="h-8 w-8"
                             onClick={() => handleEdit(item)}
+                            aria-label={`Editar ${item.asset_name}`}
                           >
-                            <Edit2 className="h-4 w-4" />
+                            <Edit2 className="h-4 w-4" aria-hidden />
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8"
                             onClick={() => deleteInvestment(item)}
+                            aria-label={`Excluir ${item.asset_name}`}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" aria-hidden />
                           </Button>
                         </div>
                       </div>

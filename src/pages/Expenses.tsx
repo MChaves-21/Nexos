@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Plus, Edit2, Trash2, Landmark, Settings, Filter, X, CalendarIcon, Search, PieChart as PieChartIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Sparkles, AlertTriangle, CheckCircle2, Download, FileText, FileSpreadsheet } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, addMonths, getDaysInMonth, getDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -6,8 +6,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "@/hooks/use-toast";
 import { useAllTransactions, type UnifiedTransaction } from "@/hooks/useAllTransactions";
-import { CATEGORIES } from "@shared/categorization";
-import { Link } from "react-router-dom";
+import { CATEGORIES, categorizeByRules } from "@shared/categorization";
+import TipCard from "@/components/TipCard";
+import { Link, useSearchParams } from "react-router-dom";
 import { useBudgets } from "@/hooks/useBudgets";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,15 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 
 const Expenses = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // "Lançar transação" no Início abre direto o formulário (?nova=1)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("nova") === "1") {
+      setIsDialogOpen(true);
+      searchParams.delete("nova");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
@@ -56,7 +66,7 @@ const Expenses = () => {
     description: '',
     category: '',
     amount: '',
-    date: new Date().toISOString().split('T')[0],
+    date: format(new Date(), 'yyyy-MM-dd'),
   });
   const [budgetFormData, setBudgetFormData] = useState({
     category: '',
@@ -96,7 +106,7 @@ const Expenses = () => {
       description: '',
       category: '',
       amount: '',
-      date: new Date().toISOString().split('T')[0],
+      date: format(new Date(), 'yyyy-MM-dd'),
     });
     setIsDialogOpen(false);
   };
@@ -132,7 +142,7 @@ const Expenses = () => {
       description: '',
       category: '',
       amount: '',
-      date: new Date().toISOString().split('T')[0],
+      date: format(new Date(), 'yyyy-MM-dd'),
     });
     setEditingTransaction(null);
     setIsEditDialogOpen(false);
@@ -190,6 +200,19 @@ const Expenses = () => {
     const budgetCategories = budgets.map(b => b.category);
     return [...new Set([...transactionCategories, ...budgetCategories])].sort();
   }, [transactions, budgets]);
+
+  // Opções do formulário: categorias padrão + as que a pessoa já usa
+  const formCategories = useMemo(
+    () => [...new Set([...CATEGORIES, ...transactions.map(t => t.category)])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [transactions],
+  );
+
+  // Sugere a categoria pela descrição (regras padrão), sem sobrescrever a escolha da pessoa
+  const suggestCategory = () => {
+    if (formData.category || !formData.description.trim()) return;
+    const match = categorizeByRules(formData.description);
+    if (match) setFormData((f) => ({ ...f, category: f.category || match.category }));
+  };
 
   // Get all unique categories from ALL transactions (including income)
   const allTransactionCategories = useMemo(() => {
@@ -668,21 +691,21 @@ const Expenses = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Gastos e Receitas</h2>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Transações</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Controle seu fluxo de caixa mensal
+            Tudo o que entrou e saiu, lançado por você ou vindo do banco
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2 w-full sm:w-auto">
-              <Plus className="h-4 w-4" />
-              Nova Transação
+              <Plus className="h-4 w-4" aria-hidden />
+              Lançar transação
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Adicionar Transação</DialogTitle>
+              <DialogTitle>Lançar transação</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -692,8 +715,8 @@ const Expenses = () => {
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="income">Receita</SelectItem>
-                    <SelectItem value="expense">Despesa</SelectItem>
+                    <SelectItem value="income">Entrada (recebi dinheiro)</SelectItem>
+                    <SelectItem value="expense">Saída (gastei)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -701,9 +724,10 @@ const Expenses = () => {
                 <Label htmlFor="description">Descrição</Label>
                 <Input 
                   id="description" 
-                  placeholder="Ex: Aluguel" 
+                  placeholder="Ex: Aluguel, mercado, salário"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onBlur={suggestCategory}
                 />
               </div>
               <div className="space-y-2">
@@ -713,19 +737,9 @@ const Expenses = () => {
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                 <SelectContent>
-                  {allCategories.length > 0 ? (
-                    allCategories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))
-                  ) : (
-                    <>
-                      <SelectItem value="Moradia">Moradia</SelectItem>
-                      <SelectItem value="Alimentação">Alimentação</SelectItem>
-                      <SelectItem value="Transporte">Transporte</SelectItem>
-                      <SelectItem value="Lazer">Lazer</SelectItem>
-                      <SelectItem value="Outros">Outros</SelectItem>
-                    </>
-                  )}
+                  {formCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
                 </SelectContent>
                 </Select>
               </div>
@@ -752,6 +766,8 @@ const Expenses = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      <TipCard page="expenses" />
 
 
       {/* Transactions with Filters */}
@@ -895,8 +911,8 @@ const Expenses = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="income">Receitas</SelectItem>
-                        <SelectItem value="expense">Despesas</SelectItem>
+                        <SelectItem value="income">Entradas</SelectItem>
+                        <SelectItem value="expense">Saídas</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -984,13 +1000,13 @@ const Expenses = () => {
                 <p className="text-lg font-bold">{filteredSummary.count}</p>
               </div>
               <div className="bg-success/10 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Receitas</p>
+                <p className="text-xs text-muted-foreground">Entradas</p>
                 <p className="text-lg font-bold text-success">
                   +R$ {filteredSummary.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="bg-destructive/10 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Despesas</p>
+                <p className="text-xs text-muted-foreground">Saídas</p>
                 <p className="text-lg font-bold text-destructive">
                   -R$ {filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
@@ -1032,7 +1048,7 @@ const Expenses = () => {
                           nameKey="name"
                         >
                           {expensesByCategoryData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
+                            <Cell key={`cell-${index}`} fill={entry.color} aria-label={`${entry.name}: ${entry.value}`} />
                           ))}
                         </Pie>
                         <Tooltip
@@ -1287,7 +1303,7 @@ const Expenses = () => {
                     <span className="text-muted-foreground">Progresso do mês</span>
                     <span className="font-medium">{expenseForecastData.percentMonthElapsed.toFixed(0)}%</span>
                   </div>
-                  <Progress value={expenseForecastData.percentMonthElapsed} className="h-2" />
+                  <Progress value={expenseForecastData.percentMonthElapsed} className="h-2" aria-label="Parte do mês que já passou" />
                 </div>
 
                 {/* Summary Cards */}
@@ -1337,7 +1353,7 @@ const Expenses = () => {
                 {/* Category Forecasts */}
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-muted-foreground">Previsão por Categoria</p>
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto" tabIndex={0} role="region" aria-label="Lista com rolagem">
                     {expenseForecastData.forecasts.slice(0, 8).map((forecast) => (
                       <div 
                         key={forecast.category}
@@ -1554,8 +1570,8 @@ const Expenses = () => {
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="income">Receita</SelectItem>
-                  <SelectItem value="expense">Despesa</SelectItem>
+                  <SelectItem value="income">Entrada (recebi dinheiro)</SelectItem>
+                  <SelectItem value="expense">Saída (gastei)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

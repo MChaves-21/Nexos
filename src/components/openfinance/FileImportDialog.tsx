@@ -120,8 +120,8 @@ const FileImportDialog = () => {
                   {summary.to.split("-").reverse().join("/")}
                 </p>
                 <p className="text-xs">
-                  <span className="text-red-500">Saídas {formatCurrency(summary.out)}</span> ·{" "}
-                  <span className="text-emerald-500">Entradas {formatCurrency(summary.inc)}</span>
+                  <span className="text-red-600 dark:text-red-400">Saídas {formatCurrency(summary.out)}</span> ·{" "}
+                  <span className="text-emerald-700 dark:text-emerald-400">Entradas {formatCurrency(summary.inc)}</span>
                 </p>
               </div>
               <div className="space-y-2">

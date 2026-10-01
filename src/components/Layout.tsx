@@ -1,11 +1,16 @@
 import { ReactNode, useState, useEffect, useTransition } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Receipt, FileText, Loader2, Building2, Tags, ListChecks } from "lucide-react";
+import { LogOut, LogIn, Moon, Sun, Loader2, MoreHorizontal } from "lucide-react";
 import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/Footer";
 import Breadcrumb from "@/components/Breadcrumb";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import ModeToggle from "@/components/ModeToggle";
+import OnboardingDialog from "@/components/OnboardingDialog";
+import { usePreferences } from "@/hooks/usePreferences";
+import { NAV_ITEMS, visibleNavItems } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
@@ -101,93 +106,52 @@ const Layout = ({
       });
     }
   };
-  const navItems = [{
-    to: "/",
-    icon: LayoutDashboard,
-    label: "Dashboard"
-  }, {
-    to: "/expenses",
-    icon: Wallet,
-    label: "Gastos"
-  }, {
-    to: "/investments",
-    icon: TrendingUp,
-    label: "Investimentos"
-  }, {
-    to: "/budgets",
-    icon: Receipt,
-    label: "Orçamentos"
-  }, {
-    to: "/simulation",
-    icon: Calculator,
-    label: "Simulador"
-  }, {
-    to: "/reports",
-    icon: FileText,
-    label: "Relatórios"
-  }, {
-    to: "/open-finance",
-    icon: Building2,
-    label: "Open Finance"
-  }, {
-    to: "/categorization",
-    icon: Tags,
-    label: "Categorização"
-  }, {
-    to: "/rules",
-    icon: ListChecks,
-    label: "Regras"
-  }];
+  const { isComplete } = usePreferences();
+  const navItems = visibleNavItems(isComplete);
+  const simpleItems = NAV_ITEMS.filter(i => i.level === "simple");
+  const extraItems = NAV_ITEMS.filter(i => i.level === "complete");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const isActivePath = (to: string) => location.pathname === to || (to === "/" && location.pathname === "/dashboard");
+
   const NavLinks = () => <>
-      {navItems.map(({
-      to,
-      icon: Icon,
-      label
-    }) => {
+      {navItems.map(({ to, icon: Icon, label }) => {
       const isLoading = isPending && pendingRoute === to;
-      const isActive = location.pathname === to;
-      return <button key={to} onClick={() => handleNavClick(to)} onMouseEnter={() => handlePrefetch(to)} onFocus={() => handlePrefetch(to)} className="w-full text-left" disabled={isLoading}>
-            <Button variant={isActive ? "default" : "ghost"} className="w-full justify-start gap-3" asChild={false}>
-              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5" />}
-              {label}
-            </Button>
-          </button>;
+      const isActive = isActivePath(to);
+      return <Button key={to} variant={isActive ? "default" : "ghost"} className="w-full justify-start gap-3"
+          onClick={() => handleNavClick(to)} onMouseEnter={() => handlePrefetch(to)} onFocus={() => handlePrefetch(to)}
+          disabled={isLoading} aria-current={isActive ? "page" : undefined}>
+            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Icon className="h-5 w-5" aria-hidden />}
+            {label}
+          </Button>;
     })}
     </>;
+
   return <div className="min-h-screen bg-muted/30 flex flex-col">
+      <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">
+        Pular para o conteúdo
+      </a>
+      <OnboardingDialog />
+
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sheet>
-              <SheetTrigger asChild className="lg:hidden">
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-64">
-                <nav className="flex flex-col gap-2 mt-8">
-                  <NavLinks />
-                </nav>
-              </SheetContent>
-            </Sheet>
-            <div className="flex items-center gap-2">
-              <img src={nexosLogo} alt="NEXOS" className="h-8 w-8 rounded" loading="eager" decoding="async" />
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                NEXOS
-              </h1>
-            </div>
+            <img src={nexosLogo} alt="" className="h-8 w-8 rounded" loading="eager" decoding="async" />
+            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              NEXOS
+            </span>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}>
+              {theme === "dark" ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
             </Button>
             {user ? <Button variant="outline" onClick={handleLogout} className="gap-2">
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-4 w-4" aria-hidden />
                 Sair
               </Button> : <Button onClick={() => navigate("/auth")} className="gap-2">
-                <LogIn className="h-4 w-4" />
+                <LogIn className="h-4 w-4" aria-hidden />
                 Entrar
               </Button>}
           </div>
@@ -196,20 +160,71 @@ const Layout = ({
 
       <div className="container flex gap-6 py-6 flex-1 rounded-none">
         {/* Sidebar - Desktop */}
-        <aside className="hidden lg:flex w-64 flex-col gap-2 sticky top-20 h-fit">
-          <nav className="flex flex-col gap-2">
+        <aside className="hidden lg:flex w-64 flex-col gap-4 sticky top-20 h-fit">
+          <nav className="flex flex-col gap-2" aria-label="Menu principal">
             <NavLinks />
           </nav>
+          <ModeToggle />
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1">
+        {/* Main Content (espaço extra embaixo no celular por causa da barra inferior) */}
+        <main id="conteudo" tabIndex={-1} className="flex-1 min-w-0 pb-24 lg:pb-0 focus:outline-none">
           <Breadcrumb />
           {children}
         </main>
       </div>
 
-      <Footer />
+      <div className="pb-20 lg:pb-0">
+        <Footer />
+      </div>
+
+      {/* Barra inferior - Celular */}
+      <nav aria-label="Menu principal" className="lg:hidden fixed bottom-0 inset-x-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[env(safe-area-inset-bottom)]">
+        <ul className="grid grid-cols-5">
+          {simpleItems.map(({ to, icon: Icon, shortLabel }) => {
+          const isActive = isActivePath(to);
+          return <li key={to}>
+                <button onClick={() => handleNavClick(to)} aria-current={isActive ? "page" : undefined}
+                  className={cn("flex w-full min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isActive ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+                  <Icon className="h-5 w-5" aria-hidden />
+                  {shortLabel}
+                </button>
+              </li>;
+        })}
+          <li>
+            <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+              <SheetTrigger asChild>
+                <button className={cn("flex w-full min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  extraItems.some(i => isActivePath(i.to)) && "text-primary")}>
+                  <MoreHorizontal className="h-5 w-5" aria-hidden />
+                  Mais
+                </button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Mais opções</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4 space-y-4">
+                  {isComplete ? <ul className="grid grid-cols-2 gap-2">
+                      {extraItems.map(({ to, icon: Icon, label, description }) => <li key={to}>
+                          <button onClick={() => { setMoreOpen(false); handleNavClick(to); }} aria-current={isActivePath(to) ? "page" : undefined}
+                            className={cn("flex h-full w-full flex-col items-start gap-1 rounded-lg border p-3 text-left min-h-[72px]", isActivePath(to) && "border-primary bg-primary/5")}>
+                            <Icon className="h-5 w-5 text-primary" aria-hidden />
+                            <span className="text-sm font-medium">{label}</span>
+                            <span className="text-xs text-muted-foreground">{description}</span>
+                          </button>
+                        </li>)}
+                    </ul> : <p className="text-sm text-muted-foreground">
+                      O modo simples mostra só o essencial. Ative o modo completo para ver investimentos, simulador, relatórios e regras.
+                    </p>}
+                  <ModeToggle />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </li>
+        </ul>
+      </nav>
     </div>;
 };
 export default Layout;

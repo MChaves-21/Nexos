@@ -4,7 +4,6 @@ import { Check, Tags } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSyncedTransactions } from "@/hooks/useBankConnections";
 import { CATEGORIES } from "@shared/categorization";
@@ -23,7 +22,7 @@ const Categorization = () => {
   const pending = transactions.filter((t) => t.category_source !== "user" && (t.ai_confidence == null || Number(t.ai_confidence) < 0.8 || !t.ai_category)).length;
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Categorização</h1>
         <p className="text-muted-foreground text-sm mt-1">Revise as categorias das transações do banco. Cada escolha ensina uma regra.</p>
@@ -36,12 +35,14 @@ const Categorization = () => {
               <CardTitle className="text-base sm:text-lg">{pending} para revisar</CardTitle>
               <CardDescription>Sem categoria ou com baixa confiança da IA</CardDescription>
             </div>
-            <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-              <TabsList>
-                <TabsTrigger value="review">Para revisar</TabsTrigger>
-                <TabsTrigger value="all">Todas</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Filtro com botões (Tabs sem painéis gerava ARIA inválido) */}
+            <div className="inline-flex rounded-md bg-muted p-1" role="group" aria-label="Filtrar transações">
+              {([["review", "Para revisar"], ["all", "Todas"]] as const).map(([value, label]) => (
+                <Button key={value} size="sm" variant={filter === value ? "default" : "ghost"} aria-pressed={filter === value} onClick={() => setFilter(value)}>
+                  {label}
+                </Button>
+              ))}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -83,7 +84,7 @@ const Categorization = () => {
           )}
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 };
 

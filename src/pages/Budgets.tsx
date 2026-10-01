@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
-import { Target, Trash2, Wallet } from "lucide-react";
+import { differenceInCalendarMonths, format } from "date-fns";
+import { ShieldCheck, Target, Trash2, Wallet } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,12 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBudgets } from "@/hooks/useBudgets";
 import { useGoals } from "@/hooks/useGoals";
-import { useBankConnections, useSyncedInvestments } from "@/hooks/useBankConnections";
 import { useAllTransactions } from "@/hooks/useAllTransactions";
-import { useInvestments } from "@/hooks/useInvestments";
+import { useFinancialSnapshot } from "@/hooks/useFinancialSnapshot";
 import { CATEGORIES } from "@shared/categorization";
+import InfoHint from "@/components/InfoHint";
+import TipCard from "@/components/TipCard";
+import { isRealFlow, monthKeyAgo } from "@/lib/insights";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 /** Formata enquanto digita: 1.234,56 */
@@ -25,10 +27,7 @@ const parseMoney = (v: string) => Number(v.replace(/\./g, "").replace(",", "."))
 const Budgets = () => {
   const { budgets, upsertBudget, deleteBudget } = useBudgets();
   const { goals, addGoal, deleteGoal } = useGoals();
-  const { accounts } = useBankConnections();
   const { transactions } = useAllTransactions();
-  const { investments } = useSyncedInvestments();
-  const { investments: manualInvestments } = useInvestments();
 
   const [cat, setCat] = useState("");
   const [limit, setLimit] = useState("");
@@ -47,23 +46,33 @@ const Budgets = () => {
     return m;
   }, [transactions, month]);
 
-  const netWorth = useMemo(() =>
-    accounts.reduce((s, a) => s + (a.type === "CREDIT" ? -Math.abs(Number(a.balance)) : Number(a.balance)), 0) +
-    investments.reduce((s, i) => s + Number(i.balance), 0) +
-    manualInvestments.reduce((s, i) => s + Number(i.quantity) * Number(i.current_price), 0), [accounts, investments, manualInvestments]);
+  // Reserva de emergência sugerida: 6 meses da média de gastos dos últimos 3 meses
+  const suggestedReserve = useMemo(() => {
+    const now = new Date();
+    const months = [1, 2, 3].map((n) => monthKeyAgo(now, n));
+    const totals = months.map((m) => transactions
+      .filter((t) => t.type === "expense" && isRealFlow(t.category) && t.date.startsWith(m))
+      .reduce((s, t) => s + Number(t.amount), 0)).filter((v) => v > 0);
+    if (!totals.length) return null;
+    return Math.round((totals.reduce((s, v) => s + v, 0) / totals.length) * 6 / 100) * 100;
+  }, [transactions]);
+
+  const { netWorth } = useFinancialSnapshot();
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Metas e orçamentos</h1>
-        <p className="text-muted-foreground text-sm mt-1">Progresso calculado com os dados reais do banco</p>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Metas e limites</h1>
+        <p className="text-muted-foreground text-sm mt-1">Quanto você quer gastar e quanto quer juntar</p>
       </div>
+
+      <TipCard page="budgets" />
 
       <section className="space-y-4" aria-labelledby="orc">
         <Card>
           <CardHeader>
-            <CardTitle id="orc" className="text-base sm:text-lg flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" />Orçamentos do mês</CardTitle>
-            <CardDescription>Gasto do mês atual por categoria, vindo das transações do banco</CardDescription>
+            <CardTitle id="orc" className="text-base sm:text-lg flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" aria-hidden />Limites de gastos do mês<InfoHint term="orcamento" /></CardTitle>
+            <CardDescription>Escolha uma categoria e quanto quer gastar nela por mês</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <form className="flex flex-col sm:flex-row gap-2" onSubmit={(e) => {
@@ -78,12 +87,13 @@ const Budgets = () => {
               <Input inputMode="numeric" placeholder="Limite mensal (R$)" value={limit} onChange={(e) => setLimit(maskMoney(e.target.value))} aria-label="Limite mensal" />
               <Button type="submit">Salvar</Button>
             </form>
-            {budgets.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum orçamento definido.</p> : (
+            {budgets.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum limite definido ainda.</p> : (
               <ul className="space-y-3">
                 {budgets.map((b) => {
                   const s = spent.get(b.category) ?? 0;
                   const pct = Math.min(100, (s / Number(b.monthly_budget)) * 100);
                   const over = s > Number(b.monthly_budget);
+                  const near = !over && pct >= 80;
                   return (
                     <li key={b.id} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
@@ -93,7 +103,10 @@ const Budgets = () => {
                           <Button size="icon" variant="ghost" className="h-7 w-7 ml-1" onClick={() => deleteBudget.mutate(b)} aria-label="Excluir orçamento"><Trash2 className="h-3.5 w-3.5" /></Button>
                         </span>
                       </div>
-                      <Progress value={pct} className={over ? "[&>div]:bg-destructive" : ""} />
+                      <Progress value={pct} className={over ? "[&>div]:bg-destructive" : near ? "[&>div]:bg-warning" : ""}
+                        aria-label={`${b.category}: ${Math.round((s / Number(b.monthly_budget)) * 100)}% do limite`} />
+                      {over && <p className="text-xs text-destructive">Passou {brl(s - Number(b.monthly_budget))} do limite.</p>}
+                      {near && <p className="text-xs text-muted-foreground">Restam {brl(Number(b.monthly_budget) - s)} para este mês.</p>}
                     </li>
                   );
                 })}
@@ -106,8 +119,8 @@ const Budgets = () => {
       <section aria-labelledby="metas">
         <Card>
           <CardHeader>
-            <CardTitle id="metas" className="text-base sm:text-lg flex items-center gap-2"><Target className="h-5 w-5 text-primary" />Metas</CardTitle>
-            <CardDescription>Progresso em relação ao seu patrimônio real: {brl(netWorth)}</CardDescription>
+            <CardTitle id="metas" className="text-base sm:text-lg flex items-center gap-2"><Target className="h-5 w-5 text-primary" aria-hidden />Metas para juntar dinheiro<InfoHint term="meta" /></CardTitle>
+            <CardDescription>Progresso medido pelo seu dinheiro guardado hoje: {brl(netWorth)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <form className="flex flex-col sm:flex-row gap-2" onSubmit={(e) => {
@@ -121,11 +134,26 @@ const Budgets = () => {
               <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} aria-label="Prazo" className="sm:w-44" />
               <Button type="submit">Criar</Button>
             </form>
+            {suggestedReserve !== null && !goals.some((g) => /reserva/i.test(g.title)) && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+                <ShieldCheck className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+                <p className="flex-1">
+                  Sugestão: uma <strong>reserva de emergência</strong> de {brl(suggestedReserve)} (6 meses dos seus gastos).
+                  <InfoHint term="reserva" className="ml-1" />
+                </p>
+                <Button size="sm" variant="outline" onClick={() => addGoal.mutate({ title: "Reserva de emergência", description: null, target_amount: suggestedReserve, current_amount: 0, deadline: null, category: null })}>
+                  Criar esta meta
+                </Button>
+              </div>
+            )}
             {goals.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma meta criada.</p> : (
               <ul className="space-y-3">
                 {goals.map((g) => {
                   const pct = Math.max(0, Math.min(100, (netWorth / Number(g.target_amount)) * 100));
                   const missing = Math.max(0, Number(g.target_amount) - netWorth);
+                  // Quanto guardar por mês para chegar no prazo
+                  const monthsLeft = g.deadline ? differenceInCalendarMonths(new Date(`${g.deadline}T12:00`), new Date()) : null;
+                  const perMonth = monthsLeft !== null && monthsLeft > 0 && missing > 0 ? missing / monthsLeft : null;
                   return (
                     <li key={g.id} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
@@ -135,7 +163,9 @@ const Budgets = () => {
                           <Button size="icon" variant="ghost" className="h-7 w-7 ml-1" onClick={() => deleteGoal.mutate(g)} aria-label="Excluir meta"><Trash2 className="h-3.5 w-3.5" /></Button>
                         </span>
                       </div>
-                      <Progress value={pct} />
+                      <Progress value={pct} aria-label={`${g.title}: ${pct.toFixed(0)}% da meta`} />
+                      {perMonth !== null && <p className="text-xs text-muted-foreground">Guardando {brl(perMonth)} por mês você chega lá no prazo.</p>}
+                      {pct >= 100 && <p className="text-xs text-success font-medium">Meta alcançada!</p>}
                     </li>
                   );
                 })}
@@ -144,7 +174,7 @@ const Budgets = () => {
           </CardContent>
         </Card>
       </section>
-    </main>
+    </div>
   );
 };
 

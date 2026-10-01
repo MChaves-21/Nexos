@@ -51,9 +51,9 @@ const SyncedTransactionsList = () => {
   const getConfidenceBadge = (confidence: number | null) => {
     if (confidence === null) return null;
     const pct = Math.round(confidence * 100);
-    if (pct >= 80) return <Badge className="bg-emerald-500/10 text-emerald-500 text-[10px] px-1.5">{pct}%</Badge>;
-    if (pct >= 50) return <Badge className="bg-amber-500/10 text-amber-500 text-[10px] px-1.5">{pct}%</Badge>;
-    return <Badge className="bg-red-500/10 text-red-500 text-[10px] px-1.5">{pct}%</Badge>;
+    if (pct >= 80) return <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] px-1.5">{pct}%</Badge>;
+    if (pct >= 50) return <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] px-1.5">{pct}%</Badge>;
+    return <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] px-1.5">{pct}%</Badge>;
   };
 
   const formatAmount = (amount: number, type: string) => {
@@ -116,10 +116,11 @@ const SyncedTransactionsList = () => {
             {!showAll && pendingTransactions.length > 0 && (
               <div className="flex items-center gap-2 pb-2 border-b mb-2">
                 <Checkbox
+                  id="select-all-synced"
                   checked={selectedIds.size === pendingTransactions.length && pendingTransactions.length > 0}
                   onCheckedChange={selectAll}
                 />
-                <span className="text-xs text-muted-foreground">Selecionar todas</span>
+                <label htmlFor="select-all-synced" className="text-xs text-muted-foreground">Selecionar todas</label>
               </div>
             )}
             {displayTransactions.slice(0, visibleCount).map((tx) => (
@@ -170,7 +171,7 @@ function TransactionRow({
     <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors">
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {!tx.is_reviewed && (
-          <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} />
+          <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} aria-label={`Selecionar ${tx.description}`} />
         )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{tx.description}</p>
@@ -189,7 +190,7 @@ function TransactionRow({
             value={tx.ai_category || ""}
             onValueChange={(val) => onApproveCategory(val)}
           >
-            <SelectTrigger className="h-7 text-xs w-32">
+            <SelectTrigger className="h-7 text-xs w-32" aria-label={`Categoria de ${tx.description}`}>
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -204,7 +205,7 @@ function TransactionRow({
         </div>
         <span
           className={`text-sm font-semibold whitespace-nowrap ${
-            tx.type === "income" ? "text-emerald-500" : "text-red-500"
+            tx.type === "income" ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
           }`}
         >
           {formatAmount(tx.amount, tx.type)}

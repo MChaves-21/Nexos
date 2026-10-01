@@ -322,7 +322,7 @@ const Reports = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Relatórios</h2>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Relatórios</h1>
         <p className="text-muted-foreground mt-1">
           Exporte relatórios completos de suas finanças
         </p>

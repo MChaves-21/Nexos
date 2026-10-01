@@ -63,7 +63,7 @@ const SyncedInvestmentsCard = ({ hideWhenEmpty = false }: { hideWhenEmpty?: bool
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Rendimento informado</p>
-                <p className={`text-lg font-semibold flex items-center gap-1 ${totals.profit >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                <p className={`text-lg font-semibold flex items-center gap-1 ${totals.profit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                   {totals.profit >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                   {formatCurrency(totals.profit)}
                 </p>
@@ -93,7 +93,7 @@ const SyncedInvestmentsCard = ({ hideWhenEmpty = false }: { hideWhenEmpty?: bool
                   <div className="text-right">
                     <p className="text-sm font-semibold whitespace-nowrap">{formatCurrency(Number(inv.balance))}</p>
                     {inv.amount_profit != null && (
-                      <p className={`text-[11px] ${Number(inv.amount_profit) >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                      <p className={`text-[11px] ${Number(inv.amount_profit) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                         {Number(inv.amount_profit) >= 0 ? "+" : ""}
                         {formatCurrency(Number(inv.amount_profit))}
                       </p>

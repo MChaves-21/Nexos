@@ -58,11 +58,11 @@ const BankConnectionsManager = () => {
     }
     switch (conn.status) {
       case "connected":
-        return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20"><CheckCircle2 className="h-3 w-3 mr-1" /> Conectado</Badge>;
+        return <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"><CheckCircle2 className="h-3 w-3 mr-1" /> Conectado</Badge>;
       case "syncing":
-        return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20"><RefreshCw className="h-3 w-3 mr-1 animate-spin" /> Sincronizando</Badge>;
+        return <Badge className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20"><RefreshCw className="h-3 w-3 mr-1 animate-spin" /> Sincronizando</Badge>;
       case "outdated":
-        return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20"><Clock className="h-3 w-3 mr-1" /> Desatualizado</Badge>;
+        return <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"><Clock className="h-3 w-3 mr-1" /> Desatualizado</Badge>;
       case "reauth_required":
         return <Badge variant="destructive"><KeyRound className="h-3 w-3 mr-1" /> Reconectar</Badge>;
       case "error":

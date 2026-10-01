@@ -60,3 +60,9 @@ Ordem: regras aprendidas com as suas correções → regras padrão por palavra-
 ```bash
 npm test
 ```
+
+## 🧭 Modo simples e modo completo
+- **Simples (padrão para novas contas):** menu com Início, Transações, Metas e Conectar banco; resumo do mês em frases, alertas e maiores gastos.
+- **Completo:** acrescenta Investimentos (com comparação ao CDI e à inflação), Simulador (preenchido com seus dados), Relatórios, Categorização, Regras e os gráficos do Início.
+- A escolha fica no perfil (`profiles.ui_mode`) e vale em qualquer dispositivo. O primeiro acesso guiado aparece uma vez (`profiles.onboarding_completed`).
+- Taxas Selic, CDI e IPCA vêm da Edge Function `market-rates` (API pública do Banco Central, com valores de reserva se estiver fora do ar).
