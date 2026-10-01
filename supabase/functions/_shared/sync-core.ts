@@ -15,6 +15,7 @@ import {
 } from "./pluggy-mappers.ts";
 import { categorizeByRules, type CategorizationRule } from "./categorization.ts";
 import { categorizeWithAI } from "./ai-categorize.ts";
+import { assertItemOwnership } from "./validation.ts";
 
 export interface BankConnectionRow {
   id: string;
@@ -60,6 +61,8 @@ export async function syncConnection(
     }
     throw e;
   }
+  // Defesa extra: nunca sincroniza item criado por outro usuário
+  assertItemOwnership(item, userId);
   const itemStatus = mapItemStatus(item);
 
   // 2. Contas

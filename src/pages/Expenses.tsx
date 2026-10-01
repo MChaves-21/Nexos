@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAllTransactions, type UnifiedTransaction } from "@/hooks/useAllTransactions";
 import { CATEGORIES, categorizeByRules } from "@shared/categorization";
 import TipCard from "@/components/TipCard";
+import { neutralizeFormula, toCsv } from "@/lib/csv";
 import { Link, useSearchParams } from "react-router-dom";
 import { useBudgets } from "@/hooks/useBudgets";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -533,9 +534,9 @@ const Expenses = () => {
     const headers = ["Data", "Tipo", "Descrição", "Categoria", "Valor"];
     const rows = filteredTransactions.map(t => [
       format(parseISO(t.date), "dd/MM/yyyy"),
-      t.type === 'income' ? 'Receita' : 'Despesa',
-      t.description,
-      t.category,
+      t.type === 'income' ? 'Entrada' : 'Saída',
+      neutralizeFormula(t.description),
+      neutralizeFormula(t.category),
       t.type === 'income' 
         ? t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
         : `-${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
@@ -547,9 +548,7 @@ const Expenses = () => {
     rows.push(["", "", "", "Total Despesas", `R$ ${filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]);
     rows.push(["", "", "", "Saldo", `R$ ${filteredSummary.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]);
 
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${cell}"`).join(","))
-      .join("\n");
+    const csvContent = toCsv([headers, ...rows]);
 
     const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);

@@ -8,6 +8,8 @@ export interface PluggyItem {
   error?: { code?: string; message?: string } | null;
   consentExpiresAt?: string | null;
   connector?: { name?: string } | null;
+  /** Id do usuário no Nexos, quando o item foi criado pelo widget */
+  clientUserId?: string | null;
 }
 
 export interface PluggyAccount {

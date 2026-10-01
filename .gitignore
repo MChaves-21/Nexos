@@ -34,3 +34,7 @@ supabase/functions/.env
 *.OFX
 /*.csv
 extratos/
+
+# Resultados do Playwright
+test-results/
+playwright-report/

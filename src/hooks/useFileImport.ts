@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { splitPluggyDuplicates, toSyncedRows, type ImportSource, type NormalizedTransaction } from "@/lib/importers";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 const CHUNK = 500;
 
@@ -125,7 +126,7 @@ export const useFileImport = () => {
       });
     },
     onError: (error) => {
-      toast({ title: "Erro na importação", description: error.message, variant: "destructive" });
+      toast({ title: "Erro na importação", description: friendlyErrorMessage(error), variant: "destructive" });
     },
   });
 };

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export interface PriceAlertSettings {
   id: string;
@@ -87,7 +88,7 @@ export const usePriceAlerts = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível salvar a configuração: ${error.message}`,
+        description: `Não foi possível salvar a configuração. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },
@@ -122,7 +123,7 @@ export const usePriceAlerts = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível salvar o limite: ${error.message}`,
+        description: `Não foi possível salvar o limite. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },
@@ -148,7 +149,7 @@ export const usePriceAlerts = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível remover o limite: ${error.message}`,
+        description: `Não foi possível remover o limite. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },

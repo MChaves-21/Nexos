@@ -2,7 +2,11 @@ import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import OfflineBanner from "@/components/OfflineBanner";
+import { toast } from "@/hooks/use-toast";
+import { friendlyErrorMessage, isMissingSchemaError, shouldRetry } from "@/lib/errors";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider";
 import Layout from "@/components/Layout";
@@ -23,7 +27,29 @@ const OpenFinance = lazy(() => import("./pages/OpenFinance"));
 const Categorization = lazy(() => import("./pages/Categorization"));
 const Rules = lazy(() => import("./pages/Rules"));
 
-const queryClient = new QueryClient();
+// Aviso único por mensagem a cada 10s (várias consultas falhando juntas não viram uma pilha de avisos)
+const recentErrors = new Map<string, number>();
+const notifyError = (error: unknown) => {
+  // Coluna/tabela ainda não migrada: as telas usam valores padrão, sem incomodar a pessoa
+  if (isMissingSchemaError(error)) {
+    console.warn("Banco desatualizado:", error);
+    return;
+  }
+  const message = friendlyErrorMessage(error);
+  const now = Date.now();
+  if ((recentErrors.get(message) ?? 0) > now - 10_000) return;
+  recentErrors.set(message, now);
+  toast({ title: "Não foi possível carregar os dados", description: message, variant: "destructive" });
+};
+
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: notifyError }),
+  // Mutações já mostram seus próprios avisos (onError em cada hook); aqui só registramos
+  mutationCache: new MutationCache({ onError: (error) => console.error("Falha ao salvar:", error) }),
+  defaultOptions: {
+    queries: { retry: shouldRetry },
+  },
+});
 
 // Loading fallback component
 const PageLoader = () => (
@@ -38,6 +64,7 @@ const AnimatedRoutes = () => {
   
   return (
     <PageTransition key={location.pathname}>
+      <ErrorBoundary resetKey={location.pathname}>
       <Suspense fallback={<PageLoader />}>
         <Routes location={location}>
           <Route path="/" element={<Index />} />
@@ -56,6 +83,7 @@ const AnimatedRoutes = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </PageTransition>
   );
 };
@@ -66,6 +94,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <OfflineBanner />
         <BrowserRouter>
           <AnimatedRoutes />
         </BrowserRouter>

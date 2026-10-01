@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, CheckCircle } from "lucide-react";
 import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -84,7 +85,7 @@ const ResetPassword = () => {
     if (error) {
       toast({
         title: "Erro ao redefinir senha",
-        description: error.message,
+        description: friendlyErrorMessage(error),
         variant: "destructive",
       });
     } else {

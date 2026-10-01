@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { useUndoableDelete } from "@/hooks/useUndoableDelete";
 import { CATEGORIES } from "@shared/categorization";
 import type { Tables } from "@/integrations/supabase/types";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 type Rule = Tables<"categorization_rules">;
 
@@ -56,13 +57,13 @@ const Rules = () => {
       qc.invalidateQueries({ queryKey: ["categorization-rules"] });
       toast({ title: "Regra salva", description: `Aplicada a ${n} transações.` });
     },
-    onError: (e) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro", description: friendlyErrorMessage(e), variant: "destructive" }),
   });
 
   const run = useMutation({
     mutationFn: (r: Rule) => applyRule(r.keyword, r.category),
     onSuccess: (n) => toast({ title: "Regra aplicada", description: `${n} transações atualizadas.` }),
-    onError: (e) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro", description: friendlyErrorMessage(e), variant: "destructive" }),
   });
 
   const { deleteWithUndo } = useUndoableDelete<Rule>({

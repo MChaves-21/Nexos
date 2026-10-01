@@ -26,7 +26,7 @@ async function fetchYahooPrice(symbol: string, isBrazilian: boolean): Promise<nu
     const yahooSymbol = isBrazilian ? `${symbol}.SA` : symbol;
     
     const response = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=1d`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`,
       {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -102,7 +102,7 @@ async function fetchCryptoPrice(symbol: string): Promise<number | null> {
     const coinId = cryptoMap[symbol.toUpperCase()] || symbol.toLowerCase();
     
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=brl`,
+      `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(coinId)}&vs_currencies=brl`,
       {
         headers: {
           'Accept': 'application/json'

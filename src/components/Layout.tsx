@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
 import type { User } from "@supabase/supabase-js";
+import { friendlyErrorMessage } from "@/lib/errors";
 interface LayoutProps {
   children: ReactNode;
 }
@@ -68,7 +69,7 @@ const Layout = ({
     if (error) {
       toast({
         title: "Erro ao sair",
-        description: error.message,
+        description: friendlyErrorMessage(error),
         variant: "destructive"
       });
     } else {
