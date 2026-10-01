@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import fs from "node:fs";
 import path from "node:path";
+import { USER_TABLES_DELETE_ORDER } from "../functions/_shared/user-data";
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../migrations");
 // Dependem de extensões do Supabase (pg_cron, pg_net, vault) que não existem aqui
@@ -12,6 +13,7 @@ const SKIP = [/193700_/, /193722_/];
 const A = "00000000-0000-4000-8000-00000000000a";
 const B = "00000000-0000-4000-8000-00000000000b";
 const ITEM = "11111111-1111-4111-8111-111111111111";
+const C = "00000000-0000-4000-8000-00000000000c";
 
 let db: PGlite;
 
@@ -64,7 +66,7 @@ beforeAll(async () => {
     }
   }
   // Usuários de teste (o trigger cria os perfis) e a conexão Pluggy de B, criada pelo servidor
-  await db.exec(`INSERT INTO auth.users (id) VALUES ('${A}'), ('${B}');`);
+  await db.exec(`INSERT INTO auth.users (id) VALUES ('${A}'), ('${B}'), ('${C}');`);
   await asService(
     `INSERT INTO public.bank_connections (user_id, institution_name, pluggy_item_id, provider) VALUES ($1, 'Banco B', $2, 'pluggy')`,
     [B, ITEM],
@@ -169,5 +171,115 @@ describe("pluggy_credentials", () => {
     await expect(asUser(A, `DELETE FROM public.pluggy_credentials`)).rejects.toThrow(/permission denied/);
     const { rows } = await asService(`SELECT client_id FROM public.pluggy_credentials WHERE user_id = $1`, [A]);
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("migrações", () => {
+  // A publicação automática (db push) pode reaplicar migrações já rodadas à mão no SQL Editor
+  it("as migrações a partir de 2026-10-01 podem ser aplicadas de novo sem erro", async () => {
+    const recent = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f >= "20261001" && f.endsWith(".sql")).sort();
+    expect(recent.length).toBeGreaterThan(0);
+    for (const f of recent) {
+      await expect(db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, f), "utf8")), f).resolves.toBeDefined();
+    }
+  });
+});
+
+describe("contas a pagar", () => {
+  it("cada pessoa só vê e marca as próprias contas", async () => {
+    const { rows } = await asUser(A, `INSERT INTO public.bills (user_id, title, amount, due_day) VALUES ($1, 'Luz', 120, 10) RETURNING id`, [A]);
+    const billA = (rows[0] as { id: string }).id;
+    expect((await asUser(B, `SELECT * FROM public.bills`)).rows).toHaveLength(0);
+    // B não consegue marcar como paga a conta de A
+    await expect(
+      asUser(B, `INSERT INTO public.bill_payments (user_id, bill_id, period) VALUES ($1, $2, '2026-10')`, [B, billA]),
+    ).rejects.toThrow(/row-level security/);
+    await asUser(A, `INSERT INTO public.bill_payments (user_id, bill_id, period) VALUES ($1, $2, '2026-10')`, [A, billA]);
+    await expect(asUser(A, `INSERT INTO public.bills (user_id, title, amount) VALUES ($1, 'Sem dia', 1)`, [A])).rejects.toThrow(/bills_due_check/);
+  });
+});
+
+describe("avisos", () => {
+  it("só o servidor cria avisos; a pessoa lê, marca como lido e apaga os seus", async () => {
+    await expect(
+      asUser(A, `INSERT INTO public.notifications (user_id, kind, title, body, dedupe_key) VALUES ($1, 'x', 't', 'b', 'k')`, [A]),
+    ).rejects.toThrow(/permission denied/);
+    await asService(`INSERT INTO public.notifications (user_id, kind, title, body, dedupe_key) VALUES ($1, 'budget', 'Limite', 'Passou', 'k1')`, [A]);
+    expect((await asUser(A, `SELECT * FROM public.notifications`)).rows).toHaveLength(1);
+    expect((await asUser(B, `SELECT * FROM public.notifications`)).rows).toHaveLength(0);
+    await asUser(A, `UPDATE public.notifications SET read_at = now()`);
+    await expect(asUser(A, `UPDATE public.notifications SET title = 'falso'`)).rejects.toThrow(/permission denied/);
+    // O mesmo aviso não é criado duas vezes
+    await expect(
+      asService(`INSERT INTO public.notifications (user_id, kind, title, body, dedupe_key) VALUES ($1, 'budget', 'Limite', 'Passou', 'k1')`, [A]),
+    ).rejects.toThrow(/duplicate key/);
+  });
+});
+
+describe("família", () => {
+  let token = "";
+
+  it("o administrador cria a família e gera um convite de uso único", async () => {
+    await asUser(A, `SELECT public.create_family('Família Teste', 'Murilo')`);
+    const r = await asUser(A, `SELECT public.create_family_invite() AS token`);
+    token = (r.rows[0] as { token: string }).token;
+    expect(token).toMatch(/^[0-9a-f]{64}$/);
+    // O token não fica guardado no banco, só o hash
+    const stored = await asService(`SELECT token_hash FROM public.family_invites`);
+    expect(JSON.stringify(stored.rows)).not.toContain(token);
+  });
+
+  it("quem recebe o link vê o convite e entra na família", async () => {
+    const peek = await asUser(B, `SELECT * FROM public.peek_family_invite($1)`, [token]);
+    expect(peek.rows[0]).toMatchObject({ family_name: "Família Teste", admin_name: "Murilo", valid: true });
+    await asUser(B, `SELECT public.accept_family_invite($1, 'Ana')`, [token]);
+    const members = await asUser(B, `SELECT display_name, role FROM public.family_members ORDER BY role`);
+    expect(members.rows).toEqual([{ display_name: "Murilo", role: "admin" }, { display_name: "Ana", role: "member" }]);
+  });
+
+  it("o convite não pode ser usado de novo e estranhos não veem a família", async () => {
+    await expect(asUser(C, `SELECT public.accept_family_invite($1, 'Intruso')`, [token])).rejects.toThrow(/inválido, expirado ou já usado/);
+    expect((await asUser(C, `SELECT * FROM public.families`)).rows).toHaveLength(0);
+    expect((await asUser(C, `SELECT * FROM public.family_members`)).rows).toHaveLength(0);
+    await expect(asUser(C, `SELECT * FROM public.peek_family_invite('0000')`)).resolves.toBeDefined();
+  });
+
+  it("ninguém entra na família sem convite nem vira administrador escrevendo direto na tabela", async () => {
+    const { rows } = await asService(`SELECT id FROM public.families`);
+    const fam = (rows[0] as { id: string }).id;
+    await expect(
+      asUser(C, `INSERT INTO public.family_members (family_id, user_id, role, display_name) VALUES ($1, $2, 'admin', 'x')`, [fam, C]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(asUser(B, `UPDATE public.family_members SET role = 'admin' WHERE user_id = $1`, [B])).rejects.toThrow(/permission denied/);
+  });
+
+  it("o painel mostra só o estado das conexões, e só para o administrador", async () => {
+    const overview = await asUser(A, `SELECT * FROM public.family_overview()`);
+    expect(overview.rows).toHaveLength(2);
+    const columns = Object.keys(overview.rows[0] as object);
+    // Nada de valores, descrições ou saldos
+    for (const forbidden of ["amount", "balance", "description", "transactions"]) {
+      expect(columns.join(",")).not.toContain(forbidden);
+    }
+    await expect(asUser(B, `SELECT * FROM public.family_overview()`)).rejects.toThrow(/administrador/);
+    // Membro também não lê as transações do outro por fazer parte da família
+    expect((await asUser(B, `SELECT * FROM public.synced_transactions WHERE user_id = $1`, [A])).rows).toHaveLength(0);
+  });
+
+  it("membro sai da família; administrador remove membros", async () => {
+    await asUser(B, `SELECT public.leave_family()`);
+    expect((await asUser(A, `SELECT * FROM public.family_members`)).rows).toHaveLength(1);
+    await expect(asUser(B, `SELECT public.remove_family_member($1)`, [A])).rejects.toThrow(/administrador/);
+  });
+});
+
+describe("LGPD", () => {
+  it("toda tabela com user_id entra na exclusão de conta", async () => {
+    const { rows } = await db.query<{ table_name: string }>(
+      `SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'public' AND column_name = 'user_id'`,
+    );
+    // family_members é tratada à parte (sair da família / apagar a família do administrador)
+    const handled = new Set<string>([...USER_TABLES_DELETE_ORDER, "family_members"]);
+    expect(rows.map((r) => r.table_name).filter((t) => !handled.has(t)).sort()).toEqual([]);
   });
 });

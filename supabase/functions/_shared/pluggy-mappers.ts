@@ -21,7 +21,14 @@ export interface PluggyAccount {
   number?: string | null;
   balance?: number | null;
   currencyCode?: string | null;
-  creditData?: { creditLimit?: number | null; availableCreditLimit?: number | null } | null;
+  creditData?: {
+    creditLimit?: number | null;
+    availableCreditLimit?: number | null;
+    balanceDueDate?: string | null;
+    balanceCloseDate?: string | null;
+    minimumPayment?: number | null;
+    brand?: string | null;
+  } | null;
 }
 
 export interface PluggyTransaction {
@@ -126,6 +133,11 @@ export function mapAccount(account: PluggyAccount) {
     currency_code: account.currencyCode ?? "BRL",
     credit_limit: account.creditData?.creditLimit ?? null,
     available_credit_limit: account.creditData?.availableCreditLimit ?? null,
+    // Fatura do cartão (só contas CREDIT)
+    balance_due_date: account.creditData?.balanceDueDate ? account.creditData.balanceDueDate.slice(0, 10) : null,
+    balance_close_date: account.creditData?.balanceCloseDate ? account.creditData.balanceCloseDate.slice(0, 10) : null,
+    minimum_payment: account.creditData?.minimumPayment ?? null,
+    card_brand: account.creditData?.brand ?? null,
   };
 }
 

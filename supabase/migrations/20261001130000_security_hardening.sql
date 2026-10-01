@@ -4,6 +4,7 @@
 --    que confere se o item pertence ao usuário. Antes, o próprio app podia inserir uma conexão
 --    com o Item ID de outra pessoa e a sincronização (com a chave da Pluggy do app) leria os dados dela.
 DROP POLICY IF EXISTS "Users can create their own bank connections" ON public.bank_connections;
+DROP POLICY IF EXISTS "Users can create their own file connections" ON public.bank_connections;
 CREATE POLICY "Users can create their own file connections"
   ON public.bank_connections FOR INSERT
   WITH CHECK (auth.uid() = user_id AND provider = 'file' AND pluggy_item_id IS NULL);

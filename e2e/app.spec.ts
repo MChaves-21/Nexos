@@ -100,7 +100,7 @@ test.describe("Segurança no app", () => {
 });
 
 test.describe("Acessibilidade", () => {
-  for (const path of ["/", "/expenses", "/budgets", "/open-finance", "/investments", "/simulation"]) {
+  for (const path of ["/", "/expenses", "/budgets", "/open-finance", "/investments", "/simulation", "/bills", "/cards", "/taxes", "/family", "/account", "/privacy"]) {
     test(`sem violações WCAG A/AA em ${path}`, async ({ page, context }) => {
       await mockSupabase(context);
       await page.goto(path);
@@ -133,5 +133,92 @@ test.describe("Conta Pluggy própria (família)", () => {
     await expect(page.getByLabel("Client Secret")).toHaveValue("");
     expect(calls).toContainEqual(expect.objectContaining({ action: "save-credentials", clientId: "cliente-familia-9f0e", clientSecret: "segredo-super-secreto" }));
     await expect(page.getByText("segredo-super-secreto")).toHaveCount(0);
+  });
+});
+
+test.describe("Contas a pagar", () => {
+  test("mostra as contas do mês e marca como paga", async ({ page, context }) => {
+    const writes: MockOptions["writes"] = [];
+    await mockSupabase(context, { writes });
+    await page.goto("/bills");
+    await expect(page.getByRole("heading", { name: "Contas a pagar" })).toBeVisible();
+    await expect(page.getByText("Conta de luz").first()).toBeVisible();
+    await expect(page.getByText("IPVA").first()).toBeVisible();
+    // Fatura do cartão aparece no calendário
+    await expect(page.getByText(/Fatura Cartão Nubank: R\$\s850,50 vence 20\//)).toBeVisible();
+    await expect(page.getByText("Dia 20: Fatura Cartão Nubank")).toBeAttached();
+    await page.getByRole("button", { name: "Marcar como paga" }).first().click();
+    await expect.poll(() => writes!.filter((w) => w.table === "bill_payments").length).toBeGreaterThan(0);
+    expect(writes!.find((w) => w.table === "bill_payments")?.body).toEqual(expect.objectContaining({ user_id: USER_ID }));
+  });
+});
+
+test.describe("Cartões", () => {
+  test("mostra fatura, vencimento e uso do limite", async ({ page, context }) => {
+    await mockSupabase(context);
+    await page.goto("/cards");
+    await expect(page.getByRole("heading", { name: "Cartões" })).toBeVisible();
+    await expect(page.getByText("Cartão Nubank").first()).toBeVisible();
+    await expect(page.getByText("R$ 850,50").first()).toBeVisible();
+    await expect(page.getByText("R$ 127,58").first()).toBeVisible();
+  });
+});
+
+test.describe("Imposto de Renda", () => {
+  test("monta o resumo do ano", async ({ page, context }) => {
+    await mockSupabase(context);
+    await page.goto("/taxes");
+    await expect(page.getByRole("heading", { name: "Imposto de Renda" })).toBeVisible();
+    await expect(page.getByText("PETR4").first()).toBeVisible();
+  });
+});
+
+test.describe("Família", () => {
+  test("administrador vê o estado de cada pessoa e gera convite", async ({ page, context }) => {
+    const writes: MockOptions["writes"] = [];
+    await mockSupabase(context, { writes });
+    await page.goto("/family");
+    await expect(page.getByText("Painel de Família Demo")).toBeVisible();
+    await expect(page.getByText("Precisa reconectar o banco", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: "Gerar link de convite" }).click();
+    await expect(page.getByLabel("Link de convite")).toHaveValue(new RegExp(`/convite/${"a".repeat(64)}$`));
+    expect(writes!.map((w) => w.table)).toContain("rpc:create_family_invite");
+  });
+
+  test("convite aberto sem login guarda o link e leva ao cadastro", async ({ page }) => {
+    await page.goto(`/convite/${"b".repeat(64)}`);
+    await expect(page).toHaveURL(/\/auth\?convite=1/);
+    expect(await page.evaluate(() => Object.values(sessionStorage))).toContain("b".repeat(64));
+  });
+});
+
+test.describe("Avisos e conta", () => {
+  test("sino mostra avisos não lidos", async ({ page, context }) => {
+    await mockSupabase(context);
+    await page.goto("/");
+    const bell = page.getByRole("button", { name: "Avisos: 1 não lidos" });
+    await expect(bell).toBeVisible();
+    await bell.click();
+    await expect(page.getByText("Conta de luz vence em 2 dias")).toBeVisible();
+  });
+
+  test("excluir conta exige digitar EXCLUIR", async ({ page, context }) => {
+    const calls: string[] = [];
+    await mockSupabase(context, { functions: (name) => { calls.push(name); return { deleted: true }; } });
+    await page.goto("/account");
+    await page.getByRole("button", { name: "Excluir conta" }).click();
+    const confirm = page.getByRole("button", { name: "Excluir para sempre" });
+    await expect(confirm).toBeDisabled();
+    await page.getByLabel("Digite EXCLUIR para confirmar").fill("excluir");
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect.poll(() => calls).toContain("delete-account");
+  });
+
+  test("manifesto do app instalável está disponível", async ({ request }) => {
+    const res = await request.get("/manifest.webmanifest");
+    expect(res.ok()).toBeTruthy();
+    const manifest = await res.json();
+    expect(manifest.icons.length).toBeGreaterThan(0);
   });
 });

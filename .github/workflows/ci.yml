@@ -1,0 +1,60 @@
+name: CI
+
+# Roda em todo PR e em push na main: tipos, testes (inclui segurança do banco) e testes no navegador
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # --legacy-peer-deps: conflito antigo entre jspdf e jspdf-autotable
+      - run: npm ci --legacy-peer-deps
+
+      - name: Checagem de tipos
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Testes (unitários + regras de segurança do banco)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Checagem das Edge Functions
+        working-directory: supabase/functions
+        run: |
+          for f in */index.ts; do
+            echo "deno check $f"
+            deno check --no-lock "$f"
+          done
+
+      - name: Navegador do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Testes no navegador (E2E + acessibilidade)
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7

@@ -38,7 +38,10 @@ export function fixtures(opts: { uiMode?: "simple" | "complete"; onboardingCompl
   return {
     profiles: [{ id: USER_ID, display_name: "Demo", ui_mode: opts.uiMode ?? "complete", onboarding_completed: opts.onboardingCompleted ?? true, created_at: "", updated_at: "" }],
     bank_connections: [{ id: "c1", user_id: USER_ID, institution_name: "Nubank", pluggy_item_id: "i1", status: "connected", last_sync_at: now.toISOString(), provider: "pluggy", status_detail: null, consent_expires_at: null, auto_sync: true, created_at: "", updated_at: "" }],
-    bank_accounts: [{ id: "a1", user_id: USER_ID, bank_connection_id: "c1", external_id: "x", name: "Conta Nubank", type: "BANK", subtype: null, number: null, balance: 3200, currency_code: "BRL", credit_limit: null, available_credit_limit: null, created_at: "", updated_at: "" }],
+    bank_accounts: [
+      { id: "a1", user_id: USER_ID, bank_connection_id: "c1", external_id: "x", name: "Conta Nubank", type: "BANK", subtype: null, number: null, balance: 3200, currency_code: "BRL", credit_limit: null, available_credit_limit: null, balance_due_date: null, balance_close_date: null, minimum_payment: null, card_brand: null, created_at: "", updated_at: "" },
+      { id: "a2", user_id: USER_ID, bank_connection_id: "c1", external_id: "y", name: "Cartão Nubank", type: "CREDIT", subtype: "CREDIT_CARD", number: "1234", balance: 850.5, currency_code: "BRL", credit_limit: 5000, available_credit_limit: 4149.5, balance_due_date: `${ym(0)}-20`, balance_close_date: `${ym(0)}-13`, minimum_payment: 127.58, card_brand: "MASTERCARD", created_at: "", updated_at: "" },
+    ],
     synced_transactions: [0, 1, 2].flatMap((n) => [
       synced(n, 1, "Salário Empresa Fictícia", 5200, "income", "Salário"),
       synced(n, 5, "NETFLIX.COM", 55.9, "expense", "Assinaturas"),
@@ -52,9 +55,36 @@ export function fixtures(opts: { uiMode?: "simple" | "complete"; onboardingCompl
     transactions: [] as unknown[],
     investments: [{ id: "iv1", user_id: USER_ID, asset_name: "PETR4", asset_type: "Ações", quantity: 100, purchase_price: 30, current_price: 36, purchase_date: `${now.getFullYear() - 1}-03-10`, created_at: "", updated_at: "" }],
     category_budgets: [] as unknown[],
+    bills: [
+      { id: "b1", user_id: USER_ID, title: "Conta de luz", amount: 180, category: "Moradia", recurrence: "monthly", due_day: 10, due_date: null, active: true, created_at: "", updated_at: "" },
+      { id: "b2", user_id: USER_ID, title: "IPVA", amount: 950, category: "Transporte", recurrence: "once", due_day: null, due_date: `${ym(0)}-25`, active: true, created_at: "", updated_at: "" },
+    ],
+    bill_payments: [] as unknown[],
+    notifications: [
+      { id: "n1", user_id: USER_ID, kind: "bill_due", title: "Conta de luz vence em 2 dias", body: "R$ 180,00", link: "/bills", dedupe_key: "k1", read_at: null, emailed_at: null, created_at: now.toISOString() },
+    ],
+    families: [{ id: "f1", name: "Família Demo", created_by: USER_ID, created_at: "" }],
+    family_members: [
+      { family_id: "f1", user_id: USER_ID, role: "admin", display_name: "Demo", joined_at: "" },
+      { family_id: "f1", user_id: "00000000-0000-4000-8000-000000000002", role: "member", display_name: "Ana", joined_at: "" },
+    ],
+    family_invites: [] as unknown[],
     financial_goals: [] as unknown[],
   } as Record<string, unknown[]>;
 }
+
+/** Respostas padrão das funções do banco (RPC) */
+const defaultRpc = (name: string): unknown => {
+  if (name === "family_overview") {
+    const base = { connections: 1, pluggy_connections: 1, problem_connections: 0, reauth_connections: 0, next_consent_expiry: null, has_own_pluggy: false, joined_at: "" };
+    return [
+      { ...base, user_id: USER_ID, display_name: "Demo", role: "admin", last_sync_at: now.toISOString() },
+      { ...base, user_id: "00000000-0000-4000-8000-000000000002", display_name: "Ana", role: "member", reauth_connections: 1, last_sync_at: null },
+    ];
+  }
+  if (name === "create_family_invite") return "a".repeat(64);
+  return null;
+};
 
 export interface MockOptions {
   tables?: Record<string, unknown[]>;
@@ -81,6 +111,11 @@ export async function mockSupabase(context: BrowserContext, opts: MockOptions = 
       const name = url.pathname.replace("/functions/v1/", "");
       const body = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
       return route.fulfill({ json: opts.functions?.(name, body) ?? {} });
+    }
+    const rpc = url.pathname.match(/^\/rest\/v1\/rpc\/([a-z_]+)/);
+    if (rpc) {
+      opts.writes?.push({ table: `rpc:${rpc[1]}`, method: req.method(), body: req.postDataJSON?.() ?? null });
+      return route.fulfill({ json: defaultRpc(rpc[1]) });
     }
     const m = url.pathname.match(/^\/rest\/v1\/([a-z_]+)/);
     if (m) {

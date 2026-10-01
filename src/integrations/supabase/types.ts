@@ -78,6 +78,10 @@ export type Database = {
       }
       bank_accounts: {
         Row: {
+          balance_due_date: string | null
+          balance_close_date: string | null
+          minimum_payment: number | null
+          card_brand: string | null
           available_credit_limit: number | null
           balance: number
           bank_connection_id: string
@@ -94,6 +98,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          balance_due_date?: string | null
+          balance_close_date?: string | null
+          minimum_payment?: number | null
+          card_brand?: string | null
           available_credit_limit?: number | null
           balance?: number
           bank_connection_id: string
@@ -110,6 +118,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          balance_due_date?: string | null
+          balance_close_date?: string | null
+          minimum_payment?: number | null
+          card_brand?: string | null
           available_credit_limit?: number | null
           balance?: number
           bank_connection_id?: string
@@ -180,6 +192,83 @@ export type Database = {
         }
         Relationships: []
       }
+      bill_payments: {
+        Row: {
+          amount: number | null
+          bill_id: string
+          id: string
+          paid_at: string
+          period: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          bill_id: string
+          id?: string
+          paid_at?: string
+          period: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          bill_id?: string
+          id?: string
+          paid_at?: string
+          period?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_payments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bills: {
+        Row: {
+          active: boolean
+          amount: number
+          category: string | null
+          created_at: string
+          due_date: string | null
+          due_day: number | null
+          id: string
+          recurrence: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          category?: string | null
+          created_at?: string
+          due_date?: string | null
+          due_day?: number | null
+          id?: string
+          recurrence?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          category?: string | null
+          created_at?: string
+          due_date?: string | null
+          due_day?: number | null
+          id?: string
+          recurrence?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       categorization_rules: {
         Row: {
           category: string
@@ -233,6 +322,100 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      families: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      family_invites: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string
+          family_id: string
+          id: string
+          token_hash: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at: string
+          family_id: string
+          id?: string
+          token_hash: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          family_id?: string
+          id?: string
+          token_hash?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_invites_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_members: {
+        Row: {
+          display_name: string
+          family_id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          display_name: string
+          family_id: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          display_name?: string
+          family_id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_members_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financial_goals: {
         Row: {
@@ -318,6 +501,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          dedupe_key: string
+          emailed_at: string | null
+          id: string
+          kind: string
+          link: string | null
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          dedupe_key: string
+          emailed_at?: string | null
+          id?: string
+          kind: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          dedupe_key?: string
+          emailed_at?: string | null
+          id?: string
+          kind?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       price_alert_settings: {
         Row: {
           created_at: string
@@ -344,6 +566,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          email_notifications: boolean
+          weekly_summary: boolean
           created_at: string
           display_name: string | null
           id: string
@@ -352,6 +576,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          email_notifications?: boolean
+          weekly_summary?: boolean
           created_at?: string
           display_name?: string | null
           id: string
@@ -360,6 +586,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          email_notifications?: boolean
+          weekly_summary?: boolean
           created_at?: string
           display_name?: string | null
           id?: string
@@ -631,7 +859,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_family_invite: { Args: { p_token: string; p_display_name: string }; Returns: string }
+      create_family: { Args: { p_name: string; p_display_name: string }; Returns: string }
+      create_family_invite: { Args: Record<PropertyKey, never>; Returns: string }
+      family_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          display_name: string
+          role: string
+          joined_at: string
+          connections: number
+          pluggy_connections: number
+          last_sync_at: string | null
+          problem_connections: number
+          reauth_connections: number
+          next_consent_expiry: string | null
+          has_own_pluggy: boolean
+        }[]
+      }
+      is_family_admin: { Args: { p_family: string }; Returns: boolean }
+      leave_family: { Args: Record<PropertyKey, never>; Returns: undefined }
+      my_family_id: { Args: Record<PropertyKey, never>; Returns: string }
+      peek_family_invite: {
+        Args: { p_token: string }
+        Returns: { family_name: string; admin_name: string | null; valid: boolean }[]
+      }
+      remove_family_member: { Args: { p_user: string }; Returns: undefined }
+      revoke_family_invite: { Args: { p_invite: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

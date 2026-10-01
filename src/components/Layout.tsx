@@ -1,16 +1,19 @@
 import { ReactNode, useState, useEffect, useTransition } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LogOut, LogIn, Moon, Sun, Loader2, MoreHorizontal } from "lucide-react";
+import { LogOut, LogIn, Moon, Sun, Loader2, MoreHorizontal, UserCog } from "lucide-react";
 import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/Footer";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import ModeToggle from "@/components/ModeToggle";
+import InstallAppButton from "@/components/InstallAppButton";
+import NotificationsBell from "@/components/NotificationsBell";
 import OnboardingDialog from "@/components/OnboardingDialog";
 import { usePreferences } from "@/hooks/usePreferences";
 import { NAV_ITEMS, visibleNavItems } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
+import { PENDING_INVITE_KEY } from "@/lib/family";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
@@ -57,6 +60,18 @@ const Layout = ({
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Convite aberto antes do login: depois de entrar, volta para aceitar
+  useEffect(() => {
+    if (!user) return;
+    let pending: string | null = null;
+    try {
+      pending = sessionStorage.getItem(PENDING_INVITE_KEY);
+    } catch {
+      pending = null;
+    }
+    if (pending) navigate(`/convite/${pending}`, { replace: true });
+  }, [user, navigate]);
 
   // Clear pending route when location changes
   useEffect(() => {
@@ -144,6 +159,8 @@ const Layout = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <InstallAppButton />
+            {user && <NotificationsBell />}
             <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}>
               {theme === "dark" ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
@@ -166,6 +183,10 @@ const Layout = ({
             <NavLinks />
           </nav>
           <ModeToggle />
+          <Button variant={location.pathname === "/account" ? "secondary" : "ghost"} className="w-full justify-start gap-3"
+            onClick={() => handleNavClick("/account")} aria-current={location.pathname === "/account" ? "page" : undefined}>
+            <UserCog className="h-5 w-5" aria-hidden />Conta e privacidade
+          </Button>
         </aside>
 
         {/* Main Content (espaço extra embaixo no celular por causa da barra inferior) */}
@@ -180,7 +201,7 @@ const Layout = ({
       </div>
 
       {/* Barra inferior - Celular */}
-      <nav aria-label="Menu principal" className="lg:hidden fixed bottom-0 inset-x-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[env(safe-area-inset-bottom)]">
+      <nav aria-label="Menu principal" className="lg:hidden fixed bottom-0 inset-x-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)]">
         <ul className="grid grid-cols-5">
           {simpleItems.map(({ to, icon: Icon, shortLabel }) => {
           const isActive = isActivePath(to);
@@ -217,9 +238,13 @@ const Layout = ({
                           </button>
                         </li>)}
                     </ul> : <p className="text-sm text-muted-foreground">
-                      O modo simples mostra só o essencial. Ative o modo completo para ver investimentos, simulador, relatórios e regras.
+                      O modo simples mostra só o essencial. Ative o modo completo para ver contas a pagar, cartões, investimentos, Imposto de Renda e família.
                     </p>}
                   <ModeToggle />
+                  <button onClick={() => { setMoreOpen(false); handleNavClick("/account"); }}
+                    className="flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm font-medium min-h-[48px]">
+                    <UserCog className="h-5 w-5 text-primary" aria-hidden />Conta e privacidade
+                  </button>
                 </div>
               </SheetContent>
             </Sheet>

@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorMessage, errorResponse, getServiceClient, jsonResponse } from "../_shared/http.ts";
 import { getApiKeyForUser } from "../_shared/pluggy-credentials.ts";
 import { syncConnection } from "../_shared/sync-core.ts";
+import { runNotifications } from "../_shared/notifications-job.ts";
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -53,7 +54,15 @@ serve(async (req) => {
       }
     }
 
-    return jsonResponse({ connections: results.length, results });
+    // Avisos do dia (depois da sincronização, para usar os dados mais novos). Falha aqui não derruba o job.
+    let notifications: unknown = null;
+    try {
+      notifications = await runNotifications(supabase);
+    } catch (e) {
+      console.error("avisos falharam:", errorMessage(e));
+    }
+
+    return jsonResponse({ connections: results.length, results, notifications });
   } catch (e) {
     return errorResponse("pluggy-sync-all error", e);
   }

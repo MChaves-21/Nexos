@@ -26,6 +26,13 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const OpenFinance = lazy(() => import("./pages/OpenFinance"));
 const Categorization = lazy(() => import("./pages/Categorization"));
 const Rules = lazy(() => import("./pages/Rules"));
+const Cards = lazy(() => import("./pages/Cards"));
+const Bills = lazy(() => import("./pages/Bills"));
+const Taxes = lazy(() => import("./pages/Taxes"));
+const Family = lazy(() => import("./pages/Family"));
+const Account = lazy(() => import("./pages/Account"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const InviteAccept = lazy(() => import("./pages/InviteAccept"));
 
 // Aviso único por mensagem a cada 10s (várias consultas falhando juntas não viram uma pilha de avisos)
 const recentErrors = new Map<string, number>();
@@ -79,6 +86,13 @@ const AnimatedRoutes = () => {
           <Route path="/open-finance" element={<Layout><OpenFinance /></Layout>} />
           <Route path="/categorization" element={<Layout><Categorization /></Layout>} />
           <Route path="/rules" element={<Layout><Rules /></Layout>} />
+          <Route path="/cards" element={<Layout><Cards /></Layout>} />
+          <Route path="/bills" element={<Layout><Bills /></Layout>} />
+          <Route path="/taxes" element={<Layout><Taxes /></Layout>} />
+          <Route path="/family" element={<Layout><Family /></Layout>} />
+          <Route path="/account" element={<Layout><Account /></Layout>} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/convite/:token" element={<InviteAccept />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
