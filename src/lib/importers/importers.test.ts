@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseImportFile, toSyncedRows } from "./index";
+import { parseImportFile, splitPluggyDuplicates, toSyncedRows } from "./index";
 import { parseAmount, parseCsv, parseDate, extractInstallment, decodeFile } from "./parsing";
 
 // Todos os dados abaixo são fictícios.
@@ -174,5 +174,47 @@ describe("toSyncedRows (dedup + categorização)", () => {
     expect(rows[0].ai_category).toBe("Alimentação"); // regra padrão (ifood)
     expect(rows[1].ai_category).toBe("Lazer"); // regra do usuário
     expect(rows[2]).toMatchObject({ ai_category: null, category_source: null, installment_info: "2/5" });
+  });
+});
+
+describe("splitPluggyDuplicates (arquivo x Pluggy)", () => {
+  const row = (date: string, amount: number, description: string, type = "expense") => ({ date, amount, type, description });
+
+  it("skips a file row already synced from Pluggy with similar description", () => {
+    const { rows, duplicates } = splitPluggyDuplicates(
+      [row("2026-08-01", 45.9, "Ifood *Restaurante Ficticio"), row("2026-08-01", 10, "Padaria Central")],
+      [{ date: "2026-08-01", amount: "45.90", type: "expense", description: "IFOOD *RESTAURANTE", accountType: "CREDIT" }],
+      "csv_card",
+    );
+    expect(duplicates.map((r) => r.description)).toEqual(["Ifood *Restaurante Ficticio"]);
+    expect(rows.map((r) => r.description)).toEqual(["Padaria Central"]);
+  });
+
+  it("keeps rows with same date/value but different description", () => {
+    const { rows } = splitPluggyDuplicates(
+      [row("2026-08-01", 10, "Padaria Central")],
+      [{ date: "2026-08-01", amount: 10, type: "expense", description: "Uber Trip", accountType: "CREDIT" }],
+      "csv_card",
+    );
+    expect(rows).toHaveLength(1);
+  });
+
+  it("ignores Pluggy transactions from another account type", () => {
+    const { rows } = splitPluggyDuplicates(
+      [row("2026-08-01", 10, "Uber Trip")],
+      [{ date: "2026-08-01", amount: 10, type: "expense", description: "Uber Trip", accountType: "BANK" }],
+      "csv_card",
+    );
+    expect(rows).toHaveLength(1);
+  });
+
+  it("each Pluggy transaction matches at most one file row", () => {
+    const { rows, duplicates } = splitPluggyDuplicates(
+      [row("2026-08-01", 10, "Uber Trip"), row("2026-08-01", 10, "Uber Trip")],
+      [{ date: "2026-08-01", amount: 10, type: "expense", description: "UBER *TRIP", accountType: null }],
+      "csv_card",
+    );
+    expect(duplicates).toHaveLength(1);
+    expect(rows).toHaveLength(1);
   });
 });

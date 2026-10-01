@@ -1,4 +1,4 @@
-// Job agendado (pg_cron, ver migração schedule_pluggy_sync) que sincroniza todas as
+// Job agendado (pg_cron, ver migração 20260930193700_*.sql) que sincroniza todas as
 // conexões Pluggy com auto_sync ligado. Protegido pelo header x-cron-secret.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorMessage, getServiceClient, jsonResponse } from "../_shared/http.ts";

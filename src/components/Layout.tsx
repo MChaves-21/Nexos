@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect, useTransition } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Receipt, FileText, Loader2, Building2 } from "lucide-react";
+import { LayoutDashboard, Wallet, TrendingUp, Menu, Calculator, LogOut, LogIn, Moon, Sun, Receipt, FileText, Loader2, Building2, Tags, ListChecks } from "lucide-react";
 import nexosLogo from "@/assets/nexos-logo-optimized.webp";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/Footer";
@@ -83,7 +83,9 @@ const Layout = ({
     "/budgets": () => import("@/pages/Budgets"),
     "/simulation": () => import("@/pages/Simulation"),
     "/reports": () => import("@/pages/Reports"),
-    "/open-finance": () => import("@/pages/OpenFinance")
+    "/open-finance": () => import("@/pages/OpenFinance"),
+    "/categorization": () => import("@/pages/Categorization"),
+    "/rules": () => import("@/pages/Rules")
   };
   const handlePrefetch = (to: string) => {
     const prefetch = prefetchMap[to];
@@ -127,6 +129,14 @@ const Layout = ({
     to: "/open-finance",
     icon: Building2,
     label: "Open Finance"
+  }, {
+    to: "/categorization",
+    icon: Tags,
+    label: "Categorização"
+  }, {
+    to: "/rules",
+    icon: ListChecks,
+    label: "Regras"
   }];
   const NavLinks = () => <>
       {navItems.map(({

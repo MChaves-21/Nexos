@@ -46,7 +46,7 @@ No app do Nubank, exporte a **fatura do cartão (CSV)** ou o **extrato da conta 
 2. Cadastre como secrets das Edge Functions (nunca no `.env` do front):
    `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET` e `PLUGGY_CRON_SECRET` (um valor aleatório longo).
 3. Para uso pessoal gratuito, conecte seu banco no **Meu Pluggy** (meu.pluggy.ai) e cole o *Item ID* em **Conectar Banco → Meu Pluggy**. O botão **Abrir Pluggy Connect** abre o widget oficial (inclui os conectores de sandbox; desligue com `VITE_PLUGGY_INCLUDE_SANDBOX=false`). Confira os limites atuais do plano gratuito na documentação da Pluggy.
-4. Sincronização automática diária (06:00): a migração `schedule_pluggy_sync` agenda o job com `pg_cron`. Guarde o mesmo valor de `PLUGGY_CRON_SECRET` no Vault uma vez:
+4. Sincronização automática diária (06:00): a migração `20260930193700_…sql` agenda o job com `pg_cron`. Guarde o mesmo valor de `PLUGGY_CRON_SECRET` no Vault uma vez:
    ```sql
    select vault.create_secret('<valor de PLUGGY_CRON_SECRET>', 'pluggy_cron_secret');
    ```

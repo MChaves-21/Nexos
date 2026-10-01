@@ -8,7 +8,9 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBudgets } from "@/hooks/useBudgets";
 import { useGoals } from "@/hooks/useGoals";
-import { useBankConnections, useSyncedInvestments, useSyncedTransactions } from "@/hooks/useBankConnections";
+import { useBankConnections, useSyncedInvestments } from "@/hooks/useBankConnections";
+import { useAllTransactions } from "@/hooks/useAllTransactions";
+import { useInvestments } from "@/hooks/useInvestments";
 import { CATEGORIES } from "@shared/categorization";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -24,8 +26,9 @@ const Budgets = () => {
   const { budgets, upsertBudget, deleteBudget } = useBudgets();
   const { goals, addGoal, deleteGoal } = useGoals();
   const { accounts } = useBankConnections();
-  const { transactions } = useSyncedTransactions();
+  const { transactions } = useAllTransactions();
   const { investments } = useSyncedInvestments();
+  const { investments: manualInvestments } = useInvestments();
 
   const [cat, setCat] = useState("");
   const [limit, setLimit] = useState("");
@@ -38,7 +41,7 @@ const Budgets = () => {
     const m = new Map<string, number>();
     for (const t of transactions) {
       if (t.type !== "expense" || !t.date.startsWith(month)) continue;
-      const c = t.ai_category || t.original_category || "Outros";
+      const c = t.category;
       m.set(c, (m.get(c) ?? 0) + Number(t.amount));
     }
     return m;
@@ -46,7 +49,8 @@ const Budgets = () => {
 
   const netWorth = useMemo(() =>
     accounts.reduce((s, a) => s + (a.type === "CREDIT" ? -Math.abs(Number(a.balance)) : Number(a.balance)), 0) +
-    investments.reduce((s, i) => s + Number(i.balance), 0), [accounts, investments]);
+    investments.reduce((s, i) => s + Number(i.balance), 0) +
+    manualInvestments.reduce((s, i) => s + Number(i.quantity) * Number(i.current_price), 0), [accounts, investments, manualInvestments]);
 
   return (
     <main className="space-y-6">

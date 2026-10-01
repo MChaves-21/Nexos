@@ -8,7 +8,9 @@ import StatCard from "@/components/StatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatCardSkeleton } from "@/components/skeletons";
-import { useBankConnections, useSyncedInvestments, useSyncedTransactions } from "@/hooks/useBankConnections";
+import { useBankConnections, useSyncedInvestments } from "@/hooks/useBankConnections";
+import { useAllTransactions } from "@/hooks/useAllTransactions";
+import { useInvestments } from "@/hooks/useInvestments";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const COLORS = ["hsl(var(--primary))", "hsl(var(--success))", "hsl(var(--destructive))", "hsl(var(--warning, 38 92% 50%))", "hsl(var(--accent-foreground))", "hsl(var(--muted-foreground))"];
@@ -18,14 +20,18 @@ const isFlow = (category: string | null) => category !== "Transferência" && cat
 
 const Dashboard = () => {
   const { connections, accounts, isLoading: loadingConn } = useBankConnections();
-  const { transactions, isLoading: loadingTx } = useSyncedTransactions();
+  const { transactions, isLoading: loadingTx } = useAllTransactions();
   const { investments, isLoading: loadingInv } = useSyncedInvestments();
-  const loading = loadingConn || loadingTx || loadingInv;
+  const { investments: manualInvestments, isLoading: loadingManualInv } = useInvestments();
+  const loading = loadingConn || loadingTx || loadingInv || loadingManualInv;
 
   const data = useMemo(() => {
     const cash = accounts.filter((a) => a.type !== "CREDIT").reduce((s, a) => s + Number(a.balance), 0);
     const debt = accounts.filter((a) => a.type === "CREDIT").reduce((s, a) => s + Math.abs(Number(a.balance)), 0);
-    const invested = investments.reduce((s, i) => s + Number(i.balance), 0);
+    // Investimentos do banco + carteira cadastrada à mão
+    const invested =
+      investments.reduce((s, i) => s + Number(i.balance), 0) +
+      manualInvestments.reduce((s, i) => s + Number(i.quantity) * Number(i.current_price), 0);
     const netWorth = cash - debt + invested;
 
     const monthKey = (d: string) => d.slice(0, 7);
@@ -36,7 +42,7 @@ const Dashboard = () => {
     const byCategory = new Map<string, number>();
 
     for (const t of transactions) {
-      const cat = t.ai_category || t.original_category || "Outros";
+      const cat = t.category;
       if (!isFlow(cat)) continue;
       const f = flows.get(monthKey(t.date));
       if (f) f[t.type === "income" ? "income" : "expense"] += Number(t.amount);
@@ -60,24 +66,27 @@ const Dashboard = () => {
       cashFlow: months.slice(-6).map((m) => ({ label: label(m), Receitas: flows.get(m)!.income, Despesas: flows.get(m)!.expense })),
       categories: Array.from(byCategory.entries()).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value })),
     };
-  }, [accounts, investments, transactions]);
+  }, [accounts, investments, manualInvestments, transactions]);
 
-  const hasBank = connections.some((c) => c.provider === "pluggy");
+  const hasData = connections.length > 0 || transactions.length > 0 || manualInvestments.length > 0;
 
   return (
     <main className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Tudo aqui vem das suas contas conectadas</p>
+        <p className="text-muted-foreground text-sm mt-1">Contas conectadas e lançamentos manuais</p>
       </div>
 
-      {!loading && !hasBank ? (
+      {!loading && !hasData ? (
         <Card>
           <CardContent className="py-12 text-center space-y-3">
             <Landmark className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h2 className="text-lg font-semibold">Nenhum banco conectado</h2>
-            <p className="text-sm text-muted-foreground">Conecte seu banco para ver patrimônio, receitas e despesas.</p>
-            <Button asChild><Link to="/open-finance">Conectar banco</Link></Button>
+            <h2 className="text-lg font-semibold">Nenhum dado ainda</h2>
+            <p className="text-sm text-muted-foreground">Conecte seu banco ou registre transações e investimentos manualmente.</p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <Button asChild><Link to="/open-finance">Conectar banco</Link></Button>
+              <Button asChild variant="outline"><Link to="/expenses">Lançar transação</Link></Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
