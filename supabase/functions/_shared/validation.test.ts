@@ -6,6 +6,7 @@ import {
   MAX_CATEGORIZE_ITEMS,
   parseCategorizeInput,
   parseItemId,
+  parsePluggyCredentials,
   publicErrorMessage,
   PublicError,
   requireUuid,
@@ -64,5 +65,14 @@ describe("public errors", () => {
     expect(errorStatus(new Error("x"))).toBe(500);
     expect(publicErrorMessage(new PublicError("Item ID inválido", 400))).toBe("Item ID inválido");
     expect(errorStatus(new PublicError("x", 409))).toBe(409);
+  });
+});
+
+describe("parsePluggyCredentials", () => {
+  it("accepts trimmed credentials and rejects empty or spaced values", () => {
+    expect(parsePluggyCredentials({ clientId: "  abcdef123 ", clientSecret: "s3cr3t-value" })).toEqual({ clientId: "abcdef123", clientSecret: "s3cr3t-value" });
+    expect(() => parsePluggyCredentials({ clientId: "", clientSecret: "x" })).toThrow(/Client ID/);
+    expect(() => parsePluggyCredentials({ clientId: "abc def 123", clientSecret: "s3cr3t-value" })).toThrow();
+    expect(() => parsePluggyCredentials(null)).toThrow();
   });
 });

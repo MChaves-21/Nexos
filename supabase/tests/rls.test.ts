@@ -155,3 +155,19 @@ describe("profiles", () => {
     expect(r.rows).toHaveLength(0);
   });
 });
+
+describe("pluggy_credentials", () => {
+  it("the app can never read or write stored Pluggy credentials, not even its own", async () => {
+    await asService(
+      `INSERT INTO public.pluggy_credentials (user_id, client_id, secret_ciphertext, secret_iv) VALUES ($1, 'cid', 'cipher', 'iv')`,
+      [A],
+    );
+    await expect(asUser(A, `SELECT * FROM public.pluggy_credentials`)).rejects.toThrow(/permission denied/);
+    await expect(
+      asUser(A, `INSERT INTO public.pluggy_credentials (user_id, client_id, secret_ciphertext, secret_iv) VALUES ($1, 'x', 'y', 'z')`, [B]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(asUser(A, `DELETE FROM public.pluggy_credentials`)).rejects.toThrow(/permission denied/);
+    const { rows } = await asService(`SELECT client_id FROM public.pluggy_credentials WHERE user_id = $1`, [A]);
+    expect(rows).toHaveLength(1);
+  });
+});

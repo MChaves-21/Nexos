@@ -63,3 +63,15 @@ export function publicErrorMessage(e: unknown): string {
 export function errorStatus(e: unknown): number {
   return e instanceof PublicError ? e.status : 500;
 }
+
+/** Client ID / Client Secret da Pluggy: texto simples, sem espaços, tamanho razoável. */
+export function parsePluggyCredentials(body: unknown): { clientId: string; clientSecret: string } {
+  const b = (body ?? {}) as { clientId?: unknown; clientSecret?: unknown };
+  const clientId = typeof b.clientId === "string" ? b.clientId.trim() : "";
+  const clientSecret = typeof b.clientSecret === "string" ? b.clientSecret.trim() : "";
+  const valid = (v: string) => v.length >= 8 && v.length <= 200 && !/\s/.test(v);
+  if (!valid(clientId) || !valid(clientSecret)) {
+    throw new PublicError("Informe o Client ID e o Client Secret da Pluggy, sem espaços.", 400);
+  }
+  return { clientId, clientSecret };
+}

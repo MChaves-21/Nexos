@@ -2,7 +2,7 @@
 // conexões Pluggy com auto_sync ligado. Protegido pelo header x-cron-secret.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorMessage, errorResponse, getServiceClient, jsonResponse } from "../_shared/http.ts";
-import { getPluggyApiKey } from "../_shared/pluggy.ts";
+import { getApiKeyForUser } from "../_shared/pluggy-credentials.ts";
 import { syncConnection } from "../_shared/sync-core.ts";
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -30,12 +30,17 @@ serve(async (req) => {
       .neq("status", "reauth_required");
     if (error) throw error;
 
-    const apiKey = await getPluggyApiKey();
+    // Cada pessoa pode ter a própria conta Pluggy: uma API key por usuário
+    const apiKeys = new Map<string, Promise<string>>();
+    const apiKeyFor = (userId: string) => {
+      if (!apiKeys.has(userId)) apiKeys.set(userId, getApiKeyForUser(supabase, userId).then((r) => r.apiKey));
+      return apiKeys.get(userId)!;
+    };
     const results: Array<{ id: string; ok: boolean; synced?: number; status?: string }> = [];
 
     for (const connection of connections ?? []) {
       try {
-        const r = await syncConnection(supabase, connection, apiKey);
+        const r = await syncConnection(supabase, connection, await apiKeyFor(connection.user_id));
         results.push({ id: connection.id, ok: true, synced: r.synced, status: r.status });
       } catch (e) {
         console.error(`sync failed for connection ${connection.id}:`, errorMessage(e));

@@ -80,3 +80,15 @@ npm run test:e2e  # ponta a ponta no navegador (Playwright), com o Supabase simu
 - Dados sincronizados só podem ser gravados em conexões do próprio usuário (RLS).
 - Edge Functions validam a entrada e não devolvem detalhes internos de erro.
 - A exportação CSV neutraliza fórmulas (proteção contra "CSV injection").
+
+## 👨‍👩‍👧 Uso em família (cada pessoa com a própria conta Pluggy)
+O plano gratuito da Pluggy aceita um só CPF por conta (e até 5 conexões). Para a família, cada pessoa usa a própria conta gratuita da Pluggy; quem não tiver usa a conta Pluggy do app.
+
+Para cada familiar (feito uma vez, por quem administra):
+1. Crie a conta dele no Nexos e entre com ela.
+2. Crie uma conta gratuita em dashboard.pluggy.ai com o e-mail e o CPF dele e copie o **Client ID** e o **Client Secret**.
+3. No Meu Pluggy dessa conta, conecte o banco dele. **Ele aprova no app do banco, no celular dele.** Copie o **Item ID**.
+4. No Nexos, em **Conectar banco → Avançado: usar uma conta Pluggy própria**, cole o Client ID e o Client Secret e salve. A Pluggy confere as credenciais antes de salvar.
+5. Em **Conectar Banco**, cole o Item ID. Pronto: a sincronização diária usa a conta Pluggy dele.
+
+As credenciais ficam cifradas (AES-GCM) na tabela `pluggy_credentials`, que o app não consegue ler; só as Edge Functions acessam. A chave de cifragem vem do segredo `PLUGGY_CREDENTIALS_KEY` (opcional) ou, sem ele, da service role key do projeto. Se essa chave mudar, basta cadastrar as credenciais de novo.

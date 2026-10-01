@@ -2,6 +2,7 @@ import BankConnectionsManager from "@/components/openfinance/BankConnectionsMana
 import SyncedDashboard from "@/components/openfinance/SyncedDashboard";
 import SyncedTransactionsList from "@/components/openfinance/SyncedTransactionsList";
 import SyncedInvestmentsCard from "@/components/openfinance/SyncedInvestmentsCard";
+import PluggyAccountCard from "@/components/openfinance/PluggyAccountCard";
 import { Shield, Lock } from "lucide-react";
 import InfoHint from "@/components/InfoHint";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -38,6 +39,7 @@ const OpenFinance = () => {
       {isComplete && <SyncedInvestmentsCard />}
       {isComplete && <SyncedDashboard />}
       <SyncedTransactionsList />
+      <PluggyAccountCard />
     </div>
   );
 };
