@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { toSyncedRows, type ImportSource, type NormalizedTransaction } from "@/lib/importers";
+import { splitPluggyDuplicates, toSyncedRows, type ImportSource, type NormalizedTransaction } from "@/lib/importers";
 
 const CHUNK = 500;
 
@@ -14,7 +14,10 @@ export interface FileImportInput {
 export interface FileImportResult {
   total: number;
   inserted: number;
+  /** Já importadas antes a partir de um arquivo */
   duplicates: number;
+  /** Já vieram pela Pluggy */
+  fromPluggy: number;
 }
 
 /**
@@ -59,27 +62,28 @@ export const useFileImport = () => {
         bank_connection_id: connectionId!,
       }));
 
-      // Não duplica o que já veio pela Pluggy: mesma data, valor e tipo (consome cada par uma vez)
+      // Não duplica o que já veio pela Pluggy (mesma data, valor, tipo, tipo de conta e descrição parecida)
       const dates = allRows.map((r) => r.date).sort();
-      const pluggyCount = new Map<string, number>();
+      let rows = allRows;
       if (dates.length) {
-        const { data: pluggyTx } = await supabase
-          .from("synced_transactions")
-          .select("date, amount, type")
-          .eq("source", "pluggy")
-          .gte("date", dates[0])
-          .lte("date", dates[dates.length - 1]);
-        for (const t of pluggyTx ?? []) {
-          const k = `${t.date}|${Number(t.amount).toFixed(2)}|${t.type}`;
-          pluggyCount.set(k, (pluggyCount.get(k) ?? 0) + 1);
-        }
+        const [{ data: pluggyTx, error: pluggyError }, { data: accounts, error: accountsError }] = await Promise.all([
+          supabase
+            .from("synced_transactions")
+            .select("date, amount, type, description, bank_account_id")
+            .eq("source", "pluggy")
+            .gte("date", dates[0])
+            .lte("date", dates[dates.length - 1]),
+          supabase.from("bank_accounts").select("id, type"),
+        ]);
+        if (pluggyError) throw pluggyError;
+        if (accountsError) throw accountsError;
+        const accountType = new Map((accounts ?? []).map((a) => [a.id, a.type]));
+        rows = splitPluggyDuplicates(
+          allRows,
+          (pluggyTx ?? []).map((t) => ({ ...t, accountType: t.bank_account_id ? accountType.get(t.bank_account_id) ?? null : null })),
+          source,
+        ).rows;
       }
-      const rows = allRows.filter((r) => {
-        const k = `${r.date}|${r.amount.toFixed(2)}|${r.type}`;
-        const n = pluggyCount.get(k) ?? 0;
-        if (n > 0) { pluggyCount.set(k, n - 1); return false; }
-        return true;
-      });
       const skippedPluggy = allRows.length - rows.length;
 
       let inserted = 0;
@@ -106,14 +110,18 @@ export const useFileImport = () => {
           .catch(() => undefined);
       }
 
-      return { total: allRows.length, inserted, duplicates: allRows.length - inserted };
+      return { total: allRows.length, inserted, duplicates: rows.length - inserted, fromPluggy: skippedPluggy };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["bank-connections"] });
       queryClient.invalidateQueries({ queryKey: ["synced-transactions"] });
       toast({
         title: "Arquivo importado",
-        description: `${result.inserted} novas transações${result.duplicates ? ` · ${result.duplicates} já existiam e foram ignoradas` : ""}.`,
+        description:
+          `${result.inserted} novas transações` +
+          (result.duplicates ? ` · ${result.duplicates} já tinham sido importadas` : "") +
+          (result.fromPluggy ? ` · ${result.fromPluggy} já vieram pela conexão com o banco` : "") +
+          ".",
       });
     },
     onError: (error) => {

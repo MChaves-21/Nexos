@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FileDown, Calendar } from "lucide-react";
-import { useTransactions } from "@/hooks/useTransactions";
+import { useAllTransactions } from "@/hooks/useAllTransactions";
+import { useSyncedInvestments } from "@/hooks/useBankConnections";
 import { useBudgets } from "@/hooks/useBudgets";
 import { useInvestments } from "@/hooks/useInvestments";
 import { useGoals } from "@/hooks/useGoals";
@@ -10,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
 
@@ -23,19 +24,20 @@ const Reports = () => {
     format(endOfMonth(currentDate), "yyyy-MM-dd")
   );
 
-  const { transactions, isLoading: isLoadingTransactions } = useTransactions();
+  // Mesma fonte do Dashboard e de Transações: manuais + banco (sem duplicar as já importadas)
+  const { transactions, isLoading: isLoadingTransactions } = useAllTransactions();
   const { budgets, isLoading: isLoadingBudgets } = useBudgets();
   const { investments, isLoading: isLoadingInvestments } = useInvestments();
+  const { investments: bankInvestments, isLoading: isLoadingBankInvestments } = useSyncedInvestments();
   const { goals, isLoading: isLoadingGoals } = useGoals();
 
   const isLoading =
-    isLoadingTransactions || isLoadingBudgets || isLoadingInvestments || isLoadingGoals;
+    isLoadingTransactions || isLoadingBudgets || isLoadingInvestments || isLoadingBankInvestments || isLoadingGoals;
 
+  // Datas "YYYY-MM-DD" comparadas como texto: evita o deslocamento de fuso de new Date()
   const filterByDateRange = (date: string) => {
-    const itemDate = new Date(date);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    return itemDate >= start && itemDate <= end;
+    const day = date.slice(0, 10);
+    return day >= startDate && day <= endDate;
   };
 
   const generatePDF = () => {
@@ -55,9 +57,9 @@ const Reports = () => {
       doc.setFontSize(12);
       doc.setTextColor(100, 100, 100);
       doc.text(
-        `Período: ${format(new Date(startDate), "dd/MM/yyyy", {
+        `Período: ${format(parseISO(startDate), "dd/MM/yyyy", {
           locale: ptBR,
-        })} até ${format(new Date(endDate), "dd/MM/yyyy", { locale: ptBR })}`,
+        })} até ${format(parseISO(endDate), "dd/MM/yyyy", { locale: ptBR })}`,
         pageWidth / 2,
         yPosition,
         { align: "center" }
@@ -77,10 +79,11 @@ const Reports = () => {
         yPosition += 5;
 
         const transactionsData = filteredTransactions.map((t) => [
-          format(new Date(t.date), "dd/MM/yyyy"),
+          format(parseISO(t.date), "dd/MM/yyyy"),
           t.description,
           t.category,
           t.type === "income" ? "Receita" : "Despesa",
+          t.origin === "bank" ? "Banco" : "Manual",
           `R$ ${t.amount.toLocaleString("pt-BR", {
             minimumFractionDigits: 2,
           })}`,
@@ -88,7 +91,7 @@ const Reports = () => {
 
         autoTable(doc, {
           startY: yPosition,
-          head: [["Data", "Descrição", "Categoria", "Tipo", "Valor"]],
+          head: [["Data", "Descrição", "Categoria", "Tipo", "Origem", "Valor"]],
           body: transactionsData,
           theme: "striped",
           headStyles: { fillColor: [99, 102, 241] },
@@ -181,6 +184,36 @@ const Reports = () => {
             ],
           ],
           body: investmentsData,
+          theme: "striped",
+          headStyles: { fillColor: [234, 179, 8] },
+          margin: { left: 14, right: 14 },
+        });
+
+        yPosition = (doc as any).lastAutoTable.finalY + 15;
+      }
+
+      // Bank investments section (posição atual via Open Finance)
+      if (bankInvestments.length > 0) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        doc.setFontSize(16);
+        doc.setTextColor(40, 40, 40);
+        doc.text("Investimentos no banco (posição atual)", 14, yPosition);
+        yPosition += 5;
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Ativo", "Tipo", "Saldo", "Rendimento"]],
+          body: bankInvestments.map((inv) => [
+            inv.name,
+            inv.type,
+            `R$ ${Number(inv.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+            inv.amount_profit == null
+              ? "-"
+              : `R$ ${Number(inv.amount_profit).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+          ]),
           theme: "striped",
           headStyles: { fillColor: [234, 179, 8] },
           margin: { left: 14, right: 14 },
