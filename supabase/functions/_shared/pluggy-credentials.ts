@@ -3,9 +3,14 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
 import { decryptText, deriveKey, encryptText } from "./crypto.ts";
 import { appCredentials, getPluggyApiKey, type PluggyCredentials } from "./pluggy.ts";
-import { PublicError } from "./validation.ts";
+import { isMissingRelation, PublicError } from "./validation.ts";
 
 let keyPromise: Promise<CryptoKey> | null = null;
+
+const MIGRATION_PENDING = new PublicError(
+  "O banco ainda não tem a tabela de credenciais. Rode a migração 20261001140000_pluggy_credentials.sql e tente de novo.",
+  503,
+);
 
 /** Chave de cifragem: PLUGGY_CREDENTIALS_KEY se definido; senão derivada da service role key. */
 function credentialsKey(): Promise<CryptoKey> {
@@ -19,7 +24,14 @@ export async function getUserCredentials(service: SupabaseClient, userId: string
     .select("client_id, secret_ciphertext, secret_iv")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) {
+    // Migração das credenciais ainda não aplicada: segue com a conta Pluggy do app
+    if (isMissingRelation(error)) {
+      console.warn("pluggy_credentials ausente; usando a conta Pluggy do app");
+      return null;
+    }
+    throw error;
+  }
   if (!data) return null;
   try {
     const clientSecret = await decryptText(await credentialsKey(), data.secret_ciphertext, data.secret_iv, userId);
@@ -35,12 +47,29 @@ export async function saveUserCredentials(service: SupabaseClient, userId: strin
     { user_id: userId, client_id: creds.clientId, secret_ciphertext: ciphertext, secret_iv: iv, verified_at: new Date().toISOString() },
     { onConflict: "user_id" },
   );
-  if (error) throw error;
+  if (error) {
+    if (isMissingRelation(error)) throw MIGRATION_PENDING;
+    throw error;
+  }
 }
 
 export async function deleteUserCredentials(service: SupabaseClient, userId: string): Promise<void> {
   const { error } = await service.from("pluggy_credentials").delete().eq("user_id", userId);
-  if (error) throw error;
+  if (error && !isMissingRelation(error)) throw error;
+}
+
+/** Status para a tela: nunca o segredo. Sem a tabela, responde "não configurado". */
+export async function getCredentialsStatus(service: SupabaseClient, userId: string): Promise<{ clientId: string; verifiedAt: string } | null> {
+  const { data, error } = await service
+    .from("pluggy_credentials")
+    .select("client_id, verified_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    if (isMissingRelation(error)) return null;
+    throw error;
+  }
+  return data ? { clientId: data.client_id, verifiedAt: data.verified_at } : null;
 }
 
 /** API key da Pluggy para este usuário: a conta dele, se cadastrada; senão a do app. */

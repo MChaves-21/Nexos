@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, getServiceClient, getUserClient, jsonResponse } from "../_shared/http.ts";
 import { getPluggyApiKey, PluggyError, pluggyRequest } from "../_shared/pluggy.ts";
-import { deleteUserCredentials, getApiKeyForUser, saveUserCredentials } from "../_shared/pluggy-credentials.ts";
+import { deleteUserCredentials, getApiKeyForUser, getCredentialsStatus, saveUserCredentials } from "../_shared/pluggy-credentials.ts";
 import { maskId } from "../_shared/crypto.ts";
 import { mapItemStatus, type PluggyItem } from "../_shared/pluggy-mappers.ts";
 import { assertItemOwnership, parseItemId, parsePluggyCredentials, PublicError, requireUuid } from "../_shared/validation.ts";
@@ -22,14 +22,9 @@ serve(async (req) => {
 
     // ---- Conta Pluggy própria (ex.: cada familiar com a sua conta gratuita) ----
     if (action === "credentials-status") {
-      const { data, error } = await service
-        .from("pluggy_credentials")
-        .select("client_id, verified_at")
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (error) throw error;
+      const status = await getCredentialsStatus(service, userId);
       // Nunca devolve o segredo; nem o Client ID inteiro
-      return jsonResponse(data ? { configured: true, clientId: maskId(data.client_id), verifiedAt: data.verified_at } : { configured: false });
+      return jsonResponse(status ? { configured: true, clientId: maskId(status.clientId), verifiedAt: status.verifiedAt } : { configured: false });
     }
 
     if (action === "save-credentials") {

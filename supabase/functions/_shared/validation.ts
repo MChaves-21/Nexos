@@ -75,3 +75,10 @@ export function parsePluggyCredentials(body: unknown): { clientId: string; clien
   }
   return { clientId, clientSecret };
 }
+
+/** Tabela/coluna ainda não criada no banco (migração não aplicada). */
+export function isMissingRelation(error: unknown): boolean {
+  const e = (error ?? {}) as { code?: string; message?: string };
+  return e.code === "42P01" || e.code === "PGRST205" || e.code === "42703" || e.code === "PGRST204" ||
+    /schema cache|does not exist/i.test(e.message ?? "");
+}

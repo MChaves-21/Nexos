@@ -36,7 +36,11 @@ export function getServiceClient(): SupabaseClient {
 
 /** Mensagem completa, só para logs. */
 export function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : "Unknown error";
+  if (e instanceof Error) return e.message;
+  // Erros do PostgREST chegam como objeto { code, message }, não como Error
+  const o = e as { code?: string; message?: string } | null;
+  if (o && typeof o.message === "string") return o.code ? `[${o.code}] ${o.message}` : o.message;
+  return "Unknown error";
 }
 
 /** Resposta de erro segura: loga o detalhe e devolve só o que pode ser mostrado. */
