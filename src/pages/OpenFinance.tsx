@@ -3,17 +3,22 @@ import SyncedDashboard from "@/components/openfinance/SyncedDashboard";
 import SyncedTransactionsList from "@/components/openfinance/SyncedTransactionsList";
 import SyncedInvestmentsCard from "@/components/openfinance/SyncedInvestmentsCard";
 import { Shield, Lock } from "lucide-react";
+import InfoHint from "@/components/InfoHint";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRealtimeSyncNotifications } from "@/hooks/useRealtimeSyncNotifications";
+import { usePreferences } from "@/hooks/usePreferences";
 
 const OpenFinance = () => {
   useRealtimeSyncNotifications();
+  const { isComplete } = usePreferences();
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Open Finance</h2>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-1">
+          Conectar banco<InfoHint term="open_finance" />
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Sincronize suas contas bancárias e importe transações automaticamente
+          Traga suas transações automaticamente pelo Open Finance ou enviando o extrato do app do banco
         </p>
       </div>
 
@@ -29,8 +34,9 @@ const OpenFinance = () => {
       </Alert>
 
       <BankConnectionsManager />
-      <SyncedInvestmentsCard />
-      <SyncedDashboard />
+      {/* Painel de categorização por IA e investimentos detalhados: só no modo completo */}
+      {isComplete && <SyncedInvestmentsCard />}
+      {isComplete && <SyncedDashboard />}
       <SyncedTransactionsList />
     </div>
   );

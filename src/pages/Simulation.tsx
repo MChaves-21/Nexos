@@ -11,8 +11,16 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useSavedSimulations, SavedSimulation } from "@/hooks/useSavedSimulations";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { useFinancialSnapshot } from "@/hooks/useFinancialSnapshot";
+import InfoHint from "@/components/InfoHint";
+import TipCard from "@/components/TipCard";
+
+const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const Simulation = () => {
+  // Dados reais do usuário para preencher o simulador com um clique
+  const { netWorth, averageSavings } = useFinancialSnapshot();
+  const roundValue = (v: number) => String(Math.max(0, Math.round(v)));
   // Goal-driven projection (valores default)
   const [goalInitialValue, setGoalInitialValue] = useState("0");
   const [goalTarget, setGoalTarget] = useState("100000");
@@ -451,12 +459,14 @@ const Simulation = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 md:p-8">
+    <div className="bg-gradient-to-br from-background via-background to-primary/5 p-0 sm:p-4 md:p-8 rounded-lg">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-3 mb-8">
-          <Calculator className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold text-foreground">Simulador de Investimentos</h1>
+          <Calculator className="h-8 w-8 text-primary" aria-hidden />
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Simulador de Investimentos</h1>
         </div>
+
+        <TipCard page="simulation" />
 
         <Tabs defaultValue="goal" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -492,6 +502,11 @@ const Simulation = () => {
                       value={goalInitialValue}
                       onChange={(value) => setGoalInitialValue(value)}
                     />
+                    {netWorth > 0 && (
+                      <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setGoalInitialValue(roundValue(netWorth))}>
+                        Usar meu dinheiro guardado ({brl(netWorth)})
+                      </Button>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="goal-target">Valor Desejado (R$)</Label>
@@ -604,12 +619,17 @@ const Simulation = () => {
                       onChange={(value) => setContributionInitialValue(value)}
                       className={contributionErrors.initial ? "border-destructive" : ""}
                     />
+                    {netWorth > 0 && (
+                      <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setContributionInitialValue(roundValue(netWorth))}>
+                        Usar meu dinheiro guardado ({brl(netWorth)})
+                      </Button>
+                    )}
                     {contributionErrors.initial && (
                       <p className="text-xs text-destructive">{contributionErrors.initial}</p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="monthly-contribution">Aporte Mensal (R$)</Label>
+                    <Label htmlFor="monthly-contribution" className="flex items-center gap-0.5">Aporte Mensal (R$)<InfoHint term="aporte" /></Label>
                     <CurrencyInput
                       id="monthly-contribution"
                       placeholder="500"
@@ -617,6 +637,11 @@ const Simulation = () => {
                       onChange={(value) => setMonthlyContribution(value)}
                       className={contributionErrors.contribution ? "border-destructive" : ""}
                     />
+                    {averageSavings !== null && averageSavings > 0 && (
+                      <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setMonthlyContribution(roundValue(averageSavings))}>
+                        Usar minha sobra média ({brl(averageSavings)}/mês)
+                      </Button>
+                    )}
                     {contributionErrors.contribution && (
                       <p className="text-xs text-destructive">{contributionErrors.contribution}</p>
                     )}

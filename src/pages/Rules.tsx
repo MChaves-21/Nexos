@@ -73,7 +73,7 @@ const Rules = () => {
   });
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Regras de categoria</h1>
         <p className="text-muted-foreground text-sm mt-1">Quando a descrição contiver o texto, a transação recebe a categoria. Suas escolhas manuais nunca são sobrescritas.</p>
@@ -118,7 +118,7 @@ const Rules = () => {
           )}
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 };
 

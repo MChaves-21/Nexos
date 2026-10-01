@@ -29,13 +29,13 @@ All colors MUST be HSL.
     --accent: 200 80% 50%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
+    --success: 142 72% 29%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 214 25% 88%;

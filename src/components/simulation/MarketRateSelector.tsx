@@ -3,23 +3,14 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useMarketRates } from "@/hooks/useMarketRates";
 export type RateType = "custom" | "selic" | "ipca_plus";
-interface MarketRates {
-  selic: number;
-  ipca: number;
-}
 interface MarketRateSelectorProps {
   value: string;
   onChange: (value: string) => void;
   error?: string;
   id?: string;
 }
-
-// Taxas reais atualizadas (Janeiro 2025)
-const DEFAULT_RATES: MarketRates = {
-  selic: 13.25,
-  ipca: 4.87
-};
 const DEFAULT_IPCA_SPREAD = 5;
 export function MarketRateSelector({
   value,
@@ -30,7 +21,8 @@ export function MarketRateSelector({
   const [selectedType, setSelectedType] = useState<RateType>("custom");
   const [customValue, setCustomValue] = useState(value);
   const [ipcaSpread, setIpcaSpread] = useState(DEFAULT_IPCA_SPREAD.toString());
-  const [rates] = useState<MarketRates>(DEFAULT_RATES);
+  // Selic e IPCA atuais do Banco Central (com valores de reserva se indisponível)
+  const { rates } = useMarketRates();
   const ipcaPlusRate = rates.ipca + parseFloat(ipcaSpread || "0");
 
   // Detectar tipo baseado no valor atual
@@ -91,7 +83,7 @@ export function MarketRateSelector({
       <Label htmlFor={id}>Taxa Anual (%)</Label>
 
       <Select value={selectedType} onValueChange={val => handleTypeChange(val as RateType)}>
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" aria-label="Tipo de taxa">
           <SelectValue placeholder="Selecione a taxa">{getDisplayValue()}</SelectValue>
         </SelectTrigger>
         <SelectContent>
