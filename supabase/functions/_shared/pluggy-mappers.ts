@@ -83,6 +83,36 @@ export function mapItemStatus(item: PluggyItem, now: Date = new Date()): {
   }
 }
 
+const KNOWN_BANKS: Array<[RegExp, string]> = [
+  [/nu pagamentos|nubank|nu financeira/i, "Nubank"],
+  [/ita[uú]/i, "Itaú"],
+  [/bradesco/i, "Bradesco"],
+  [/santander/i, "Santander"],
+  [/banco inter|\binter\b/i, "Inter"],
+  [/\bc6\b/i, "C6 Bank"],
+  [/banco do brasil/i, "Banco do Brasil"],
+  [/caixa/i, "Caixa"],
+  [/\bxp\b/i, "XP"],
+  [/mercado pago/i, "Mercado Pago"],
+  [/picpay/i, "PicPay"],
+];
+
+/**
+ * Nome do banco para exibir. No Meu Pluggy o conector se chama "MeuPluggy",
+ * então o nome real é deduzido das contas.
+ */
+export function resolveInstitutionName(item: PluggyItem, accounts: PluggyAccount[]): string {
+  const connector = item.connector?.name?.trim() ?? "";
+  if (connector && !/meu\s*pluggy/i.test(connector)) return connector;
+  for (const a of accounts) {
+    const text = `${a.name} ${a.marketingName ?? ""}`;
+    const hit = KNOWN_BANKS.find(([re]) => re.test(text));
+    if (hit) return hit[1];
+  }
+  const first = accounts.find((a) => a.type === "BANK") ?? accounts[0];
+  return first?.name.split(" - ")[0].trim() || connector || "Banco";
+}
+
 export function mapAccount(account: PluggyAccount) {
   return {
     external_id: account.id,

@@ -5,6 +5,7 @@ import {
   mapInvestment,
   mapItemStatus,
   mapTransaction,
+  resolveInstitutionName,
   shouldImportTransaction,
   syncFromDate,
   type PluggyAccount,
@@ -158,6 +159,7 @@ export async function syncConnection(
   await supabase
     .from("bank_connections")
     .update({
+      institution_name: resolveInstitutionName(item, pluggyAccounts),
       last_sync_at: new Date().toISOString(),
       status: itemStatus.status,
       status_detail: detail,
