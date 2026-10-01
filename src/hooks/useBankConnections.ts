@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { extractKeyword } from "@shared/categorization";
 import type { Tables } from "@/integrations/supabase/types";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export type BankConnection = Tables<"bank_connections">;
 export type BankAccount = Tables<"bank_accounts">;
@@ -71,7 +72,7 @@ export const useBankConnections = () => {
     mutationFn: (itemId?: string) =>
       invokeFunction<{ accessToken: string }>("pluggy-connect", { action: "create-connect-token", itemId }),
     onError: (error) => {
-      toast({ title: "Erro ao abrir a Pluggy", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao abrir a Pluggy", description: friendlyErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -88,7 +89,7 @@ export const useBankConnections = () => {
     },
     onError: (error) => {
       invalidateAll();
-      toast({ title: "Erro na sincronização", description: error.message, variant: "destructive" });
+      toast({ title: "Erro na sincronização", description: friendlyErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -102,7 +103,7 @@ export const useBankConnections = () => {
       syncTransactions.mutate(connection.id);
     },
     onError: (error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: friendlyErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -114,7 +115,7 @@ export const useBankConnections = () => {
       toast({ title: "Conexão removida", description: "Banco desconectado com sucesso." });
     },
     onError: (error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: friendlyErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -125,7 +126,7 @@ export const useBankConnections = () => {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["bank-connections"] }),
     onError: (error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: friendlyErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -209,7 +210,7 @@ export const useSyncedTransactions = (connectionId?: string) => {
       }
     },
     onError: (error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: friendlyErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -244,7 +245,7 @@ export const useSyncedTransactions = (connectionId?: string) => {
       toast({ title: "Transações importadas", description: "As transações foram adicionadas ao seu histórico." });
     },
     onError: (error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: friendlyErrorMessage(error), variant: "destructive" });
     },
   });
 

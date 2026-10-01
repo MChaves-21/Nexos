@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUndoableDelete } from "./useUndoableDelete";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export interface Goal {
   id: string;
@@ -61,7 +62,7 @@ export const useGoals = () => {
     onError: (error) => {
       toast({
         title: "Erro ao criar meta",
-        description: error.message,
+        description: friendlyErrorMessage(error),
         variant: "destructive",
       });
     },
@@ -99,7 +100,7 @@ export const useGoals = () => {
     onError: (error) => {
       toast({
         title: "Erro ao atualizar meta",
-        description: error.message,
+        description: friendlyErrorMessage(error),
         variant: "destructive",
       });
     },

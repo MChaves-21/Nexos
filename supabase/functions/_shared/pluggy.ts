@@ -1,15 +1,19 @@
+import { PublicError } from "./validation.ts";
+
 export const PLUGGY_API_URL = "https://api.pluggy.ai";
 
-export class PluggyError extends Error {
-  constructor(message: string, public status: number) {
-    super(message);
+/** Falha na API da Pluggy. A mensagem não tem dados do usuário e pode ir para a tela. */
+export class PluggyError extends PublicError {
+  constructor(message: string, status: number) {
+    super(message, status);
+    this.name = "PluggyError";
   }
 }
 
 export async function getPluggyApiKey(): Promise<string> {
   const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
   const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) throw new Error("Pluggy credentials not configured");
+  if (!clientId || !clientSecret) throw new PublicError("Conexão com bancos indisponível: credenciais da Pluggy não configuradas.", 503);
 
   const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
     method: "POST",
@@ -45,6 +49,8 @@ export async function pluggyGetAll<T>(apiKey: string, path: string, params: Reco
   const all: T[] = [];
   let page = 1;
   for (;;) {
+    // Limite de segurança: no máximo 50 páginas (25 mil registros) por chamada
+    if (page > 50) break;
     const qs = new URLSearchParams({ ...params, pageSize: "500", page: String(page) });
     const data = await pluggyRequest<Page<T>>(apiKey, `${path}?${qs}`);
     all.push(...(data.results ?? []));

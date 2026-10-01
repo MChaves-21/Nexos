@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUndoableDelete } from "./useUndoableDelete";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export interface Transaction {
   id: string;
@@ -58,7 +59,7 @@ export const useTransactions = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível criar a transação: ${error.message}`,
+        description: `Não foi possível criar a transação. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },
@@ -86,7 +87,7 @@ export const useTransactions = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível atualizar a transação: ${error.message}`,
+        description: `Não foi possível atualizar a transação. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },

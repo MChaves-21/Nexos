@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUndoableDelete } from "./useUndoableDelete";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export interface Investment {
   id: string;
@@ -59,7 +60,7 @@ export const useInvestments = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível criar o investimento: ${error.message}`,
+        description: `Não foi possível criar o investimento. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },
@@ -87,7 +88,7 @@ export const useInvestments = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível atualizar o investimento: ${error.message}`,
+        description: `Não foi possível atualizar o investimento. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 export interface AllocationTarget {
   id: string;
@@ -57,7 +58,7 @@ export const useAllocationTargets = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível salvar a meta: ${error.message}`,
+        description: `Não foi possível salvar a meta. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },
@@ -82,7 +83,7 @@ export const useAllocationTargets = () => {
     onError: (error) => {
       toast({
         title: "Erro",
-        description: `Não foi possível remover a meta: ${error.message}`,
+        description: `Não foi possível remover a meta. ${friendlyErrorMessage(error)}`,
         variant: "destructive",
       });
     },

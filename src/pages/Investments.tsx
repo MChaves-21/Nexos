@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, RefreshCw, Bell } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, RefreshCw, Bell, Landmark } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
 import { useAllocationTargets } from "@/hooks/useAllocationTargets";
 import { usePriceAlerts, PriceChange } from "@/hooks/usePriceAlerts";
@@ -33,11 +33,13 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { PriceAlertSettings } from "@/components/investments/PriceAlertSettings";
 import { TickerInput } from "@/components/investments/TickerInput";
 import { parseISO } from "date-fns";
-import SyncedInvestmentsCard from "@/components/openfinance/SyncedInvestmentsCard";
+import { useSyncedInvestments } from "@/hooks/useBankConnections";
+import { buildPortfolio, type PortfolioItem } from "@/lib/portfolio";
 import BenchmarkCard from "@/components/investments/BenchmarkCard";
 import InfoHint from "@/components/InfoHint";
 import TipCard from "@/components/TipCard";
 import { B3Asset, getAssetTypeByTicker } from "@/data/b3-tickers";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 const Investments = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -54,7 +56,11 @@ const Investments = () => {
   const [isTickerValid, setIsTickerValid] = useState(false);
 
   const queryClient = useQueryClient();
-  const { investments, isLoading, addInvestment, updateInvestment, deleteInvestment } = useInvestments();
+  const { investments: manualInvestments, isLoading: isLoadingManual, addInvestment, updateInvestment, deleteInvestment } = useInvestments();
+  const { investments: bankInvestments, isLoading: isLoadingBank } = useSyncedInvestments();
+  // Carteira completa: lançamentos manuais + posições lidas do banco (somente leitura)
+  const investments = useMemo(() => buildPortfolio(manualInvestments, bankInvestments), [manualInvestments, bankInvestments]);
+  const isLoading = isLoadingManual || isLoadingBank;
   const { allocationTargets, upsertAllocationTarget } = useAllocationTargets();
   const { checkPriceAlerts, getThresholdForInvestment, globalThreshold } = usePriceAlerts();
   const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
@@ -99,7 +105,7 @@ const Investments = () => {
       if (result.updated > 0) {
         toast({
           title: "Preços atualizados",
-          description: `${result.updated} de ${investments.length} investimentos foram atualizados.`,
+          description: `${result.updated} de ${manualInvestments.length} investimentos foram atualizados.`,
         });
         // Refresh investments data using react-query
         queryClient.invalidateQueries({ queryKey: ['investments'] });
@@ -115,30 +121,30 @@ const Investments = () => {
       console.error('Error updating prices:', error);
       toast({
         title: "Erro ao atualizar preços",
-        description: error instanceof Error ? error.message : "Não foi possível buscar os preços atuais.",
+        description: friendlyErrorMessage(error),
         variant: "destructive",
       });
     } finally {
       setIsUpdatingPrices(false);
     }
-  }, [investments.length, queryClient]);
+  }, [manualInvestments.length, queryClient]);
 
   // Store previous prices before update
   useEffect(() => {
-    if (!isLoading && investments.length > 0 && previousPricesRef.current.size === 0) {
-      investments.forEach(inv => {
+    if (!isLoading && manualInvestments.length > 0 && previousPricesRef.current.size === 0) {
+      manualInvestments.forEach(inv => {
         previousPricesRef.current.set(inv.id, inv.current_price);
       });
     }
-  }, [isLoading, investments]);
+  }, [isLoading, manualInvestments]);
 
   // Auto-update prices on page load (only once per session)
   useEffect(() => {
-    if (!isLoading && investments.length > 0 && !hasAutoUpdated) {
+    if (!isLoading && manualInvestments.length > 0 && !hasAutoUpdated) {
       setHasAutoUpdated(true);
       updateStockPrices();
     }
-  }, [isLoading, investments.length, hasAutoUpdated, updateStockPrices]);
+  }, [isLoading, manualInvestments.length, hasAutoUpdated, updateStockPrices]);
 
   // Check for price alerts after prices are updated
   useEffect(() => {
@@ -147,10 +153,10 @@ const Investments = () => {
       !isUpdatingPrices && 
       lastPriceUpdate && 
       !hasShownPriceAlerts && 
-      investments.length > 0 &&
+      manualInvestments.length > 0 &&
       previousPricesRef.current.size > 0
     ) {
-      const alerts = checkPriceAlerts(previousPricesRef.current, investments);
+      const alerts = checkPriceAlerts(previousPricesRef.current, manualInvestments);
       
       if (alerts.length > 0) {
         setHasShownPriceAlerts(true);
@@ -172,11 +178,11 @@ const Investments = () => {
       }
       
       // Update previous prices for next comparison
-      investments.forEach(inv => {
+      manualInvestments.forEach(inv => {
         previousPricesRef.current.set(inv.id, inv.current_price);
       });
     }
-  }, [isLoading, isUpdatingPrices, lastPriceUpdate, hasShownPriceAlerts, investments, checkPriceAlerts]);
+  }, [isLoading, isUpdatingPrices, lastPriceUpdate, hasShownPriceAlerts, manualInvestments, checkPriceAlerts]);
 
   // Get available years from investments
   const availableYears = useMemo(() => {
@@ -240,6 +246,10 @@ const Investments = () => {
       'Tesouro Direto': 'hsl(215 70% 50%)',
       'Renda Fixa': 'hsl(var(--warning))',
       'Criptomoedas': 'hsl(280 70% 50%)',
+      'ETF': 'hsl(190 70% 40%)',
+      'Fundos': 'hsl(330 65% 50%)',
+      'Previdência': 'hsl(25 80% 50%)',
+      'Outros': 'hsl(var(--muted-foreground))',
     };
 
     // Group investments by asset type and calculate performance
@@ -353,7 +363,7 @@ const Investments = () => {
 
   // Calculate allocation comparison (current vs target)
   const allocationComparison = useMemo(() => {
-    const assetTypesList = ["Ações", "FIIs", "Tesouro Direto", "Renda Fixa", "Criptomoedas"];
+    const assetTypesList = [...new Set(["Ações", "FIIs", "Tesouro Direto", "Renda Fixa", "Criptomoedas", ...investments.map(inv => inv.asset_type)])];
     
     // Calculate current percentages
     let totalValue = 0;
@@ -507,7 +517,7 @@ const Investments = () => {
     setIsDialogOpen(false);
   };
 
-  const handleEdit = (investment: typeof investments[0]) => {
+  const handleEdit = (investment: PortfolioItem) => {
     setEditingInvestment(investment.id);
     setFormData({
       asset_type: investment.asset_type,
@@ -611,7 +621,7 @@ const Investments = () => {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <PriceAlertSettings investments={investments} />
+          <PriceAlertSettings investments={manualInvestments} />
           <Button 
             variant="outline" 
             className="gap-2 text-sm" 
@@ -759,10 +769,8 @@ const Investments = () => {
       <TipCard page="investments" />
 
       {/* Carteira manual comparada com CDI e inflação (só aparece com investimentos) */}
-      <BenchmarkCard investments={investments} />
+      <BenchmarkCard investments={manualInvestments} />
 
-      {/* Investimentos sincronizados via Open Finance (só aparece se houver) */}
-      <SyncedInvestmentsCard hideWhenEmpty />
 
       {/* Performance Chart */}
       <Card>
@@ -1316,9 +1324,16 @@ const Investments = () => {
                           <Badge variant="outline" className="text-xs shrink-0">
                             {item.asset_type}
                           </Badge>
+                          {item.origin === 'bank' && (
+                            <Badge variant="secondary" className="text-[10px] shrink-0 gap-1">
+                              <Landmark className="h-3 w-3" aria-hidden /> Banco
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {item.quantity} × R$ {item.current_price.toFixed(2)}
+                          {item.origin === 'bank' && item.quantity === 1
+                            ? (item.issuer ? `Saldo informado por ${item.issuer}` : 'Saldo informado pelo banco')
+                            : `${item.quantity} × R$ ${item.current_price.toFixed(2)}`}
                         </p>
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-3">
@@ -1337,6 +1352,7 @@ const Investments = () => {
                             </span>
                           </div>
                         </div>
+                        {item.origin === 'manual' ? (
                         <div className="flex gap-1 shrink-0">
                           <Button 
                             variant="ghost" 
@@ -1351,12 +1367,16 @@ const Investments = () => {
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8"
-                            onClick={() => deleteInvestment(item)}
+                            onClick={() => { const original = manualInvestments.find(m => m.id === item.id); if (original) deleteInvestment(original); }}
                             aria-label={`Excluir ${item.asset_name}`}
                           >
                             <Trash2 className="h-4 w-4" aria-hidden />
                           </Button>
                         </div>
+                        ) : (
+                          // Posição do banco: atualizada pela sincronização, não é editável aqui
+                          <span className="text-xs text-muted-foreground shrink-0">Atualizado pelo banco</span>
+                        )}
                       </div>
                     </div>
                   </AnimatedItem>

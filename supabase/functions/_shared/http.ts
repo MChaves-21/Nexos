@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { errorStatus, publicErrorMessage } from "./validation.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +34,13 @@ export function getServiceClient(): SupabaseClient {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 }
 
+/** Mensagem completa, só para logs. */
 export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Unknown error";
+}
+
+/** Resposta de erro segura: loga o detalhe e devolve só o que pode ser mostrado. */
+export function errorResponse(context: string, e: unknown): Response {
+  console.error(`${context}:`, errorMessage(e));
+  return jsonResponse({ error: publicErrorMessage(e) }, errorStatus(e));
 }

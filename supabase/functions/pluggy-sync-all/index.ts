@@ -1,7 +1,7 @@
 // Job agendado (pg_cron, ver migração 20260930193700_*.sql) que sincroniza todas as
 // conexões Pluggy com auto_sync ligado. Protegido pelo header x-cron-secret.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorMessage, getServiceClient, jsonResponse } from "../_shared/http.ts";
+import { corsHeaders, errorMessage, errorResponse, getServiceClient, jsonResponse } from "../_shared/http.ts";
 import { getPluggyApiKey } from "../_shared/pluggy.ts";
 import { syncConnection } from "../_shared/sync-core.ts";
 
@@ -50,7 +50,6 @@ serve(async (req) => {
 
     return jsonResponse({ connections: results.length, results });
   } catch (e) {
-    console.error("pluggy-sync-all error:", errorMessage(e));
-    return jsonResponse({ error: errorMessage(e) }, 500);
+    return errorResponse("pluggy-sync-all error", e);
   }
 });

@@ -66,3 +66,17 @@ npm test
 - **Completo:** acrescenta Investimentos (com comparação ao CDI e à inflação), Simulador (preenchido com seus dados), Relatórios, Categorização, Regras e os gráficos do Início.
 - A escolha fica no perfil (`profiles.ui_mode`) e vale em qualquer dispositivo. O primeiro acesso guiado aparece uma vez (`profiles.onboarding_completed`).
 - Taxas Selic, CDI e IPCA vêm da Edge Function `market-rates` (API pública do Banco Central, com valores de reserva se estiver fora do ar).
+
+## 🧪 Testes
+```bash
+npm test          # unitários + regras de segurança do banco (migrações reais num Postgres embutido, PGlite)
+npm run test:e2e  # ponta a ponta no navegador (Playwright), com o Supabase simulado e auditoria de acessibilidade
+```
+- `supabase/tests/rls.test.ts` tenta, como usuário comum, criar conexões com o item de outra pessoa, gravar em conexões alheias e ler dados de terceiros. Tudo deve ser bloqueado.
+- `e2e/` cobre investimentos do banco na carteira, cenários de erro (banco desatualizado, falha de rede, sem internet, tela que não carrega), primeiro acesso, exportação CSV segura e acessibilidade (WCAG A/AA) no computador e no celular.
+
+## 🔒 Segurança
+- Conexões com a Pluggy só são criadas pela Edge Function `pluggy-connect`, que confere o dono do item; um item só pode estar em uma conta.
+- Dados sincronizados só podem ser gravados em conexões do próprio usuário (RLS).
+- Edge Functions validam a entrada e não devolvem detalhes internos de erro.
+- A exportação CSV neutraliza fórmulas (proteção contra "CSV injection").

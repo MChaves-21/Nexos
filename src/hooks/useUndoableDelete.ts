@@ -2,6 +2,7 @@ import { useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 interface UseUndoableDeleteOptions<T> {
   tableName: string;
@@ -50,7 +51,7 @@ export function useUndoableDelete<T extends { id: string }>({
           // Restore item on error
           queryClient.invalidateQueries({ queryKey });
           toast.error(`Erro ao excluir ${itemLabel}`, {
-            description: error instanceof Error ? error.message : "Erro desconhecido",
+            description: friendlyErrorMessage(error),
           });
         }
       }, 5000);

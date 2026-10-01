@@ -1,18 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorMessage, getUserClient, jsonResponse } from "../_shared/http.ts";
+import { corsHeaders, errorResponse, getUserClient, jsonResponse } from "../_shared/http.ts";
+import { requireUuid } from "../_shared/validation.ts";
 import { getPluggyApiKey } from "../_shared/pluggy.ts";
 import { syncConnection } from "../_shared/sync-core.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   try {
     const auth = await getUserClient(req);
     if (!auth) return jsonResponse({ error: "Unauthorized" }, 401);
     const { supabase, userId } = auth;
 
-    const { connectionId } = await req.json();
-    if (!connectionId) return jsonResponse({ error: "connectionId required" }, 400);
+    const body = await req.json().catch(() => ({}));
+    const connectionId = requireUuid(body.connectionId, "connectionId");
 
     const { data: connection, error: connError } = await supabase
       .from("bank_connections")
@@ -21,7 +23,7 @@ serve(async (req) => {
       .eq("user_id", userId)
       .single();
 
-    if (connError || !connection) return jsonResponse({ error: "Connection not found" }, 404);
+    if (connError || !connection) return jsonResponse({ error: "Conexão não encontrada" }, 404);
     if (connection.provider !== "pluggy") {
       return jsonResponse({ error: "Contas importadas por arquivo não são sincronizadas; importe um novo arquivo." }, 400);
     }
@@ -40,7 +42,6 @@ serve(async (req) => {
       throw e;
     }
   } catch (e) {
-    console.error("pluggy-sync error:", errorMessage(e));
-    return jsonResponse({ error: errorMessage(e) }, 500);
+    return errorResponse("pluggy-sync error", e);
   }
 });
