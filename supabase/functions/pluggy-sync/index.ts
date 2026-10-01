@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, errorResponse, getUserClient, jsonResponse } from "../_shared/http.ts";
+import { corsHeaders, errorResponse, getServiceClient, getUserClient, jsonResponse } from "../_shared/http.ts";
 import { requireUuid } from "../_shared/validation.ts";
-import { getPluggyApiKey } from "../_shared/pluggy.ts";
+import { getApiKeyForUser } from "../_shared/pluggy-credentials.ts";
 import { syncConnection } from "../_shared/sync-core.ts";
 
 serve(async (req) => {
@@ -31,7 +31,7 @@ serve(async (req) => {
     await supabase.from("bank_connections").update({ status: "syncing" }).eq("id", connectionId);
 
     try {
-      const apiKey = await getPluggyApiKey();
+      const { apiKey } = await getApiKeyForUser(getServiceClient(), userId);
       const result = await syncConnection(supabase, connection, apiKey);
       return jsonResponse(result);
     } catch (e) {

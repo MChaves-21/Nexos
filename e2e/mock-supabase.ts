@@ -62,6 +62,8 @@ export interface MockOptions {
   failTables?: Record<string, { status: number; body: object }>;
   /** Registra as escritas (POST/PATCH/DELETE) feitas pelo app */
   writes?: Array<{ table: string; method: string; body: unknown }>;
+  /** Resposta das Edge Functions: (nome, corpo) => JSON */
+  functions?: (name: string, body: Record<string, unknown>) => unknown;
 }
 
 export async function mockSupabase(context: BrowserContext, opts: MockOptions = {}) {
@@ -75,7 +77,11 @@ export async function mockSupabase(context: BrowserContext, opts: MockOptions = 
     if (url.pathname.startsWith("/functions/v1/market-rates")) {
       return route.fulfill({ json: { selic: 15, cdi: 14.9, ipca: 5.1, updatedAt: "2026-09-29", source: "bcb" } });
     }
-    if (url.pathname.startsWith("/functions/v1/")) return route.fulfill({ json: {} });
+    if (url.pathname.startsWith("/functions/v1/")) {
+      const name = url.pathname.replace("/functions/v1/", "");
+      const body = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      return route.fulfill({ json: opts.functions?.(name, body) ?? {} });
+    }
     const m = url.pathname.match(/^\/rest\/v1\/([a-z_]+)/);
     if (m) {
       const table = m[1];

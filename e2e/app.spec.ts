@@ -110,3 +110,28 @@ test.describe("Acessibilidade", () => {
     });
   }
 });
+
+test.describe("Conta Pluggy própria (família)", () => {
+  test("salva as credenciais sem mostrá-las de volta", async ({ page, context }) => {
+    const calls: Array<Record<string, unknown>> = [];
+    let configured = false;
+    await mockSupabase(context, {
+      functions: (name, body) => {
+        if (name !== "pluggy-connect") return {};
+        calls.push(body);
+        if (body.action === "save-credentials") configured = true;
+        return configured ? { configured: true, clientId: "••••9f0e" } : { configured: false };
+      },
+    });
+    await page.goto("/open-finance");
+    await page.getByRole("button", { name: /usar uma conta Pluggy própria/ }).click();
+    await expect(page.getByText("Hoje esta conta usa a conta Pluggy do app.")).toBeVisible();
+    await page.getByLabel("Client ID").fill("cliente-familia-9f0e");
+    await page.getByLabel("Client Secret").fill("segredo-super-secreto");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page.getByText(/Usando a sua conta Pluggy \(Client ID ••••9f0e\)/)).toBeVisible();
+    await expect(page.getByLabel("Client Secret")).toHaveValue("");
+    expect(calls).toContainEqual(expect.objectContaining({ action: "save-credentials", clientId: "cliente-familia-9f0e", clientSecret: "segredo-super-secreto" }));
+    await expect(page.getByText("segredo-super-secreto")).toHaveCount(0);
+  });
+});

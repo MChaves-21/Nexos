@@ -10,15 +10,25 @@ export class PluggyError extends PublicError {
   }
 }
 
-export async function getPluggyApiKey(): Promise<string> {
+export interface PluggyCredentials {
+  clientId: string;
+  clientSecret: string;
+}
+
+/** Credenciais padrão do app (as do dono do Nexos), nos segredos da Edge Function. */
+export function appCredentials(): PluggyCredentials {
   const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
   const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
   if (!clientId || !clientSecret) throw new PublicError("Conexão com bancos indisponível: credenciais da Pluggy não configuradas.", 503);
+  return { clientId, clientSecret };
+}
 
+/** Troca Client ID + Secret por uma API key temporária da Pluggy. Sem argumento, usa as credenciais do app. */
+export async function getPluggyApiKey(creds: PluggyCredentials = appCredentials()): Promise<string> {
   const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
+    body: JSON.stringify({ clientId: creds.clientId, clientSecret: creds.clientSecret }),
   });
   if (!resp.ok) throw new PluggyError(`Pluggy auth failed [${resp.status}]`, resp.status);
 

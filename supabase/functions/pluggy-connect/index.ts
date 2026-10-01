@@ -1,8 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, errorResponse, getServiceClient, getUserClient, jsonResponse } from "../_shared/http.ts";
 import { getPluggyApiKey, PluggyError, pluggyRequest } from "../_shared/pluggy.ts";
+import { deleteUserCredentials, getApiKeyForUser, saveUserCredentials } from "../_shared/pluggy-credentials.ts";
+import { maskId } from "../_shared/crypto.ts";
 import { mapItemStatus, type PluggyItem } from "../_shared/pluggy-mappers.ts";
-import { assertItemOwnership, parseItemId, PublicError, requireUuid } from "../_shared/validation.ts";
+import { assertItemOwnership, parseItemId, parsePluggyCredentials, PublicError, requireUuid } from "../_shared/validation.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -16,6 +18,39 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     // A ação pode vir no corpo (supabase.functions.invoke) ou na query string (versão antiga do front)
     const action = body.action ?? new URL(req.url).searchParams.get("action");
+    const service = getServiceClient();
+
+    // ---- Conta Pluggy própria (ex.: cada familiar com a sua conta gratuita) ----
+    if (action === "credentials-status") {
+      const { data, error } = await service
+        .from("pluggy_credentials")
+        .select("client_id, verified_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      // Nunca devolve o segredo; nem o Client ID inteiro
+      return jsonResponse(data ? { configured: true, clientId: maskId(data.client_id), verifiedAt: data.verified_at } : { configured: false });
+    }
+
+    if (action === "save-credentials") {
+      const creds = parsePluggyCredentials(body);
+      // Só salva se a Pluggy aceitar as credenciais
+      try {
+        await getPluggyApiKey(creds);
+      } catch (e) {
+        if (e instanceof PluggyError && e.status >= 400 && e.status < 500) {
+          throw new PublicError("A Pluggy recusou essas credenciais. Confira o Client ID e o Client Secret.", 400);
+        }
+        throw e;
+      }
+      await saveUserCredentials(service, userId, creds);
+      return jsonResponse({ configured: true, clientId: maskId(creds.clientId) });
+    }
+
+    if (action === "delete-credentials") {
+      await deleteUserCredentials(service, userId);
+      return jsonResponse({ configured: false });
+    }
 
     if (action === "create-connect-token") {
       // Com itemId, o widget abre em modo de atualização (reautorizar consentimento expirado)
@@ -30,7 +65,7 @@ serve(async (req) => {
         if (!owned) return jsonResponse({ error: "Conexão não encontrada" }, 404);
       }
 
-      const apiKey = await getPluggyApiKey();
+      const { apiKey } = await getApiKeyForUser(service, userId);
       const data = await pluggyRequest<{ accessToken: string }>(apiKey, "/connect_token", {
         method: "POST",
         body: JSON.stringify({
@@ -44,8 +79,9 @@ serve(async (req) => {
     if (action === "save-connection") {
       const itemId = parseItemId(body.itemId);
 
-      // Valida o item na Pluggy (importante para IDs colados à mão, ex.: Meu Pluggy)
-      const apiKey = await getPluggyApiKey();
+      // Valida o item na Pluggy (importante para IDs colados à mão, ex.: Meu Pluggy),
+      // usando a conta Pluggy da pessoa, se ela tiver uma cadastrada
+      const { apiKey } = await getApiKeyForUser(service, userId);
       let item: PluggyItem;
       try {
         item = await pluggyRequest<PluggyItem>(apiKey, `/items/${encodeURIComponent(itemId)}`);
@@ -61,7 +97,6 @@ serve(async (req) => {
       assertItemOwnership(item, userId);
 
       // Um item só pode estar ligado a uma conta do Nexos (também garantido por índice único)
-      const service = getServiceClient();
       const { data: takenByOther, error: takenError } = await service
         .from("bank_connections")
         .select("id")

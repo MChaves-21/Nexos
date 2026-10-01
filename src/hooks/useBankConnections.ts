@@ -142,6 +142,47 @@ export const useBankConnections = () => {
   };
 };
 
+export interface PluggyAccountStatus {
+  configured: boolean;
+  /** Client ID mascarado (só os 4 últimos caracteres) */
+  clientId?: string;
+  verifiedAt?: string;
+}
+
+/**
+ * Conta Pluggy própria (opcional). Útil para família: cada pessoa usa a própria conta gratuita da Pluggy,
+ * já que o plano gratuito aceita só um CPF por conta. Sem ela, vale a conta Pluggy do app.
+ */
+export const usePluggyAccount = () => {
+  const queryClient = useQueryClient();
+  const { data: status, isLoading } = useQuery({
+    queryKey: ["pluggy-account"],
+    // Se a função ainda for a versão antiga (sem essa ação), trata como "não configurado" sem alarmar
+    queryFn: () =>
+      invokeFunction<PluggyAccountStatus>("pluggy-connect", { action: "credentials-status" }).catch((): PluggyAccountStatus => ({ configured: false })),
+  });
+
+  const onSaved = (data: PluggyAccountStatus, title: string, description: string) => {
+    queryClient.setQueryData(["pluggy-account"], data);
+    toast({ title, description });
+  };
+
+  const save = useMutation({
+    mutationFn: (creds: { clientId: string; clientSecret: string }) =>
+      invokeFunction<PluggyAccountStatus>("pluggy-connect", { action: "save-credentials", ...creds }),
+    onSuccess: (data) => onSaved(data, "Conta Pluggy salva", "As próximas conexões e sincronizações usam a sua conta Pluggy."),
+    onError: (error) => toast({ title: "Não foi possível salvar", description: friendlyErrorMessage(error), variant: "destructive" }),
+  });
+
+  const remove = useMutation({
+    mutationFn: () => invokeFunction<PluggyAccountStatus>("pluggy-connect", { action: "delete-credentials" }),
+    onSuccess: (data) => onSaved(data, "Conta Pluggy removida", "Voltando a usar a conta Pluggy do app."),
+    onError: (error) => toast({ title: "Não foi possível remover", description: friendlyErrorMessage(error), variant: "destructive" }),
+  });
+
+  return { status, isLoading, save, remove };
+};
+
 export const useSyncedTransactions = (connectionId?: string) => {
   const queryClient = useQueryClient();
 
