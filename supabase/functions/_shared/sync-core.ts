@@ -15,7 +15,7 @@ import {
 } from "./pluggy-mappers.ts";
 import { categorizeByRules, type CategorizationRule } from "./categorization.ts";
 import { categorizeWithAI } from "./ai-categorize.ts";
-import { assertItemOwnership } from "./validation.ts";
+import { assertItemOwnership, isMissingRelation } from "./validation.ts";
 
 export interface BankConnectionRow {
   id: string;
@@ -74,10 +74,14 @@ export async function syncConnection(
   const accountRows = pluggyAccounts.map((a) => ({ ...mapAccount(a), user_id: userId, bank_connection_id: connection.id }));
   const accountIdByExternal = new Map<string, string>();
   if (accountRows.length) {
-    const { data, error } = await supabase
-      .from("bank_accounts")
-      .upsert(accountRows, { onConflict: "bank_connection_id,external_id" })
-      .select("id, external_id");
+    const upsertAccounts = (rows: typeof accountRows | Array<Record<string, unknown>>) =>
+      supabase.from("bank_accounts").upsert(rows, { onConflict: "bank_connection_id,external_id" }).select("id, external_id");
+    let { data, error } = await upsertAccounts(accountRows);
+    if (error && isMissingRelation(error)) {
+      // Banco ainda sem as colunas da fatura (migração pendente): grava sem elas
+      const legacy = accountRows.map(({ balance_due_date, balance_close_date, minimum_payment, card_brand, ...rest }) => rest);
+      ({ data, error } = await upsertAccounts(legacy));
+    }
     if (error) throw error;
     for (const row of data ?? []) accountIdByExternal.set(row.external_id, row.id);
   }

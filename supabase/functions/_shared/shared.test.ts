@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorizeByRules, extractKeyword } from "./categorization";
-import { installmentInfo, mapItemStatus, mapTransaction, shouldImportTransaction, syncFromDate, transactionKind } from "./pluggy-mappers";
+import { installmentInfo, mapAccount, mapItemStatus, mapTransaction, shouldImportTransaction, syncFromDate, transactionKind } from "./pluggy-mappers";
 
 describe("categorization", () => {
   it("extracts a learnable keyword", () => {
@@ -81,5 +81,16 @@ describe("pluggy mappers", () => {
     const now = new Date("2026-09-30T12:00:00Z");
     expect(syncFromDate(null, now)).toBe("2025-09-30");
     expect(syncFromDate("2026-09-20T08:00:00Z", now)).toBe("2026-09-10");
+  });
+});
+
+describe("mapAccount", () => {
+  it("keeps credit card invoice data", () => {
+    const row = mapAccount({
+      id: "a1", type: "CREDIT", name: "Nubank", balance: 850,
+      creditData: { creditLimit: 5000, availableCreditLimit: 4150, balanceDueDate: "2026-10-08T00:00:00.000Z", balanceCloseDate: "2026-10-01T00:00:00.000Z", minimumPayment: 127.5, brand: "MASTERCARD" },
+    });
+    expect(row).toMatchObject({ balance_due_date: "2026-10-08", balance_close_date: "2026-10-01", minimum_payment: 127.5, card_brand: "MASTERCARD", credit_limit: 5000 });
+    expect(mapAccount({ id: "b", type: "BANK", name: "Conta" })).toMatchObject({ balance_due_date: null, card_brand: null });
   });
 });

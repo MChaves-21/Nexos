@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,9 @@ import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const Auth = () => {
   const navigate = useNavigate();
+  // Veio de um link de convite da família: mostra o aviso e abre em "Criar conta"
+  const [searchParams] = useSearchParams();
+  const fromInvite = searchParams.get("convite") === "1";
   const { toast } = useToast();
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [signupPassword, setSignupPassword] = useState("");
@@ -183,6 +186,11 @@ const Auth = () => {
                 ? "Digite seu e-mail para receber o link de recuperação" 
                 : "Entre ou crie sua conta para começar"}
             </CardDescription>
+            {fromInvite && !showForgotPassword && (
+              <p className="mt-2 rounded-md bg-primary/10 p-3 text-sm" role="status">
+                Você recebeu um convite para entrar numa família no Nexos. Crie sua conta (ou entre, se já tiver) para aceitar.
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             {showForgotPassword ? (
@@ -215,7 +223,7 @@ const Auth = () => {
                 </Button>
               </form>
             ) : (
-              <Tabs defaultValue="signin" className="w-full">
+              <Tabs defaultValue={fromInvite ? "signup" : "signin"} className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="signin">Entrar</TabsTrigger>
                   <TabsTrigger value="signup">Criar Conta</TabsTrigger>
@@ -317,6 +325,10 @@ const Auth = () => {
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? "Criando..." : "Criar Conta"}
                     </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Ao criar a conta, você concorda com os{" "}
+                      <Link to="/privacy" className="underline hover:text-primary">termos de uso e a política de privacidade</Link>.
+                    </p>
                   </form>
                 </TabsContent>
               </Tabs>

@@ -1,4 +1,5 @@
 import { Github, Linkedin, Mail } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -9,6 +10,10 @@ const Footer = () => {
             <span className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} NEXOS. Todos os direitos reservados.
             </span>
+            <span className="text-muted-foreground" aria-hidden>·</span>
+            <Link to="/privacy" className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary">
+              Privacidade e termos
+            </Link>
           </div>
           
           <div className="flex items-center gap-4">

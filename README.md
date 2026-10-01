@@ -63,7 +63,7 @@ npm test
 
 ## 🧭 Modo simples e modo completo
 - **Simples (padrão para novas contas):** menu com Início, Transações, Metas e Conectar banco; resumo do mês em frases, alertas e maiores gastos.
-- **Completo:** acrescenta Investimentos (com comparação ao CDI e à inflação), Simulador (preenchido com seus dados), Relatórios, Categorização, Regras e os gráficos do Início.
+- **Completo:** acrescenta Contas a pagar, Cartões, Investimentos (com comparação ao CDI e à inflação), Imposto de Renda, Família, Simulador (preenchido com seus dados), Relatórios, Categorização, Regras e os gráficos do Início.
 - A escolha fica no perfil (`profiles.ui_mode`) e vale em qualquer dispositivo. O primeiro acesso guiado aparece uma vez (`profiles.onboarding_completed`).
 - Taxas Selic, CDI e IPCA vêm da Edge Function `market-rates` (API pública do Banco Central, com valores de reserva se estiver fora do ar).
 
@@ -73,7 +73,7 @@ npm test          # unitários + regras de segurança do banco (migrações reai
 npm run test:e2e  # ponta a ponta no navegador (Playwright), com o Supabase simulado e auditoria de acessibilidade
 ```
 - `supabase/tests/rls.test.ts` tenta, como usuário comum, criar conexões com o item de outra pessoa, gravar em conexões alheias e ler dados de terceiros. Tudo deve ser bloqueado.
-- `e2e/` cobre investimentos do banco na carteira, cenários de erro (banco desatualizado, falha de rede, sem internet, tela que não carrega), primeiro acesso, exportação CSV segura e acessibilidade (WCAG A/AA) no computador e no celular.
+- `e2e/` cobre investimentos do banco na carteira, cenários de erro (banco desatualizado, falha de rede, sem internet, tela que não carrega), primeiro acesso, exportação CSV segura, contas a pagar, cartões, IR, família/convites, avisos, exclusão de conta e acessibilidade (WCAG A/AA) no computador e no celular.
 
 ## 🔒 Segurança
 - Conexões com a Pluggy só são criadas pela Edge Function `pluggy-connect`, que confere o dono do item; um item só pode estar em uma conta.
@@ -92,3 +92,28 @@ Para cada familiar (feito uma vez, por quem administra):
 5. Em **Conectar Banco**, cole o Item ID. Pronto: a sincronização diária usa a conta Pluggy dele.
 
 As credenciais ficam cifradas (AES-GCM) na tabela `pluggy_credentials`, que o app não consegue ler; só as Edge Functions acessam. A chave de cifragem vem do segredo `PLUGGY_CREDENTIALS_KEY` (opcional) ou, sem ele, da service role key do projeto. Se essa chave mudar, basta cadastrar as credenciais de novo.
+
+Também dá para convidar a família por link: em **Família**, crie a família e clique em **Gerar link de convite** (um link por pessoa, de uso único, válido por 7 dias). A pessoa abre o link, cria a própria conta e entra na família. O painel do administrador mostra só o **estado** das conexões de cada um (banco conectado, precisa reconectar, consentimento perto de vencer), nunca valores ou transações.
+
+## 📅 Contas a pagar, cartões e Imposto de Renda
+- **Contas a pagar** (`/bills`): contas mensais ou de uma vez, com calendário do mês (inclui o vencimento das faturas) e botão "Marcar como paga".
+- **Cartões** (`/cards`): fatura atual, fechamento, vencimento, pagamento mínimo, uso do limite e parcelas futuras (dados da Pluggy).
+- **Imposto de Renda** (`/taxes`): resumo do ano com despesas de saúde e educação, rendimentos por categoria e bens e direitos pelo custo de aquisição. Exporta CSV. É um apoio: confira sempre com os informes oficiais.
+
+## 🔔 Avisos
+A função agendada `pluggy-sync-all` sincroniza os bancos e depois gera avisos no app (sino no topo): consentimento perto de vencer, banco que precisa reconectar, erro de sincronização, orçamento em 80%/100%, contas e faturas vencendo e um resumo semanal às segundas.
+E-mail é opcional: defina os segredos `RESEND_API_KEY`, `APP_URL` (ex.: `https://seu-app.lovable.app`) e, se quiser, `NOTIFICATIONS_FROM_EMAIL`. Cada pessoa ativa ou desativa o e-mail em **Conta e privacidade**.
+
+## 📱 Instalar no celular (PWA)
+O Nexos pode ser instalado como app: no Android/Chrome aparece o botão **Instalar**; no iPhone, use Compartilhar → **Adicionar à Tela de Início**. O service worker (`public/sw.js`) só guarda os arquivos do próprio app, nunca dados financeiros, e não é registrado dentro do preview do Lovable.
+
+## 🛡️ Privacidade (LGPD)
+- Página pública `/privacy` com a política em linguagem simples.
+- Em **Conta e privacidade**: baixar todos os dados (JSON) e excluir a conta. A exclusão (Edge Function `delete-account`) remove as conexões na Pluggy, todos os dados e o login. É preciso digitar **EXCLUIR** para confirmar.
+
+## ⚙️ CI e deploy automático
+- `.github/workflows/ci.yml`: em todo PR e push roda typecheck, testes, build, checagem das Edge Functions e testes no navegador.
+- `.github/workflows/deploy-supabase.yml`: a cada push na `main` que mexa em `supabase/`, aplica as migrações e publica as Edge Functions. Para ativar, cadastre em GitHub → Settings → Secrets and variables → Actions:
+  - `SUPABASE_ACCESS_TOKEN`: token pessoal criado em supabase.com/dashboard/account/tokens;
+  - `SUPABASE_DB_PASSWORD`: senha do banco do projeto.
+  Sem esses segredos o workflow só avisa e não faz nada. As migrações são idempotentes (podem rodar de novo sem quebrar).
