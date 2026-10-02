@@ -78,18 +78,18 @@ export type Database = {
       }
       bank_accounts: {
         Row: {
-          balance_due_date: string | null
-          balance_close_date: string | null
-          minimum_payment: number | null
-          card_brand: string | null
           available_credit_limit: number | null
           balance: number
+          balance_close_date: string | null
+          balance_due_date: string | null
           bank_connection_id: string
+          card_brand: string | null
           created_at: string
           credit_limit: number | null
           currency_code: string
           external_id: string
           id: string
+          minimum_payment: number | null
           name: string
           number: string | null
           subtype: string | null
@@ -98,18 +98,18 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          balance_due_date?: string | null
-          balance_close_date?: string | null
-          minimum_payment?: number | null
-          card_brand?: string | null
           available_credit_limit?: number | null
           balance?: number
+          balance_close_date?: string | null
+          balance_due_date?: string | null
           bank_connection_id: string
+          card_brand?: string | null
           created_at?: string
           credit_limit?: number | null
           currency_code?: string
           external_id: string
           id?: string
+          minimum_payment?: number | null
           name: string
           number?: string | null
           subtype?: string | null
@@ -118,18 +118,18 @@ export type Database = {
           user_id: string
         }
         Update: {
-          balance_due_date?: string | null
-          balance_close_date?: string | null
-          minimum_payment?: number | null
-          card_brand?: string | null
           available_credit_limit?: number | null
           balance?: number
+          balance_close_date?: string | null
+          balance_due_date?: string | null
           bank_connection_id?: string
+          card_brand?: string | null
           created_at?: string
           credit_limit?: number | null
           currency_code?: string
           external_id?: string
           id?: string
+          minimum_payment?: number | null
           name?: string
           number?: string | null
           subtype?: string | null
@@ -540,6 +540,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pluggy_credentials: {
+        Row: {
+          client_id: string
+          created_at: string
+          secret_ciphertext: string
+          secret_iv: string
+          updated_at: string
+          user_id: string
+          verified_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          secret_ciphertext: string
+          secret_iv: string
+          updated_at?: string
+          user_id: string
+          verified_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          secret_ciphertext?: string
+          secret_iv?: string
+          updated_at?: string
+          user_id?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
       price_alert_settings: {
         Row: {
           created_at: string
@@ -566,34 +596,34 @@ export type Database = {
       }
       profiles: {
         Row: {
-          email_notifications: boolean
-          weekly_summary: boolean
           created_at: string
           display_name: string | null
+          email_notifications: boolean
           id: string
           onboarding_completed: boolean
           ui_mode: string
           updated_at: string
+          weekly_summary: boolean
         }
         Insert: {
-          email_notifications?: boolean
-          weekly_summary?: boolean
           created_at?: string
           display_name?: string | null
+          email_notifications?: boolean
           id: string
           onboarding_completed?: boolean
           ui_mode?: string
           updated_at?: string
+          weekly_summary?: boolean
         }
         Update: {
-          email_notifications?: boolean
-          weekly_summary?: boolean
           created_at?: string
           display_name?: string | null
+          email_notifications?: boolean
           id?: string
           onboarding_completed?: boolean
           ui_mode?: string
           updated_at?: string
+          weekly_summary?: boolean
         }
         Relationships: []
       }
@@ -859,31 +889,41 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      accept_family_invite: { Args: { p_token: string; p_display_name: string }; Returns: string }
-      create_family: { Args: { p_name: string; p_display_name: string }; Returns: string }
-      create_family_invite: { Args: Record<PropertyKey, never>; Returns: string }
+      accept_family_invite: {
+        Args: { p_display_name: string; p_token: string }
+        Returns: string
+      }
+      create_family: {
+        Args: { p_display_name: string; p_name: string }
+        Returns: string
+      }
+      create_family_invite: { Args: never; Returns: string }
       family_overview: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
-          user_id: string
-          display_name: string
-          role: string
-          joined_at: string
           connections: number
+          display_name: string
+          has_own_pluggy: boolean
+          joined_at: string
+          last_sync_at: string
+          next_consent_expiry: string
           pluggy_connections: number
-          last_sync_at: string | null
           problem_connections: number
           reauth_connections: number
-          next_consent_expiry: string | null
-          has_own_pluggy: boolean
+          role: string
+          user_id: string
         }[]
       }
       is_family_admin: { Args: { p_family: string }; Returns: boolean }
-      leave_family: { Args: Record<PropertyKey, never>; Returns: undefined }
-      my_family_id: { Args: Record<PropertyKey, never>; Returns: string }
+      leave_family: { Args: never; Returns: undefined }
+      my_family_id: { Args: never; Returns: string }
       peek_family_invite: {
         Args: { p_token: string }
-        Returns: { family_name: string; admin_name: string | null; valid: boolean }[]
+        Returns: {
+          admin_name: string
+          family_name: string
+          valid: boolean
+        }[]
       }
       remove_family_member: { Args: { p_user: string }; Returns: undefined }
       revoke_family_invite: { Args: { p_invite: string }; Returns: undefined }
