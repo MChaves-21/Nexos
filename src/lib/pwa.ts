@@ -18,6 +18,35 @@ export function registerServiceWorker() {
   });
 }
 
+/** Script principal do build (/assets/index-<hash>.js) citado num HTML; muda a cada versão publicada. */
+export function entryScript(html: string): string | null {
+  return html.match(/<script[^>]+src="([^"]*\/assets\/index-[^"]+\.js)"/)?.[1] ?? null;
+}
+
+const CHECK_INTERVAL_MS = 5 * 60_000;
+
+/**
+ * App aberto em segundo plano continua com a versão antiga na memória. Ao voltar para a tela,
+ * confere se há versão nova publicada e recarrega (só nesse momento, para não atrapalhar quem está usando).
+ */
+export function watchForNewVersion() {
+  if (!import.meta.env.PROD) return;
+  const current = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/index-"]')?.getAttribute("src");
+  if (!current) return;
+  let lastCheck = Date.now();
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState !== "visible" || !navigator.onLine || Date.now() - lastCheck < CHECK_INTERVAL_MS) return;
+    lastCheck = Date.now();
+    try {
+      const res = await fetch("/", { cache: "no-store" });
+      const latest = res.ok ? entryScript(await res.text()) : null;
+      if (latest && latest !== current) window.location.reload();
+    } catch {
+      /* sem rede: tenta na próxima vez */
+    }
+  });
+}
+
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;

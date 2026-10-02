@@ -265,7 +265,7 @@ const BankConnectionsManager = () => {
                   {connAccounts.length > 0 && (
                     <div className="grid gap-1 sm:grid-cols-2">
                       {connAccounts.map((acc) => (
-                        <div key={acc.id} className="flex items-center justify-between text-xs rounded-md bg-muted/50 px-2 py-1.5">
+                        <div key={acc.id} className="flex min-w-0 items-center justify-between gap-2 text-xs rounded-md bg-muted/50 px-2 py-1.5">
                           <span className="flex items-center gap-1.5 min-w-0">
                             {acc.type === "CREDIT" ? <CreditCard className="h-3 w-3 flex-shrink-0" /> : <Wallet className="h-3 w-3 flex-shrink-0" />}
                             <span className="truncate">{acc.name}</span>

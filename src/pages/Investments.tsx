@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, RefreshCw, Bell, Landmark } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useAllocationTargets } from "@/hooks/useAllocationTargets";
 import { usePriceAlerts, PriceChange } from "@/hooks/usePriceAlerts";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +43,7 @@ import { B3Asset, getAssetTypeByTicker } from "@/data/b3-tickers";
 import { friendlyErrorMessage } from "@/lib/errors";
 
 const Investments = () => {
+  const isMobile = useIsMobile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<string | null>(null);
@@ -876,7 +878,7 @@ const Investments = () => {
                     outerRadius={100}
                     paddingAngle={2}
                     dataKey="value"
-                    label={({ name, percentage }) => `${name}: ${percentage}%`}
+                    label={isMobile ? false : ({ name, percentage }) => `${name}: ${percentage}%`}
                     labelLine={false}
                   >
                     {portfolioDistribution.map((entry, index) => (
@@ -905,7 +907,7 @@ const Investments = () => {
 
       {/* Allocation Targets */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" aria-hidden />
             Metas de Alocação
