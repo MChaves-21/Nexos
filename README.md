@@ -115,3 +115,10 @@ O Nexos pode ser instalado como app: no Android/Chrome aparece o botão **Instal
 - `.github/workflows/ci.yml`: em todo PR e push roda typecheck, testes, build, checagem das Edge Functions e testes no navegador.
 - O banco fica no Lovable Cloud, então migrações e Edge Functions são aplicadas pelo Lovable (peça no chat: "aplique as migrações pendentes e faça o deploy das Edge Functions, sem alterar o código"). Depois, publique o site em **Publish → Update**.
 - As migrações são idempotentes: podem rodar de novo sem quebrar.
+
+### Hospedagem na Vercel (sem o selo "Edit with Lovable")
+O `vercel.json` já traz a configuração: build do Vite, rotas do app (ex.: `/convite/...`) voltando para o `index.html`, cache dos arquivos e cabeçalhos de segurança. As chaves públicas do banco vêm do `.env` versionado, então não é preciso cadastrar variáveis.
+1. Em vercel.com, entre com o GitHub e clique em **Add New → Project**.
+2. Escolha o repositório `MChaves-21/Nexos` e clique em **Deploy** (não mude nada).
+3. A cada merge na `main`, a Vercel publica sozinha; em cada PR ela gera um link de prévia.
+4. Para o e-mail de confirmação de cadastro voltar para o endereço novo, cadastre a URL da Vercel nas configurações de login do Lovable Cloud (Site URL / Redirect URLs). Se os avisos por e-mail estiverem ativos, troque também o segredo `APP_URL`.
