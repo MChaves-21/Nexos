@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchAllRows } from '@/lib/fetchAll';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUndoableDelete } from "./useUndoableDelete";
@@ -22,13 +23,11 @@ export const useTransactions = () => {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-      return data as Transaction[];
+      // Em páginas: o Supabase corta em 1.000 linhas
+      const rows = await fetchAllRows((from, to) =>
+        supabase.from('transactions').select('*').order('date', { ascending: false }).order('id').range(from, to),
+      );
+      return rows as Transaction[];
     },
   });
 

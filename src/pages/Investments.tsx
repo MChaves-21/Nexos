@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, RefreshCw, Bell, Landmark } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
+import { formatUnitPrice } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAllocationTargets } from "@/hooks/useAllocationTargets";
 import { usePriceAlerts, PriceChange } from "@/hooks/usePriceAlerts";
@@ -171,7 +172,7 @@ const Investments = () => {
           setTimeout(() => {
             toast({
               title: `${emoji} Variação de ${Math.abs(alert.change_percentage)}% em ${alert.asset_name}`,
-              description: `Preço alterou de R$ ${alert.old_price.toFixed(2)} para R$ ${alert.new_price.toFixed(2)} (limite: ${alert.threshold}%)`,
+              description: `Preço alterou de ${formatUnitPrice(alert.old_price)} para ${formatUnitPrice(alert.new_price)} (limite: ${alert.threshold}%)`,
               variant: isPositive ? "default" : "destructive",
               duration: 6000,
             });
@@ -675,6 +676,9 @@ const Investments = () => {
                 <Input 
                   id="quantity" 
                   type="number" 
+                  step="any"
+                  min="0"
+                  inputMode="decimal"
                   placeholder="0"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
@@ -894,7 +898,7 @@ const Investments = () => {
                     formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]}
                   />
                   <Legend 
-                    formatter={(value, entry: any) => (
+                    formatter={(value) => (
                       <span className="text-foreground">{value}</span>
                     )}
                   />
@@ -1335,7 +1339,7 @@ const Investments = () => {
                         <p className="text-sm text-muted-foreground mt-1">
                           {item.origin === 'bank' && item.quantity === 1
                             ? (item.issuer ? `Saldo informado por ${item.issuer}` : 'Saldo informado pelo banco')
-                            : `${item.quantity} × R$ ${item.current_price.toFixed(2)}`}
+                            : `${item.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 8 })} × ${formatUnitPrice(item.current_price)}`}
                         </p>
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-3">

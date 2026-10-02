@@ -126,6 +126,10 @@ serve(async (req) => {
         : service.from("bank_connections").insert({ ...fields, user_id: userId, pluggy_item_id: item.id, provider: "pluggy" });
 
       const { data, error } = await query.select().single();
+      // Duas contas salvando o mesmo item ao mesmo tempo: o índice único barra a segunda
+      if ((error as { code?: string } | null)?.code === "23505") {
+        throw new PublicError("Este banco já está conectado a outra conta do Nexos.", 409);
+      }
       if (error) throw error;
       return jsonResponse(data);
     }

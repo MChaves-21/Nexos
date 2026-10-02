@@ -80,6 +80,9 @@ npm run test:e2e  # ponta a ponta no navegador (Playwright), com o Supabase simu
 - Dados sincronizados só podem ser gravados em conexões do próprio usuário (RLS).
 - Edge Functions validam a entrada e não devolvem detalhes internos de erro.
 - A exportação CSV neutraliza fórmulas (proteção contra "CSV injection").
+- A categorização por IA só usa descrições que já estão no banco e são da pessoa; a resposta da IA é validada (categoria conhecida, confiança entre 0 e 1).
+- Listas grandes são buscadas em páginas (`src/lib/fetchAll.ts`): o Supabase devolve no máximo 1.000 linhas por consulta.
+- `supabase/tests/rls.test.ts` audita todas as tabelas: nenhuma regra de acesso deixa de depender do usuário logado, funções privilegiadas têm `search_path` fixo e ninguém lê, altera ou apaga dados de outra pessoa.
 
 ## 👨‍👩‍👧 Uso em família (cada pessoa com a própria conta Pluggy)
 O plano gratuito da Pluggy aceita um só CPF por conta (e até 5 conexões). Para a família, cada pessoa usa a própria conta gratuita da Pluggy; quem não tiver usa a conta Pluggy do app.

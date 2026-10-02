@@ -99,7 +99,7 @@ export interface MockOptions {
   /** Respostas de erro por tabela: { tabela: { status, body } } */
   failTables?: Record<string, { status: number; body: object }>;
   /** Registra as escritas (POST/PATCH/DELETE) feitas pelo app */
-  writes?: Array<{ table: string; method: string; body: unknown }>;
+  writes?: Array<{ table: string; method: string; body: unknown; query?: string }>;
   /** Resposta das Edge Functions: (nome, corpo) => JSON */
   functions?: (name: string, body: Record<string, unknown>) => unknown;
 }
@@ -131,7 +131,7 @@ export async function mockSupabase(context: BrowserContext, opts: MockOptions = 
       const fail = opts.failTables?.[table];
       if (fail) return route.fulfill({ status: fail.status, json: fail.body });
       if (req.method() !== "GET" && req.method() !== "HEAD") {
-        opts.writes?.push({ table, method: req.method(), body: req.postDataJSON?.() ?? null });
+        opts.writes?.push({ table, method: req.method(), body: req.postDataJSON?.() ?? null, query: decodeURIComponent(url.search) });
         return route.fulfill({ status: 201, json: [] });
       }
       const rows = tables[table] ?? [];

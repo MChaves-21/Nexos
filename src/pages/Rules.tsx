@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { containsPattern } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUndoableDelete } from "@/hooks/useUndoableDelete";
@@ -33,7 +34,7 @@ const Rules = () => {
     const { data, error } = await supabase
       .from("synced_transactions")
       .update({ ai_category: cat, ai_confidence: 1, category_source: "rule" })
-      .ilike("description", `%${kw}%`)
+      .ilike("description", containsPattern(kw))
       .or("category_source.is.null,category_source.neq.user")
       .select("id");
     if (error) throw error;

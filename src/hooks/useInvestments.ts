@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchAllRows } from '@/lib/fetchAll';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUndoableDelete } from "./useUndoableDelete";
@@ -23,13 +24,10 @@ export const useInvestments = () => {
   const { data: investments = [], isLoading } = useQuery({
     queryKey: ['investments'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('investments')
-        .select('*')
-        .order('purchase_date', { ascending: false });
-
-      if (error) throw error;
-      return data as Investment[];
+      const rows = await fetchAllRows((from, to) =>
+        supabase.from('investments').select('*').order('purchase_date', { ascending: false }).order('id').range(from, to),
+      );
+      return rows as Investment[];
     },
   });
 
