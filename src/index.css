@@ -120,5 +120,13 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    /* Rede de segurança: nada empurra a página para os lados no celular */
+    overflow-x: clip;
+  }
+
+  /* Grades sem colunas definidas (o padrão no celular) não crescem com textos longos.
+     Fica na camada base, então as classes grid-cols-* continuam valendo. */
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

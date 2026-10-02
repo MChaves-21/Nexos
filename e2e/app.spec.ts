@@ -224,3 +224,35 @@ test.describe("Avisos e conta", () => {
     expect(manifest.icons.length).toBeGreaterThan(0);
   });
 });
+
+test.describe("Celular: nada passa da largura da tela", () => {
+  const ROUTES = ["/", "/expenses", "/budgets", "/open-finance", "/investments", "/simulation", "/reports", "/categorization", "/rules", "/bills", "/cards", "/taxes", "/family", "/account", "/privacy"];
+  for (const path of ROUTES) {
+    test(`sem rolagem lateral em ${path}`, async ({ page, context }, info) => {
+      test.skip(!isMobile(info.project.name), "só no celular");
+      await mockSupabase(context);
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(300);
+      const offenders = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const clipped = (el: Element) => {
+          for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) { // o body corta por segurança; o teste quer o conteúdo cabendo de verdade
+            const o = getComputedStyle(p).overflowX;
+            if (o === "auto" || o === "scroll" || o === "hidden" || o === "clip") return p.getBoundingClientRect().right <= vw + 1;
+          }
+          return false;
+        };
+        const out: string[] = [];
+        for (const el of Array.from(document.querySelectorAll("body *"))) {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0 || getComputedStyle(el).position === "fixed") continue;
+          if (r.right > vw + 1 && !clipped(el)) out.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ").slice(0, 4).join(".")} → ${Math.round(r.right)}px`);
+        }
+        return { vw, scroll: document.documentElement.scrollWidth, out: out.slice(0, 6) };
+      });
+      expect(offenders.out, `largura ${offenders.vw}px, página ${offenders.scroll}px`).toEqual([]);
+      expect(offenders.scroll).toBeLessThanOrEqual(offenders.vw);
+    });
+  }
+});
