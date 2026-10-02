@@ -285,3 +285,24 @@ test.describe("Excluir com desfazer", () => {
     expect(deleted).toHaveLength(2);
   });
 });
+
+test.describe("Lista de transações", () => {
+  test("mostra 10 por vez com Ver mais no fim", async ({ page, context }) => {
+    const tables = fixtures();
+    const today = new Date().toISOString().slice(0, 10);
+    tables.synced_transactions = [];
+    tables.transactions = Array.from({ length: 25 }, (_, i) => ({
+      id: `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`, user_id: USER_ID, type: "expense", category: "Outros",
+      description: `Compra ${i + 1}`, amount: 10 + i, date: today, created_at: "", updated_at: "",
+    }));
+    await mockSupabase(context, { tables });
+    await page.goto("/expenses");
+    const deleteButtons = page.getByRole("button", { name: /^Excluir Compra/ });
+    await expect(deleteButtons).toHaveCount(10);
+    await page.getByRole("button", { name: /Ver mais 10/ }).click();
+    await expect(deleteButtons).toHaveCount(20);
+    await page.getByRole("button", { name: /Ver mais 5/ }).click();
+    await expect(deleteButtons).toHaveCount(25);
+    await expect(page.getByRole("button", { name: /Ver mais/ })).toHaveCount(0);
+  });
+});

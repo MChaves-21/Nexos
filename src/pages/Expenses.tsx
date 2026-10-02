@@ -46,6 +46,8 @@ import { cn } from "@/lib/utils";
 import { TransactionRowSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import ShowMoreButton from "@/components/ShowMoreButton";
+import { useShowMore } from "@/hooks/useShowMore";
 
 const Expenses = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -258,6 +260,10 @@ const Expenses = () => {
       return true;
     });
   }, [transactions, searchTerm, filterType, filterCategory, effectiveDateFrom, effectiveDateTo]);
+
+  // Lista curta: 10 por vez, com "Ver mais" no fim (volta ao início quando os filtros mudam)
+  const listResetKey = [searchTerm, filterType, filterCategory, effectiveDateFrom?.getTime(), effectiveDateTo?.getTime()].join("|");
+  const transactionList = useShowMore(filteredTransactions, 10, listResetKey);
 
   // Resumo das transações filtradas
   const filteredSummary = useMemo(() => {
@@ -1476,7 +1482,7 @@ const Expenses = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredTransactions.map((transaction) => (
+              {transactionList.visible.map((transaction) => (
                 <div
                   key={transaction.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors gap-2"
@@ -1549,6 +1555,7 @@ const Expenses = () => {
                   </div>
                 </div>
               ))}
+              <ShowMoreButton remaining={transactionList.remaining} onClick={transactionList.showMore} />
             </div>
           )}
           </CardContent>
