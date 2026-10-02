@@ -80,12 +80,16 @@ export type Database = {
         Row: {
           available_credit_limit: number | null
           balance: number
+          balance_close_date: string | null
+          balance_due_date: string | null
           bank_connection_id: string
+          card_brand: string | null
           created_at: string
           credit_limit: number | null
           currency_code: string
           external_id: string
           id: string
+          minimum_payment: number | null
           name: string
           number: string | null
           subtype: string | null
@@ -96,12 +100,16 @@ export type Database = {
         Insert: {
           available_credit_limit?: number | null
           balance?: number
+          balance_close_date?: string | null
+          balance_due_date?: string | null
           bank_connection_id: string
+          card_brand?: string | null
           created_at?: string
           credit_limit?: number | null
           currency_code?: string
           external_id: string
           id?: string
+          minimum_payment?: number | null
           name: string
           number?: string | null
           subtype?: string | null
@@ -112,12 +120,16 @@ export type Database = {
         Update: {
           available_credit_limit?: number | null
           balance?: number
+          balance_close_date?: string | null
+          balance_due_date?: string | null
           bank_connection_id?: string
+          card_brand?: string | null
           created_at?: string
           credit_limit?: number | null
           currency_code?: string
           external_id?: string
           id?: string
+          minimum_payment?: number | null
           name?: string
           number?: string | null
           subtype?: string | null
@@ -180,6 +192,83 @@ export type Database = {
         }
         Relationships: []
       }
+      bill_payments: {
+        Row: {
+          amount: number | null
+          bill_id: string
+          id: string
+          paid_at: string
+          period: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          bill_id: string
+          id?: string
+          paid_at?: string
+          period: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          bill_id?: string
+          id?: string
+          paid_at?: string
+          period?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_payments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bills: {
+        Row: {
+          active: boolean
+          amount: number
+          category: string | null
+          created_at: string
+          due_date: string | null
+          due_day: number | null
+          id: string
+          recurrence: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          category?: string | null
+          created_at?: string
+          due_date?: string | null
+          due_day?: number | null
+          id?: string
+          recurrence?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          category?: string | null
+          created_at?: string
+          due_date?: string | null
+          due_day?: number | null
+          id?: string
+          recurrence?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       categorization_rules: {
         Row: {
           category: string
@@ -233,6 +322,100 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      families: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      family_invites: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string
+          family_id: string
+          id: string
+          token_hash: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at: string
+          family_id: string
+          id?: string
+          token_hash: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          family_id?: string
+          id?: string
+          token_hash?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_invites_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_members: {
+        Row: {
+          display_name: string
+          family_id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          display_name: string
+          family_id: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          display_name?: string
+          family_id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_members_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financial_goals: {
         Row: {
@@ -318,6 +501,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          dedupe_key: string
+          emailed_at: string | null
+          id: string
+          kind: string
+          link: string | null
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          dedupe_key: string
+          emailed_at?: string | null
+          id?: string
+          kind: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          dedupe_key?: string
+          emailed_at?: string | null
+          id?: string
+          kind?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pluggy_credentials: {
         Row: {
           client_id: string
@@ -376,26 +598,32 @@ export type Database = {
         Row: {
           created_at: string
           display_name: string | null
+          email_notifications: boolean
           id: string
           onboarding_completed: boolean
           ui_mode: string
           updated_at: string
+          weekly_summary: boolean
         }
         Insert: {
           created_at?: string
           display_name?: string | null
+          email_notifications?: boolean
           id: string
           onboarding_completed?: boolean
           ui_mode?: string
           updated_at?: string
+          weekly_summary?: boolean
         }
         Update: {
           created_at?: string
           display_name?: string | null
+          email_notifications?: boolean
           id?: string
           onboarding_completed?: boolean
           ui_mode?: string
           updated_at?: string
+          weekly_summary?: boolean
         }
         Relationships: []
       }
@@ -661,7 +889,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_family_invite: {
+        Args: { p_display_name: string; p_token: string }
+        Returns: string
+      }
+      create_family: {
+        Args: { p_display_name: string; p_name: string }
+        Returns: string
+      }
+      create_family_invite: { Args: never; Returns: string }
+      family_overview: {
+        Args: never
+        Returns: {
+          connections: number
+          display_name: string
+          has_own_pluggy: boolean
+          joined_at: string
+          last_sync_at: string
+          next_consent_expiry: string
+          pluggy_connections: number
+          problem_connections: number
+          reauth_connections: number
+          role: string
+          user_id: string
+        }[]
+      }
+      is_family_admin: { Args: { p_family: string }; Returns: boolean }
+      leave_family: { Args: never; Returns: undefined }
+      my_family_id: { Args: never; Returns: string }
+      peek_family_invite: {
+        Args: { p_token: string }
+        Returns: {
+          admin_name: string
+          family_name: string
+          valid: boolean
+        }[]
+      }
+      remove_family_member: { Args: { p_user: string }; Returns: undefined }
+      revoke_family_invite: { Args: { p_invite: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
