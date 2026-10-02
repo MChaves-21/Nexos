@@ -318,6 +318,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pluggy_credentials: {
+        Row: {
+          client_id: string
+          created_at: string
+          secret_ciphertext: string
+          secret_iv: string
+          updated_at: string
+          user_id: string
+          verified_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          secret_ciphertext: string
+          secret_iv: string
+          updated_at?: string
+          user_id: string
+          verified_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          secret_ciphertext?: string
+          secret_iv?: string
+          updated_at?: string
+          user_id?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
       price_alert_settings: {
         Row: {
           created_at: string
