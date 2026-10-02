@@ -111,9 +111,7 @@ O Nexos pode ser instalado como app: no Android/Chrome aparece o botão **Instal
 - Página pública `/privacy` com a política em linguagem simples.
 - Em **Conta e privacidade**: baixar todos os dados (JSON) e excluir a conta. A exclusão (Edge Function `delete-account`) remove as conexões na Pluggy, todos os dados e o login. É preciso digitar **EXCLUIR** para confirmar.
 
-## ⚙️ CI e deploy automático
+## ⚙️ CI e publicação
 - `.github/workflows/ci.yml`: em todo PR e push roda typecheck, testes, build, checagem das Edge Functions e testes no navegador.
-- `.github/workflows/deploy-supabase.yml`: a cada push na `main` que mexa em `supabase/`, aplica as migrações e publica as Edge Functions. Para ativar, cadastre em GitHub → Settings → Secrets and variables → Actions:
-  - `SUPABASE_ACCESS_TOKEN`: token pessoal criado em supabase.com/dashboard/account/tokens;
-  - `SUPABASE_DB_PASSWORD`: senha do banco do projeto.
-  Sem esses segredos o workflow só avisa e não faz nada. As migrações são idempotentes (podem rodar de novo sem quebrar).
+- O banco fica no Lovable Cloud, então migrações e Edge Functions são aplicadas pelo Lovable (peça no chat: "aplique as migrações pendentes e faça o deploy das Edge Functions, sem alterar o código"). Depois, publique o site em **Publish → Update**.
+- As migrações são idempotentes: podem rodar de novo sem quebrar.

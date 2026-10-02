@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inviteLink, isInviteToken, memberHealth, type MemberOverview } from "./family";
+import { clearPendingInvite, inviteLink, isInviteToken, memberHealth, readPendingInvite, savePendingInvite, type MemberOverview } from "./family";
 
 const now = new Date("2026-10-02T12:00:00Z");
 const base: MemberOverview = {
@@ -26,5 +26,23 @@ describe("family helpers", () => {
       message: "O consentimento do banco vence em 10 dias.",
     });
     expect(memberHealth({ ...base, last_sync_at: "2026-09-29T12:00:00Z" }, now).message).toMatch(/2 dias/);
+  });
+
+  it("keeps a pending invite across tabs for 7 days", () => {
+    const data = new Map<string, string>();
+    const store = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v), removeItem: (k: string) => void data.delete(k) };
+    const token = "b".repeat(64);
+    const t0 = now.getTime();
+    savePendingInvite(token, t0, store);
+    expect(readPendingInvite(t0 + 6 * 86_400_000, store)).toBe(token);
+    expect(readPendingInvite(t0 + 8 * 86_400_000, store)).toBeNull();
+    expect(data.size).toBe(0);
+    savePendingInvite(token, t0, store);
+    clearPendingInvite(store);
+    expect(readPendingInvite(t0, store)).toBeNull();
+    data.set("nexos:pending-invite", "lixo");
+    expect(readPendingInvite(t0, store)).toBeNull();
+    data.set("nexos:pending-invite", JSON.stringify({ token: "<script>", at: t0 }));
+    expect(readPendingInvite(t0, store)).toBeNull();
   });
 });

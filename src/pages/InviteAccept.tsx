@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { friendlyErrorMessage } from "@/lib/errors";
-import { isInviteToken, PENDING_INVITE_KEY } from "@/lib/family";
+import { clearPendingInvite, isInviteToken, savePendingInvite } from "@/lib/family";
 
 type State = { kind: "loading" } | { kind: "invalid" } | { kind: "ready"; family: string; admin: string | null };
 
@@ -25,11 +25,11 @@ const InviteAccept = () => {
       if (!isInviteToken(token)) return setState({ kind: "invalid" });
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        try { sessionStorage.setItem(PENDING_INVITE_KEY, token); } catch { /* sem armazenamento: a pessoa abre o link de novo após entrar */ }
+        savePendingInvite(token);
         navigate("/auth?convite=1", { replace: true });
         return;
       }
-      try { sessionStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
+      clearPendingInvite();
       const { data, error } = await supabase.rpc("peek_family_invite", { p_token: token });
       const row = data?.[0];
       if (error || !row || !row.valid) return setState({ kind: "invalid" });

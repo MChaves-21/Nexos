@@ -13,7 +13,7 @@ import OnboardingDialog from "@/components/OnboardingDialog";
 import { usePreferences } from "@/hooks/usePreferences";
 import { NAV_ITEMS, visibleNavItems } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
-import { PENDING_INVITE_KEY } from "@/lib/family";
+import { readPendingInvite } from "@/lib/family";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/theme-provider";
@@ -64,12 +64,7 @@ const Layout = ({
   // Convite aberto antes do login: depois de entrar, volta para aceitar
   useEffect(() => {
     if (!user) return;
-    let pending: string | null = null;
-    try {
-      pending = sessionStorage.getItem(PENDING_INVITE_KEY);
-    } catch {
-      pending = null;
-    }
+    const pending = readPendingInvite();
     if (pending) navigate(`/convite/${pending}`, { replace: true });
   }, [user, navigate]);
 
