@@ -188,7 +188,9 @@ test.describe("Família", () => {
   test("convite aberto sem login guarda o link e leva ao cadastro", async ({ page }) => {
     await page.goto(`/convite/${"b".repeat(64)}`);
     await expect(page).toHaveURL(/\/auth\?convite=1/);
-    expect(await page.evaluate(() => Object.values(sessionStorage))).toContain("b".repeat(64));
+    // Fica salvo no navegador (não só na aba): o e-mail de confirmação abre o app em outra aba
+    const saved = await page.evaluate(() => localStorage.getItem("nexos:pending-invite"));
+    expect(JSON.parse(saved ?? "{}").token).toBe("b".repeat(64));
   });
 });
 
