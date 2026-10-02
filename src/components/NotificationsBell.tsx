@@ -5,7 +5,7 @@ import { Bell, CheckCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNotifications } from "@/hooks/useNotifications";
-import { cn } from "@/lib/utils";
+import { cn, isInternalPath } from "@/lib/utils";
 
 /** Sino com os avisos (limite estourado, conta vencendo, consentimento, resumo semanal...). */
 const NotificationsBell = () => {
@@ -43,7 +43,8 @@ const NotificationsBell = () => {
                   className="flex-1 text-left space-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                   onClick={() => {
                     if (!n.read_at) markRead.mutate([n.id]);
-                    if (n.link) navigate(n.link);
+                    // Só rotas internas (o react-router tem falhas de redirecionamento com caminhos estranhos)
+                    if (isInternalPath(n.link)) navigate(n.link);
                   }}
                 >
                   <span className="block text-sm font-medium">{n.title}</span>

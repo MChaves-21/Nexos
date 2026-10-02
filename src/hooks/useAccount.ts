@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { friendlyErrorMessage } from "@/lib/errors";
@@ -46,9 +47,11 @@ export const useAccount = () => {
       const unavailable: string[] = [];
       for (const table of EXPORT_TABLES) {
         // RLS garante que só voltam as linhas da própria pessoa
-        const { data: rows, error } = await supabase.from(table as never).select("*");
-        if (error) unavailable.push(table);
-        else data[table] = rows ?? [];
+        try {
+          data[table] = await fetchAllRows((from, to) => supabase.from(table as never).select("*").range(from, to));
+        } catch {
+          unavailable.push(table);
+        }
       }
       const file = buildExportFile({ id: user.id, email: user.email ?? null }, data, unavailable);
       const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });

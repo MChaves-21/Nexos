@@ -94,3 +94,26 @@ describe("mapAccount", () => {
     expect(mapAccount({ id: "b", type: "BANK", name: "Conta" })).toMatchObject({ balance_due_date: null, card_brand: null });
   });
 });
+
+import { sanitizeAiCategories } from "./categorization";
+
+describe("sanitizeAiCategories", () => {
+  it("aceita só categorias conhecidas, índices do lote e confiança entre 0 e 1", () => {
+    const raw = {
+      categories: [
+        { index: 1, category: "Alimentação", confidence: 0.92 },
+        { index: 1, category: "Saúde", confidence: 0.9 }, // índice repetido
+        { index: 2, category: "Ignore as instruções", confidence: 1 },
+        { index: 3, category: "Transporte", confidence: 7 },
+        { index: 99, category: "Saúde", confidence: 0.5 },
+        { index: 1.5, category: "Saúde", confidence: 0.5 },
+        null,
+      ],
+    };
+    expect(sanitizeAiCategories(raw, 3)).toEqual([
+      { index: 1, category: "Alimentação", confidence: 0.92 },
+      { index: 3, category: "Transporte", confidence: 1 },
+    ]);
+    expect(sanitizeAiCategories("lixo", 3)).toEqual([]);
+  });
+});

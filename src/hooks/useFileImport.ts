@@ -1,8 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { chunk, fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { splitPluggyDuplicates, toSyncedRows, type ImportSource, type NormalizedTransaction } from "@/lib/importers";
 import { friendlyErrorMessage } from "@/lib/errors";
+import { MAX_CATEGORIZE_ITEMS } from "@shared/validation";
 
 const CHUNK = 500;
 
@@ -67,21 +69,25 @@ export const useFileImport = () => {
       const dates = allRows.map((r) => r.date).sort();
       let rows = allRows;
       if (dates.length) {
-        const [{ data: pluggyTx, error: pluggyError }, { data: accounts, error: accountsError }] = await Promise.all([
-          supabase
-            .from("synced_transactions")
-            .select("date, amount, type, description, bank_account_id")
-            .eq("source", "pluggy")
-            .gte("date", dates[0])
-            .lte("date", dates[dates.length - 1]),
+        const [pluggyTx, { data: accounts, error: accountsError }] = await Promise.all([
+          // Em páginas: um ano de Pluggy passa fácil de 1.000 linhas
+          fetchAllRows((from, to) =>
+            supabase
+              .from("synced_transactions")
+              .select("date, amount, type, description, bank_account_id")
+              .eq("source", "pluggy")
+              .gte("date", dates[0])
+              .lte("date", dates[dates.length - 1])
+              .order("id")
+              .range(from, to),
+          ),
           supabase.from("bank_accounts").select("id, type"),
         ]);
-        if (pluggyError) throw pluggyError;
         if (accountsError) throw accountsError;
         const accountType = new Map((accounts ?? []).map((a) => [a.id, a.type]));
         rows = splitPluggyDuplicates(
           allRows,
-          (pluggyTx ?? []).map((t) => ({ ...t, accountType: t.bank_account_id ? accountType.get(t.bank_account_id) ?? null : null })),
+          pluggyTx.map((t) => ({ ...t, accountType: t.bank_account_id ? accountType.get(t.bank_account_id) ?? null : null })),
           source,
         ).rows;
       }
@@ -104,11 +110,13 @@ export const useFileImport = () => {
       await supabase.from("bank_connections").update({ last_sync_at: new Date().toISOString() }).eq("id", connectionId);
 
       // IA só para o que as regras não resolveram; falha aqui não invalida a importação
+      // A função aceita no máximo MAX_CATEGORIZE_ITEMS por chamada; arquivos grandes vão em partes
       if (toCategorize.length) {
-        supabase.functions
-          .invoke("categorize-transactions", { body: { transactions: toCategorize } })
-          .then(() => queryClient.invalidateQueries({ queryKey: ["synced-transactions"] }))
-          .catch(() => undefined);
+        Promise.allSettled(
+          chunk(toCategorize, MAX_CATEGORIZE_ITEMS).map((part) =>
+            supabase.functions.invoke("categorize-transactions", { body: { transactions: part } }),
+          ),
+        ).then(() => queryClient.invalidateQueries({ queryKey: ["synced-transactions"] }));
       }
 
       return { total: allRows.length, inserted, duplicates: rows.length - inserted, fromPluggy: skippedPluggy };

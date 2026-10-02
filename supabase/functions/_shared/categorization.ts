@@ -160,3 +160,24 @@ export function categorizeByRules(
   }
   return null;
 }
+
+/**
+ * Resposta da IA validada: só categorias conhecidas, índice dentro do lote e confiança entre 0 e 1.
+ * A IA lê descrições vindas do banco (texto de terceiros), então a saída nunca é confiada como veio.
+ */
+export function sanitizeAiCategories(raw: unknown, batchSize: number): Array<{ index: number; category: Category; confidence: number }> {
+  const list = (raw as { categories?: unknown })?.categories;
+  if (!Array.isArray(list)) return [];
+  const known = new Set<string>(CATEGORIES);
+  const seen = new Set<number>();
+  const out: Array<{ index: number; category: Category; confidence: number }> = [];
+  for (const item of list) {
+    const { index, category, confidence } = (item ?? {}) as { index?: unknown; category?: unknown; confidence?: unknown };
+    if (!Number.isInteger(index) || (index as number) < 1 || (index as number) > batchSize || seen.has(index as number)) continue;
+    if (typeof category !== "string" || !known.has(category)) continue;
+    const c = typeof confidence === "number" && Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : 0.5;
+    seen.add(index as number);
+    out.push({ index: index as number, category: category as Category, confidence: Math.round(c * 100) / 100 });
+  }
+  return out;
+}

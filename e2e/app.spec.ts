@@ -256,3 +256,32 @@ test.describe("Celular: nada passa da largura da tela", () => {
     });
   }
 });
+
+test.describe("Excluir com desfazer", () => {
+  test("apagar duas transações seguidas apaga as duas; desfazer devolve a certa", async ({ page, context }, info) => {
+    test.skip(isMobile(info.project.name), "fluxo testado no desktop");
+    const tables = fixtures();
+    const today = new Date().toISOString().slice(0, 10);
+    tables.transactions = ["Padaria", "Farmácia", "Cinema"].map((description, i) => ({
+      id: `00000000-0000-4000-8000-0000000000${70 + i}`, user_id: USER_ID, type: "expense", category: "Outros",
+      description, amount: 10 + i, date: today, created_at: "", updated_at: "",
+    }));
+    const writes: MockOptions["writes"] = [];
+    await mockSupabase(context, { tables, writes });
+    await page.goto("/expenses");
+    await page.getByRole("button", { name: "Excluir Padaria" }).click();
+    await page.getByRole("button", { name: "Excluir Farmácia" }).click();
+    await page.getByRole("button", { name: "Excluir Cinema" }).click();
+    // Desfaz só a Farmácia (antes, o "Desfazer" restaurava o último item apagado)
+    // Os avisos ficam empilhados e animando: clica no "Desfazer" do aviso da Farmácia
+    await page.locator("[data-sonner-toast]").filter({ hasText: "Farmácia" }).getByRole("button", { name: "Desfazer" }).dispatchEvent("click");
+    await expect(page.getByRole("button", { name: "Excluir Farmácia" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Excluir Padaria" })).toHaveCount(0);
+    await expect.poll(() => writes!.filter((w) => w.table === "transactions" && w.method === "DELETE").map((w) => w.query), { timeout: 10_000 })
+      .toEqual(expect.arrayContaining([expect.stringContaining("0070"), expect.stringContaining("0072")]));
+    await page.waitForTimeout(500);
+    const deleted = writes!.filter((w) => w.table === "transactions" && w.method === "DELETE").map((w) => w.query ?? "");
+    expect(deleted.some((q) => q.includes("0071"))).toBe(false);
+    expect(deleted).toHaveLength(2);
+  });
+});

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { FunctionsHttpError } from "@supabase/supabase-js";
+import { chunk, fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { extractKeyword } from "@shared/categorization";
@@ -183,24 +184,22 @@ export const usePluggyAccount = () => {
   return { status, isLoading, save, remove };
 };
 
+/** Ids por requisição em filtros .in() (cada id ocupa ~40 caracteres na URL). */
+const ID_CHUNK = 100;
+
 export const useSyncedTransactions = (connectionId?: string) => {
   const queryClient = useQueryClient();
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["synced-transactions", connectionId],
     queryFn: async () => {
-      let query = supabase
-        .from("synced_transactions")
-        .select("*")
-        .order("date", { ascending: false });
-
-      if (connectionId) {
-        query = query.eq("bank_connection_id", connectionId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as SyncedTransaction[];
+      // Em páginas: o Supabase corta em 1.000 linhas
+      const rows = await fetchAllRows((from, to) => {
+        let query = supabase.from("synced_transactions").select("*");
+        if (connectionId) query = query.eq("bank_connection_id", connectionId);
+        return query.order("date", { ascending: false }).order("id").range(from, to);
+      });
+      return rows as SyncedTransaction[];
     },
   });
 
@@ -233,11 +232,12 @@ export const useSyncedTransactions = (connectionId?: string) => {
       const similarIds = transactions
         .filter((t) => t.id !== id && !t.is_reviewed && t.category_source !== "user" && extractKeyword(t.description) === keyword)
         .map((t) => t.id);
-      if (similarIds.length) {
+      // Os ids vão na URL: em pedaços, para não passar do limite de tamanho
+      for (const ids of chunk(similarIds, ID_CHUNK)) {
         await supabase
           .from("synced_transactions")
           .update({ ai_category: category, ai_confidence: 1, category_source: "rule" })
-          .in("id", similarIds);
+          .in("id", ids);
       }
       return { keyword, applied: similarIds.length };
     },
@@ -257,7 +257,8 @@ export const useSyncedTransactions = (connectionId?: string) => {
 
   const importToTransactions = useMutation({
     mutationFn: async (syncedTxIds: string[]) => {
-      const toImport = transactions.filter((t) => syncedTxIds.includes(t.id) && !t.is_reviewed);
+      const selected = new Set(syncedTxIds);
+      const toImport = transactions.filter((t) => selected.has(t.id) && !t.is_reviewed);
       if (!toImport.length) return;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -274,11 +275,10 @@ export const useSyncedTransactions = (connectionId?: string) => {
       );
       if (error) throw error;
 
-      const { error: updateError } = await supabase
-        .from("synced_transactions")
-        .update({ is_reviewed: true })
-        .in("id", toImport.map((t) => t.id));
-      if (updateError) throw updateError;
+      for (const ids of chunk(toImport.map((t) => t.id), ID_CHUNK)) {
+        const { error: updateError } = await supabase.from("synced_transactions").update({ is_reviewed: true }).in("id", ids);
+        if (updateError) throw updateError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["synced-transactions"] });

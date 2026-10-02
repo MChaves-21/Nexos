@@ -1,8 +1,9 @@
-import { useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { friendlyErrorMessage } from "@/lib/errors";
+import { DeferredDeletes } from "@/lib/deferredDeletes";
 
 interface UseUndoableDeleteOptions<T> {
   tableName: string;
@@ -11,6 +12,9 @@ interface UseUndoableDeleteOptions<T> {
   getItemDescription?: (item: T) => string;
 }
 
+const UNDO_MS = 5000;
+
+/** Some da tela na hora e só é apagado no banco depois de 5 s, se a pessoa não desfizer. */
 export function useUndoableDelete<T extends { id: string }>({
   tableName,
   queryKey,
@@ -18,70 +22,52 @@ export function useUndoableDelete<T extends { id: string }>({
   getItemDescription,
 }: UseUndoableDeleteOptions<T>) {
   const queryClient = useQueryClient();
-  const pendingDeleteRef = useRef<{ item: T; timeoutId: ReturnType<typeof setTimeout> } | null>(null);
+  const optionsRef = useRef({ tableName, queryKey, itemLabel });
+  optionsRef.current = { tableName, queryKey, itemLabel };
+
+  const deletesRef = useRef<DeferredDeletes<T>>();
+  deletesRef.current ??= new DeferredDeletes<T>(async (item) => {
+    const { tableName, queryKey, itemLabel } = optionsRef.current;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from(tableName).delete().eq("id", item.id);
+      if (error) throw error;
+    } catch (error) {
+      // Volta a mostrar o item que não foi apagado
+      queryClient.invalidateQueries({ queryKey });
+      toast.error(`Erro ao excluir ${itemLabel}`, { description: friendlyErrorMessage(error) });
+    }
+  }, UNDO_MS);
+
+  // Saindo do app com exclusões esperando: apaga agora em vez de perder
+  useEffect(() => {
+    const flush = () => void deletesRef.current?.flushAll();
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, []);
 
   const deleteWithUndo = useCallback(
     async (item: T) => {
-      // Cancel any pending delete
-      if (pendingDeleteRef.current) {
-        clearTimeout(pendingDeleteRef.current.timeoutId);
-        pendingDeleteRef.current = null;
-      }
-
-      // Optimistically remove from cache
-      queryClient.setQueryData<T[]>(queryKey, (old) =>
-        old?.filter((i) => i.id !== item.id) ?? []
-      );
+      queryClient.setQueryData<T[]>(queryKey, (old) => old?.filter((i) => i.id !== item.id) ?? []);
+      deletesRef.current!.schedule(item);
 
       const description = getItemDescription?.(item) ?? "";
-
-      // Set up delayed actual deletion
-      const timeoutId = setTimeout(async () => {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error } = await (supabase as any)
-            .from(tableName)
-            .delete()
-            .eq("id", item.id);
-
-          if (error) throw error;
-          
-          pendingDeleteRef.current = null;
-        } catch (error) {
-          // Restore item on error
-          queryClient.invalidateQueries({ queryKey });
-          toast.error(`Erro ao excluir ${itemLabel}`, {
-            description: friendlyErrorMessage(error),
-          });
-        }
-      }, 5000);
-
-      pendingDeleteRef.current = { item, timeoutId };
-
-      // Show toast with undo action
       toast.success(`${itemLabel} excluído`, {
         description: description ? `"${description}" foi removido` : undefined,
-        duration: 5000,
+        duration: UNDO_MS,
         action: {
           label: "Desfazer",
           onClick: () => {
-            if (pendingDeleteRef.current) {
-              clearTimeout(pendingDeleteRef.current.timeoutId);
-              // Restore item to cache
-              queryClient.setQueryData<T[]>(queryKey, (old) => [
-                pendingDeleteRef.current!.item,
-                ...(old ?? []),
-              ]);
-              pendingDeleteRef.current = null;
-              toast.info("Exclusão desfeita", {
-                description: `${itemLabel} foi restaurado`,
-              });
-            }
+            // Cada aviso desfaz o próprio item
+            const restored = deletesRef.current!.cancel(item.id);
+            if (!restored) return;
+            queryClient.setQueryData<T[]>(queryKey, (old) => [restored, ...(old ?? []).filter((i) => i.id !== restored.id)]);
+            toast.info("Exclusão desfeita", { description: `${itemLabel} foi restaurado` });
           },
         },
       });
     },
-    [queryClient, queryKey, tableName, itemLabel, getItemDescription]
+    [queryClient, queryKey, itemLabel, getItemDescription],
   );
 
   return { deleteWithUndo };

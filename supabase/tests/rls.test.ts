@@ -283,3 +283,89 @@ describe("LGPD", () => {
     expect(rows.map((r) => r.table_name).filter((t) => !handled.has(t)).sort()).toEqual([]);
   });
 });
+
+describe("auditoria geral de acesso", () => {
+  it("toda regra de acesso em tabela com user_id depende do usuário logado", async () => {
+    const { rows } = await db.query<{ tablename: string; policyname: string; qual: string | null; with_check: string | null }>(
+      `SELECT p.tablename, p.policyname, p.qual, p.with_check FROM pg_policies p
+       WHERE p.schemaname = 'public'
+         AND EXISTS (SELECT 1 FROM information_schema.columns c
+                     WHERE c.table_schema = 'public' AND c.table_name = p.tablename AND c.column_name = 'user_id')`,
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    const scoped = (expr: string | null) => expr === null || /auth\.uid\(\)|my_family_id\(\)|is_family_admin\(/.test(expr);
+    const loose = rows.filter((r) => !scoped(r.qual) || !scoped(r.with_check)).map((r) => `${r.tablename}: ${r.policyname}`);
+    expect(loose).toEqual([]);
+  });
+
+  it("funções privilegiadas fixam o search_path e não ficam abertas para visitantes", async () => {
+    const { rows } = await db.query<{ proname: string; fixed: boolean; anon: boolean }>(
+      `SELECT p.proname,
+              coalesce(array_to_string(p.proconfig, ',') LIKE '%search_path=%', false) AS fixed,
+              has_function_privilege('anon', p.oid, 'EXECUTE') AS anon
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public' AND p.prosecdef AND p.prorettype <> 'trigger'::regtype`,
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.filter((r) => !r.fixed).map((r) => r.proname)).toEqual([]);
+    expect(rows.filter((r) => r.anon).map((r) => r.proname)).toEqual([]);
+  });
+
+  it("visitante sem login não lê nenhuma tabela com dados de usuário", async () => {
+    const { rows } = await db.query<{ table_name: string }>(
+      `SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'public' AND column_name = 'user_id'`,
+    );
+    await db.exec("RESET ROLE; SELECT set_config('request.jwt.claim.sub', '', false); SET ROLE anon;");
+    try {
+      for (const { table_name } of rows) {
+        const count = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.${table_name}`).then((r) => r.rows[0].n, () => 0);
+        expect(count, table_name).toBe(0);
+      }
+    } finally {
+      await db.exec("RESET ROLE;");
+    }
+  });
+
+  it("ninguém lê, altera ou apaga linhas de outra pessoa em nenhuma tabela", async () => {
+    const { rows } = await db.query<{ table_name: string }>(
+      `SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'public' AND column_name = 'user_id'`,
+    );
+    // Dados de B em várias tabelas, criados pelo servidor
+    await asService(`INSERT INTO public.transactions (user_id, type, description, category, amount) VALUES ($1, 'expense', 'Mercado', 'Alimentação', 10)`, [B]);
+    await asService(`INSERT INTO public.investments (user_id, asset_name, asset_type, quantity, purchase_price, current_price, purchase_date) VALUES ($1, 'PETR4', 'Ações', 1, 30, 30, '2026-01-02')`, [B]);
+    await asService(`INSERT INTO public.notifications (user_id, kind, title, body, dedupe_key) VALUES ($1, 'x', 't', 'b', 'audit')`, [B]);
+    await asService(`INSERT INTO public.bills (user_id, title, amount, recurrence, due_day) VALUES ($1, 'Luz', 100, 'monthly', 10)`, [B]);
+    const problems: string[] = [];
+    let checked = 0;
+    for (const { table_name: t } of rows) {
+      const theirs = await asService(`SELECT count(*)::int AS n FROM public.${t} WHERE user_id = $1`, [B]).then((r) => (r.rows[0] as { n: number }).n);
+      if (theirs === 0) continue;
+      checked++;
+      const seen = await asUser(A, `SELECT count(*)::int AS n FROM public.${t} WHERE user_id = $1`, [B]).then((r) => (r.rows[0] as { n: number }).n, () => 0);
+      if (seen > 0 && t !== "family_members") problems.push(`${t}: lê`);
+      const changed = await asUser(A, `UPDATE public.${t} SET user_id = user_id WHERE user_id = $1`, [B]).then((r) => r.affectedRows ?? 0, () => 0);
+      if (changed > 0) problems.push(`${t}: altera`);
+      const deleted = await asUser(A, `DELETE FROM public.${t} WHERE user_id = $1`, [B]).then((r) => r.affectedRows ?? 0, () => 0);
+      if (deleted > 0) problems.push(`${t}: apaga`);
+    }
+    expect(checked).toBeGreaterThanOrEqual(5);
+    expect(problems).toEqual([]);
+  });
+});
+
+describe("investimentos", () => {
+  it("guardam quantidades grandes e preços de frações de centavo (cripto)", async () => {
+    const { rows } = await asUser(
+      A,
+      `INSERT INTO public.investments (user_id, asset_name, asset_type, quantity, purchase_price, current_price, purchase_date)
+       VALUES ($1, 'SHIB', 'Criptomoedas', 25000000, 0.00008123, 0.00009456, '2026-01-02')
+       RETURNING quantity::text AS q, purchase_price::text AS p, current_price::text AS c`,
+      [A],
+    );
+    const r = rows[0] as { q: string; p: string; c: string };
+    expect(Number(r.q)).toBe(25_000_000);
+    expect(Number(r.p)).toBeCloseTo(0.00008123, 10);
+    expect(Number(r.c)).toBeCloseTo(0.00009456, 10);
+  });
+});
+

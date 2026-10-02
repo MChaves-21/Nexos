@@ -1516,7 +1516,7 @@ const Expenses = () => {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => handleEdit(transaction)}
-                          aria-label="Editar"
+                          aria-label={`Editar ${transaction.description}`}
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>
@@ -1525,7 +1525,7 @@ const Expenses = () => {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => transaction.manual && deleteTransaction(transaction.manual)}
-                          aria-label="Excluir"
+                          aria-label={`Excluir ${transaction.description}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
