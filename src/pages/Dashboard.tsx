@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Wallet, TrendingUp, TrendingDown, Landmark, PiggyBank, Plus, AlertTriangle, Repeat, CalendarClock } from "lucide-react";
+import { changesNetWorth } from "@shared/flows";
 import { format, startOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -49,14 +50,18 @@ const Dashboard = () => {
 
     const monthKey = (d: string) => d.slice(0, 7);
     const months = Array.from({ length: 12 }, (_, i) => format(subMonths(startOfMonth(now), 11 - i), "yyyy-MM"));
-    const flows = new Map<string, { income: number; expense: number }>(months.map((m) => [m, { income: 0, expense: 0 }]));
+    const flows = new Map<string, { income: number; expense: number; wealth: number }>(months.map((m) => [m, { income: 0, expense: 0, wealth: 0 }]));
     const currentKey = format(now, "yyyy-MM");
     const byCategory = new Map<string, number>();
 
     for (const t of transactions) {
       if (!isRealFlow(t.category)) continue;
       const f = flows.get(monthKey(t.date));
-      if (f) f[t.type === "income" ? "income" : "expense"] += Number(t.amount);
+      if (f) {
+        f[t.type === "income" ? "income" : "expense"] += Number(t.amount);
+        // Aporte/resgate só troca o dinheiro de lugar: não mexe no patrimônio
+        if (changesNetWorth(t.category)) f.wealth += t.type === "income" ? Number(t.amount) : -Number(t.amount);
+      }
       if (t.type === "expense" && monthKey(t.date) === currentKey) byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + Number(t.amount));
     }
 
@@ -65,7 +70,7 @@ const Dashboard = () => {
     const evolution = [...months].reverse().map((m) => {
       const point = { month: m, value: running };
       const f = flows.get(m)!;
-      running -= f.income - f.expense;
+      running -= f.wealth;
       return point;
     }).reverse();
 

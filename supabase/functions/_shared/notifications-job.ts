@@ -5,7 +5,7 @@ import { buildNotifications, lastWeekRange, type NewNotification } from "./notif
 import { errorMessage } from "./http.ts";
 import { isMissingRelation } from "./validation.ts";
 
-const isRealFlow = (category: string | null | undefined) => category !== "Transferência" && category !== "Investimento";
+import { countsInSummary } from "./flows.ts";
 
 interface Flow { type: string; amount: number; date: string; category: string }
 
@@ -83,10 +83,10 @@ export async function runNotifications(service: SupabaseClient, now = new Date()
 
       const spentByCategory: Record<string, number> = {};
       for (const f of monthFlows) {
-        if (f.type !== "expense" || !isRealFlow(f.category)) continue;
+        if (f.type !== "expense" || !countsInSummary(f.category)) continue;
         spentByCategory[f.category] = (spentByCategory[f.category] ?? 0) + f.amount;
       }
-      const real = weekFlows.filter((f) => isRealFlow(f.category));
+      const real = weekFlows.filter((f) => countsInSummary(f.category));
       const lastWeek = {
         income: real.filter((f) => f.type === "income").reduce((s, f) => s + f.amount, 0),
         expense: real.filter((f) => f.type !== "income").reduce((s, f) => s + f.amount, 0),

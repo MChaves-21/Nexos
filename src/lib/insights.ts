@@ -1,6 +1,7 @@
 // Cálculos de resumo e insights a partir das transações (manuais + banco).
 // Funções puras: recebem `now` para serem testáveis.
 import { extractKeyword } from "@shared/categorization";
+import { countsInSummary } from "@shared/flows";
 
 export interface InsightTransaction {
   type: "income" | "expense";
@@ -11,9 +12,8 @@ export interface InsightTransaction {
   date: string;
 }
 
-/** Transferências e aplicações movem dinheiro entre contas; não são receita nem despesa de verdade. */
-export const isRealFlow = (category: string | null | undefined) =>
-  category !== "Transferência" && category !== "Investimento";
+/** Entra no resumo do mês? Só transferências entre as próprias contas ficam fora (ver @shared/flows). */
+export const isRealFlow = (category: string | null | undefined) => countsInSummary(category);
 
 const pad = (n: number) => String(n).padStart(2, "0");
 export const monthKeyOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
