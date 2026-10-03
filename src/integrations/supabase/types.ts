@@ -936,6 +936,7 @@ export type Database = {
         Returns: string
       }
       create_family_invite: { Args: never; Returns: string }
+      import_synced_transactions: { Args: { p_items: Json }; Returns: number }
       family_overview: {
         Args: never
         Returns: {

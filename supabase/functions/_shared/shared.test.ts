@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorizeByRules, extractKeyword } from "./categorization";
-import { installmentInfo, mapAccount, mapItemStatus, mapTransaction, shouldImportTransaction, syncFromDate, transactionKind } from "./pluggy-mappers";
+import { installmentInfo, mapAccount, mapItemStatus, mapTransaction, shouldImportTransaction, staleTransactionIds, syncAnchor, syncFromDate, transactionDate, transactionKind } from "./pluggy-mappers";
 
 describe("categorization", () => {
   it("extracts a learnable keyword", () => {
@@ -16,8 +16,8 @@ describe("categorization", () => {
   });
 
   it("matches short keywords only as whole words", () => {
-    expect(categorizeByRules("Pix enviado - Fulano")?.category).toBe("Transferência");
-    expect(categorizeByRules("Pixel Store")).toBeNull();
+    expect(categorizeByRules("Pagamento CDB Banco X")?.category).toBe("Investimento");
+    expect(categorizeByRules("CDBARATO LOJA")).toBeNull();
   });
 
   it("user rules win and flag fromUserRule", () => {
@@ -115,5 +115,30 @@ describe("sanitizeAiCategories", () => {
       { index: 3, category: "Transporte", confidence: 1 },
     ]);
     expect(sanitizeAiCategories("lixo", 3)).toEqual([]);
+  });
+});
+
+describe("sincronização: datas e janela", () => {
+  it("usa o dia de Brasília, mas respeita datas sem hora", () => {
+    expect(transactionDate("2026-10-01T01:00:00.000Z")).toBe("2026-09-30"); // Pix às 22h de 30/09
+    expect(transactionDate("2026-09-10T03:00:00.000Z")).toBe("2026-09-10");
+    expect(transactionDate("2026-09-10T00:00:00.000Z")).toBe("2026-09-10");
+    expect(transactionDate("2026-09-10")).toBe("2026-09-10");
+  });
+
+  it("a janela parte da última atualização do banco, mesmo que o Nexos tenha lido depois", () => {
+    expect(syncAnchor({ last_sync_at: "2026-09-30T09:00:00Z", bank_updated_at: "2026-09-10T09:00:00Z" })).toBe("2026-09-10T09:00:00Z");
+    expect(syncAnchor({ last_sync_at: "2026-09-30T09:00:00Z" })).toBe("2026-09-30T09:00:00Z");
+    expect(syncAnchor({ last_sync_at: null, bank_updated_at: null })).toBeNull();
+  });
+
+  it("apaga só o que sumiu do banco dentro da janela e não foi importado", () => {
+    const stored = [
+      { id: "a", external_id: "x1", date: "2026-09-20", is_reviewed: false },
+      { id: "b", external_id: "x2", date: "2026-09-20", is_reviewed: false },
+      { id: "c", external_id: "x3", date: "2026-09-20", is_reviewed: true },
+      { id: "d", external_id: "x4", date: "2026-09-10", is_reviewed: false },
+    ];
+    expect(staleTransactionIds(stored, new Set(["x1"]), "2026-09-10", "2026-09-30")).toEqual(["b"]);
   });
 });

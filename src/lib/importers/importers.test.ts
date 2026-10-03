@@ -218,3 +218,14 @@ describe("splitPluggyDuplicates (arquivo x Pluggy)", () => {
     expect(rows).toHaveLength(1);
   });
 });
+
+describe("parseAmount: separador de milhar", () => {
+  it("ponto ou vírgula seguidos de 3 dígitos são milhar (dinheiro tem 2 casas)", () => {
+    expect(parseAmount("1.234")).toBe(1234);
+    expect(parseAmount("1,234")).toBe(1234);
+    expect(parseAmount("-1.234.567")).toBe(-1234567);
+    expect(parseAmount("0.123")).toBe(0.123);
+    expect(parseAmount("12.5")).toBe(12.5);
+    expect(parseAmount("1.234,56")).toBe(1234.56);
+  });
+});

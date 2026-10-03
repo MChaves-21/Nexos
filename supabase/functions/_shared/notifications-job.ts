@@ -5,20 +5,63 @@ import { buildNotifications, lastWeekRange, type NewNotification } from "./notif
 import { errorMessage } from "./http.ts";
 import { isMissingRelation } from "./validation.ts";
 
-import { countsInSummary } from "./flows.ts";
+import { countsInSummary, isSpending } from "./flows.ts";
+import { resolveCategory } from "./categorization.ts";
+import { findOwnTransfers, isCardRefund, type LedgerRow } from "./ledger.ts";
 
 interface Flow { type: string; amount: number; date: string; category: string }
 
+/** Todas as linhas, em páginas de 1.000 (o PostgREST corta sem avisar). */
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await page(from, from + 999);
+    if (error) throw error;
+    out.push(...(data ?? []));
+    if ((data ?? []).length < 1000) return out;
+  }
+}
+
+/** Mesmas regras do app (src/lib/mergeTransactions.ts): transferências entre contas próprias e estornos no cartão. */
 async function loadFlows(service: SupabaseClient, userId: string, from: string, to: string): Promise<Flow[]> {
-  const [{ data: manual }, { data: synced }] = await Promise.all([
-    service.from("transactions").select("type, amount, date, category").eq("user_id", userId).gte("date", from).lte("date", to),
+  type Synced = {
+    id: string; type: string; amount: number; date: string; description: string; ai_category: string | null;
+    original_category: string | null; category_source: string | null; bank_account_id: string | null; bank_connection_id: string; source: string;
+  };
+  const [manual, synced, cards] = await Promise.all([
+    allRows<{ type: string; amount: number; date: string; category: string }>((a, b) =>
+      service.from("transactions").select("type, amount, date, category").eq("user_id", userId).gte("date", from).lte("date", to).order("id").range(a, b)),
     // Já importadas para transactions (is_reviewed) não contam duas vezes
-    service.from("synced_transactions").select("type, amount, date, ai_category, original_category")
-      .eq("user_id", userId).eq("is_reviewed", false).gte("date", from).lte("date", to),
+    allRows<Synced>((a, b) =>
+      service.from("synced_transactions")
+        .select("id, type, amount, date, description, ai_category, original_category, category_source, bank_account_id, bank_connection_id, source")
+        .eq("user_id", userId).eq("is_reviewed", false).gte("date", from).lte("date", to).order("id").range(a, b)),
+    service.from("bank_accounts").select("id").eq("user_id", userId).eq("type", "CREDIT"),
   ]);
+  const cardIds = new Set(((cards.data ?? []) as Array<{ id: string }>).map((c) => c.id));
+
+  const bankRows: LedgerRow[] = synced.map((t) => ({
+    id: t.id,
+    type: t.type === "income" ? "income" : "expense",
+    amount: Number(t.amount),
+    date: t.date,
+    description: t.description,
+    category: resolveCategory(t.ai_category, t.original_category),
+    accountKey: t.bank_account_id ?? `${t.bank_connection_id}:${t.source}`,
+    locked: t.category_source === "user",
+  }));
+  const transfers = findOwnTransfers(bankRows);
+
   return [
-    ...(manual ?? []).map((t) => ({ type: t.type, amount: Number(t.amount), date: t.date, category: t.category })),
-    ...(synced ?? []).map((t) => ({ type: t.type, amount: Number(t.amount), date: t.date, category: t.ai_category || t.original_category || "Outros" })),
+    ...manual.map((t) => ({ type: t.type, amount: Number(t.amount), date: t.date, category: t.category })),
+    ...bankRows.map((r, i) => {
+      const category = transfers.has(r.id) ? "Transferência" : r.category;
+      const isCard = synced[i].source === "csv_card" || (!!synced[i].bank_account_id && cardIds.has(synced[i].bank_account_id!));
+      // Estorno no cartão abate o gasto da categoria
+      return isCardRefund({ type: r.type, category }, isCard)
+        ? { type: "expense", amount: -r.amount, date: r.date, category }
+        : { type: r.type, amount: r.amount, date: r.date, category };
+    }),
   ];
 }
 
@@ -83,7 +126,8 @@ export async function runNotifications(service: SupabaseClient, now = new Date()
 
       const spentByCategory: Record<string, number> = {};
       for (const f of monthFlows) {
-        if (f.type !== "expense" || !countsInSummary(f.category)) continue;
+        // Orçamento é de consumo: aportes e transferências não gastam o limite
+        if (f.type !== "expense" || !isSpending(f.category)) continue;
         spentByCategory[f.category] = (spentByCategory[f.category] ?? 0) + f.amount;
       }
       const real = weekFlows.filter((f) => countsInSummary(f.category));

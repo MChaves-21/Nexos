@@ -14,6 +14,9 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { useFinancialSnapshot } from "@/hooks/useFinancialSnapshot";
 import InfoHint from "@/components/InfoHint";
 import TipCard from "@/components/TipCard";
+import { Switch } from "@/components/ui/switch";
+import { useMarketRates } from "@/hooks/useMarketRates";
+import { daysInMonths, fixedIncomeTaxRate, futureValue, project, requiredMonthlyContribution, type ProjectionResult } from "@/lib/simulation";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -34,11 +37,10 @@ const Simulation = () => {
   const [monthlyContribution, setMonthlyContribution] = useState("500");
   const [contributionYears, setContributionYears] = useState("10");
   const [contributionRate, setContributionRate] = useState("10");
-  const [contributionResult, setContributionResult] = useState<{
-    futureValue: number;
-    totalInvested: number;
-    earnings: number;
-  } | null>(null);
+  const [contributionResult, setContributionResult] = useState<ProjectionResult | null>(null);
+  // IR da renda fixa (CDB, Tesouro): ligado por padrão; desligar para LCI/LCA/poupança
+  const [taxed, setTaxed] = useState(true);
+  const { rates } = useMarketRates();
   const [contributionErrors, setContributionErrors] = useState<{ [key: string]: string }>({});
 
   // Saved simulations from database
@@ -102,26 +104,9 @@ const Simulation = () => {
     const initial = parseFloat(goalInitialValue) || 0;
     const target = parseFloat(goalTarget);
     const years = parseFloat(goalYears);
-    const annualRate = parseFloat(goalRate) / 100;
-    const monthlyRate = annualRate / 12;
-    const months = years * 12;
-
-    // Future value of initial investment
-    // FV_initial = PV * (1 + i)^n
-    const futureValueOfInitial = initial * Math.pow(1 + monthlyRate, months);
-    
-    // Remaining amount needed from monthly contributions
-    const remainingTarget = target - futureValueOfInitial;
-    
-    if (remainingTarget <= 0) {
-      setGoalResult(0); // Initial investment alone will exceed target
-      return;
-    }
-
-    // FV = PMT * [((1 + i)^n - 1) / i]
-    // PMT = FV / [((1 + i)^n - 1) / i]
-    const futureValueFactor = (Math.pow(1 + monthlyRate, months) - 1) / monthlyRate;
-    const pmt = remainingTarget / futureValueFactor;
+    const months = Math.round(years * 12);
+    // Taxa anual efetiva → mensal equivalente (ver src/lib/simulation.ts)
+    const pmt = requiredMonthlyContribution(initial, target, parseFloat(goalRate), months);
 
     setGoalResult(Math.max(0, pmt));
   };
@@ -132,23 +117,8 @@ const Simulation = () => {
     const initial = parseFloat(contributionInitialValue) || 0;
     const pmt = parseFloat(monthlyContribution) || 0;
     const years = parseFloat(contributionYears);
-    const annualRate = parseFloat(contributionRate) / 100;
-    const monthlyRate = annualRate / 12;
-    const months = years * 12;
-
-    // FV = PV * (1 + i)^n + PMT * [((1 + i)^n - 1) / i]
-    const futureValueOfInitial = initial * Math.pow(1 + monthlyRate, months);
-    const futureValueOfContributions = pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
-    const futureValue = futureValueOfInitial + futureValueOfContributions;
-    
-    const totalInvested = initial + (pmt * months);
-    const earnings = futureValue - totalInvested;
-
-    setContributionResult({
-      futureValue,
-      totalInvested,
-      earnings
-    });
+    const months = Math.round(years * 12);
+    setContributionResult(project(initial, pmt, parseFloat(contributionRate), months, { inflationPct: rates.ipca, taxed }));
   };
   // Generate projection chart data for contribution mode
   const projectionChartData = useMemo(() => {
@@ -157,18 +127,13 @@ const Simulation = () => {
     const initial = parseFloat(contributionInitialValue) || 0;
     const pmt = parseFloat(monthlyContribution) || 0;
     const years = parseFloat(contributionYears);
-    const annualRate = parseFloat(contributionRate) / 100;
-    const monthlyRate = annualRate / 12;
+    const rate = parseFloat(contributionRate);
     
     const data = [];
     
     for (let year = 0; year <= years; year++) {
       const months = year * 12;
-      const futureValueOfInitial = initial * Math.pow(1 + monthlyRate, months);
-      const futureValueOfContributions = months > 0 
-        ? pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
-        : 0;
-      const total = futureValueOfInitial + futureValueOfContributions;
+      const total = futureValue(initial, pmt, rate, months);
       const invested = initial + (pmt * months);
       
       data.push({
@@ -403,39 +368,22 @@ const Simulation = () => {
       savedSimulations.forEach((sim, index) => {
         if (year > sim.years) {
           // Simulation has ended, keep the final value
-          const monthlyRate = sim.rate / 100 / 12;
           const totalMonths = sim.years * 12;
           
           if (sim.type === "contribution") {
-            const futureValueOfInitial = sim.initial_value * Math.pow(1 + monthlyRate, totalMonths);
-            const pmt = sim.monthly_contribution || 0;
-            const futureValueOfContributions = totalMonths > 0 
-              ? pmt * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate)
-              : 0;
-            point[`sim_${index}`] = Math.round((futureValueOfInitial + futureValueOfContributions) * 100) / 100;
+            point[`sim_${index}`] = Math.round(futureValue(sim.initial_value, sim.monthly_contribution || 0, sim.rate, totalMonths) * 100) / 100;
           } else {
             // Goal simulation - show target value after completion
             point[`sim_${index}`] = Math.round((sim.target || 0) * 100) / 100;
           }
         } else {
           const months = year * 12;
-          const monthlyRate = sim.rate / 100 / 12;
           
           if (sim.type === "contribution") {
-            const futureValueOfInitial = sim.initial_value * Math.pow(1 + monthlyRate, months);
-            const pmt = sim.monthly_contribution || 0;
-            const futureValueOfContributions = months > 0 
-              ? pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
-              : 0;
-            point[`sim_${index}`] = Math.round((futureValueOfInitial + futureValueOfContributions) * 100) / 100;
+            point[`sim_${index}`] = Math.round(futureValue(sim.initial_value, sim.monthly_contribution || 0, sim.rate, months) * 100) / 100;
           } else {
             // Goal simulation - calculate progress toward target
-            const pmt = sim.result;
-            const futureValueOfInitial = sim.initial_value * Math.pow(1 + monthlyRate, months);
-            const futureValueOfContributions = months > 0 
-              ? pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
-              : 0;
-            point[`sim_${index}`] = Math.round((futureValueOfInitial + futureValueOfContributions) * 100) / 100;
+            point[`sim_${index}`] = Math.round(futureValue(sim.initial_value, sim.result, sim.rate, months) * 100) / 100;
           }
         }
       });
@@ -668,6 +616,20 @@ const Simulation = () => {
                   />
                 </div>
 
+                <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <Label htmlFor="contribution-taxed" className="text-sm font-normal">
+                    Descontar Imposto de Renda (CDB, Tesouro e fundos de renda fixa; desligue para LCI, LCA e poupança)
+                  </Label>
+                  <Switch
+                    id="contribution-taxed"
+                    checked={taxed}
+                    onCheckedChange={(v) => {
+                      setTaxed(v);
+                      setContributionResult(null);
+                    }}
+                  />
+                </div>
+
                 <div className="flex gap-2">
                   <Button onClick={calculateFutureValue} className="flex-1">
                     Calcular Valor Futuro
@@ -730,6 +692,26 @@ const Simulation = () => {
                             style: "currency",
                             currency: "BRL",
                           })}/mês durante {contributionYears} anos a {contributionRate}% a.a.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
+                          <div>
+                            <p className="text-muted-foreground">{taxed ? "Depois do IR" : "Sem IR (isento)"}</p>
+                            <p className="font-semibold">{brl(contributionResult.netValue)}</p>
+                            {taxed && (
+                              <p className="text-xs text-muted-foreground">
+                                IR estimado {brl(contributionResult.incomeTax)} ({fixedIncomeTaxRate(daysInMonths(Math.round(parseFloat(contributionYears) * 12)))}%)
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Em dinheiro de hoje</p>
+                            <p className="font-semibold">{brl(contributionResult.netValueToday)}</p>
+                            <p className="text-xs text-muted-foreground">com inflação de {rates.ipca.toLocaleString("pt-BR")}% ao ano</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-3">
+                          Estimativa: a taxa e a inflação de hoje valem para todo o período. Taxas anuais convertidas para
+                          mensais de forma equivalente (12% a.a. ≈ 0,95% ao mês).
                         </p>
                       </div>
                     </CardContent>

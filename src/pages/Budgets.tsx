@@ -13,7 +13,7 @@ import { useFinancialSnapshot } from "@/hooks/useFinancialSnapshot";
 import { CATEGORIES } from "@shared/categorization";
 import InfoHint from "@/components/InfoHint";
 import TipCard from "@/components/TipCard";
-import { isRealFlow, monthKeyAgo } from "@/lib/insights";
+import { isSpendingTx, monthKeyAgo } from "@/lib/insights";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 /** Formata enquanto digita: 1.234,56 */
@@ -51,7 +51,7 @@ const Budgets = () => {
     const now = new Date();
     const months = [1, 2, 3].map((n) => monthKeyAgo(now, n));
     const totals = months.map((m) => transactions
-      .filter((t) => t.type === "expense" && isRealFlow(t.category) && t.date.startsWith(m))
+      .filter((t) => isSpendingTx(t) && t.date.startsWith(m))
       .reduce((s, t) => s + Number(t.amount), 0)).filter((v) => v > 0);
     if (!totals.length) return null;
     return Math.round((totals.reduce((s, v) => s + v, 0) / totals.length) * 6 / 100) * 100;

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useMarketRates } from "@/hooks/useMarketRates";
+import { ipcaPlus } from "@/lib/simulation";
 export type RateType = "custom" | "selic" | "ipca_plus";
 interface MarketRateSelectorProps {
   value: string;
@@ -23,7 +24,9 @@ export function MarketRateSelector({
   const [ipcaSpread, setIpcaSpread] = useState(DEFAULT_IPCA_SPREAD.toString());
   // Selic e IPCA atuais do Banco Central (com valores de reserva se indisponível)
   const { rates } = useMarketRates();
-  const ipcaPlusRate = rates.ipca + parseFloat(ipcaSpread || "0");
+  // IPCA + X% é composto: (1 + IPCA) × (1 + X) − 1
+  const ipcaPlusRate = ipcaPlus(rates.ipca, parseFloat(ipcaSpread || "0"));
+  const asRate = (spread: number) => String(Math.round(ipcaPlus(rates.ipca, spread) * 10000) / 10000);
 
   // Detectar tipo baseado no valor atual
   useEffect(() => {
@@ -31,9 +34,9 @@ export function MarketRateSelector({
     if (isNaN(numValue)) return;
     if (Math.abs(numValue - rates.selic) < 0.01) {
       setSelectedType("selic");
-    } else if (numValue > rates.ipca && numValue <= rates.ipca + 10) {
+    } else if (numValue > rates.ipca && numValue <= ipcaPlus(rates.ipca, 10)) {
       // Se valor está entre IPCA e IPCA+10, assumir IPCA+
-      const detectedSpread = numValue - rates.ipca;
+      const detectedSpread = ((1 + numValue / 100) / (1 + rates.ipca / 100) - 1) * 100;
       setSelectedType("ipca_plus");
       setIpcaSpread(detectedSpread.toFixed(2));
     } else {
@@ -49,7 +52,7 @@ export function MarketRateSelector({
         break;
       case "ipca_plus":
         const currentSpread = parseFloat(ipcaSpread) || DEFAULT_IPCA_SPREAD;
-        onChange((rates.ipca + currentSpread).toString());
+        onChange(asRate(currentSpread));
         break;
       case "custom":
         onChange(customValue || "10");
@@ -65,7 +68,7 @@ export function MarketRateSelector({
     const newSpread = e.target.value;
     setIpcaSpread(newSpread);
     const spreadNum = parseFloat(newSpread) || 0;
-    onChange((rates.ipca + spreadNum).toString());
+    onChange(asRate(spreadNum));
   };
   const getDisplayValue = () => {
     switch (selectedType) {

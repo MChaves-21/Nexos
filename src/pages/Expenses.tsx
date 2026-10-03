@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import { toast } from "@/hooks/use-toast";
 import { useAllTransactions, type UnifiedTransaction } from "@/hooks/useAllTransactions";
 import { CATEGORIES, categorizeByRules } from "@shared/categorization";
+import { isRealFlow, isSpendingTx } from "@/lib/insights";
 import TipCard from "@/components/TipCard";
 import { neutralizeFormula, toCsv } from "@/lib/csv";
 import { Link, useSearchParams } from "react-router-dom";
@@ -42,7 +43,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { cn, formatDecimal2 } from "@/lib/utils";
 import { TransactionRowSkeleton, BudgetCardSkeleton } from "@/components/skeletons";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -88,19 +89,32 @@ const Expenses = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
 
   // Lançamentos manuais + transações do banco ainda não importadas
-  const { transactions, isLoading, addTransaction, updateTransaction, deleteTransaction, approveCategory } = useAllTransactions();
+  const { transactions, manualDuplicates, isLoading, addTransaction, updateTransaction, deleteTransaction, approveCategory } = useAllTransactions();
+  const [showDuplicates, setShowDuplicates] = useState(false);
+
+  /** Valor digitado precisa ser maior que zero (o tipo Entrada/Saída já diz o sinal). */
+  const validAmount = (raw: string): number | null => {
+    const value = parseFloat(raw);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast({ title: "Valor inválido", description: "Digite um valor maior que zero.", variant: "destructive" });
+      return null;
+    }
+    return Math.round(value * 100) / 100;
+  };
   const { budgets, isLoading: isBudgetsLoading, upsertBudget, deleteBudget } = useBudgets();
 
   const handleSubmit = () => {
     if (!formData.description || !formData.category || !formData.amount) {
       return;
     }
+    const amount = validAmount(formData.amount);
+    if (amount === null) return;
 
     addTransaction({
       type: formData.type,
       description: formData.description,
       category: formData.category,
-      amount: parseFloat(formData.amount),
+      amount,
       date: formData.date,
     });
 
@@ -130,13 +144,15 @@ const Expenses = () => {
     if (!editingTransaction || !formData.description || !formData.category || !formData.amount) {
       return;
     }
+    const amount = validAmount(formData.amount);
+    if (amount === null) return;
 
     updateTransaction({
       id: editingTransaction,
       type: formData.type,
       description: formData.description,
       category: formData.category,
-      amount: parseFloat(formData.amount),
+      amount,
       date: formData.date,
     });
 
@@ -267,8 +283,10 @@ const Expenses = () => {
 
   // Resumo das transações filtradas
   const filteredSummary = useMemo(() => {
-    const income = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    // Mesma regra do Início: transferências entre contas próprias não são entrada nem saída
+    const real = filteredTransactions.filter(t => isRealFlow(t.category));
+    const income = real.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expense = real.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     return { income, expense, balance: income - expense, count: filteredTransactions.length };
   }, [filteredTransactions]);
 
@@ -284,7 +302,8 @@ const Expenses = () => {
       "hsl(var(--accent))",
     ];
 
-    const expenses = filteredTransactions.filter(t => t.type === 'expense');
+    // Gastos de consumo: sem transferências e sem aportes
+    const expenses = filteredTransactions.filter(isSpendingTx);
     const categoryTotals: { [key: string]: number } = {};
 
     expenses.forEach(t => {
@@ -297,6 +316,7 @@ const Expenses = () => {
     const total = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
 
     return Object.entries(categoryTotals)
+      .filter(([, value]) => value > 0)
       .map(([name, value], index) => ({
         name,
         value,
@@ -327,13 +347,13 @@ const Expenses = () => {
     // Filtrar despesas do mês atual (ou selecionado)
     const currentMonthExpenses = transactions.filter(t => {
       const date = parseISO(t.date);
-      return t.type === 'expense' && date >= currentMonthStart && date <= currentMonthEnd;
+      return isSpendingTx(t) && date >= currentMonthStart && date <= currentMonthEnd;
     });
 
     // Filtrar despesas do mês anterior
     const previousMonthExpenses = transactions.filter(t => {
       const date = parseISO(t.date);
-      return t.type === 'expense' && date >= previousMonthStart && date <= previousMonthEnd;
+      return isSpendingTx(t) && date >= previousMonthStart && date <= previousMonthEnd;
     });
 
     // Calcular totais por categoria
@@ -400,7 +420,7 @@ const Expenses = () => {
     // Gastos do mês atual até agora
     const currentMonthExpenses = transactions.filter(t => {
       const date = parseISO(t.date);
-      return t.type === 'expense' && date >= currentMonthStart && date <= now;
+      return isSpendingTx(t) && date >= currentMonthStart && date <= now;
     });
 
     // Calcular totais por categoria no mês atual
@@ -416,7 +436,7 @@ const Expenses = () => {
     last3Months.forEach(({ start, end }) => {
       const monthExpenses = transactions.filter(t => {
         const date = parseISO(t.date);
-        return t.type === 'expense' && date >= start && date <= end;
+        return isSpendingTx(t) && date >= start && date <= end;
       });
 
       monthExpenses.forEach(t => {
@@ -540,19 +560,18 @@ const Expenses = () => {
     const headers = ["Data", "Tipo", "Descrição", "Categoria", "Valor"];
     const rows = filteredTransactions.map(t => [
       format(parseISO(t.date), "dd/MM/yyyy"),
-      t.type === 'income' ? 'Entrada' : 'Saída',
+      t.refund ? 'Estorno' : t.type === 'income' ? 'Entrada' : 'Saída',
       neutralizeFormula(t.description),
       neutralizeFormula(t.category),
-      t.type === 'income' 
-        ? t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-        : `-${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      // Estorno é saída negativa: aparece como valor positivo (crédito)
+      formatDecimal2(t.type === 'income' ? t.amount : -t.amount),
     ]);
 
     // Add summary row
     rows.push([]);
-    rows.push(["", "", "", "Total Receitas", `R$ ${filteredSummary.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]);
-    rows.push(["", "", "", "Total Despesas", `R$ ${filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]);
-    rows.push(["", "", "", "Saldo", `R$ ${filteredSummary.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]);
+    rows.push(["", "", "", "Total Receitas", `R$ ${formatDecimal2(filteredSummary.income)}`]);
+    rows.push(["", "", "", "Total Despesas", `R$ ${formatDecimal2(filteredSummary.expense)}`]);
+    rows.push(["", "", "", "Saldo", `R$ ${formatDecimal2(filteredSummary.balance)}`]);
 
     const csvContent = toCsv([headers, ...rows]);
 
@@ -613,19 +632,19 @@ const Expenses = () => {
     doc.setFontSize(10);
     doc.text(`Total de Transações: ${filteredTransactions.length}`, 14, 56);
     doc.setTextColor(34, 139, 34);
-    doc.text(`Receitas: R$ ${filteredSummary.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 62);
+    doc.text(`Receitas: R$ ${formatDecimal2(filteredSummary.income)}`, 14, 62);
     doc.setTextColor(220, 53, 69);
-    doc.text(`Despesas: R$ ${filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 68);
+    doc.text(`Despesas: R$ ${formatDecimal2(filteredSummary.expense)}`, 14, 68);
     doc.setTextColor(filteredSummary.balance >= 0 ? 34 : 220, filteredSummary.balance >= 0 ? 139 : 53, filteredSummary.balance >= 0 ? 34 : 69);
-    doc.text(`Saldo: R$ ${filteredSummary.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, 74);
+    doc.text(`Saldo: R$ ${formatDecimal2(filteredSummary.balance)}`, 14, 74);
 
     // Table
     const tableData = filteredTransactions.map(t => [
       format(parseISO(t.date), "dd/MM/yyyy"),
-      t.type === 'income' ? 'Receita' : 'Despesa',
+      t.refund ? 'Estorno' : t.type === 'income' ? 'Receita' : 'Despesa',
       t.description.length > 30 ? t.description.substring(0, 30) + "..." : t.description,
       t.category,
-      `R$ ${t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      `R$ ${formatDecimal2(Math.abs(t.amount))}`,
     ]);
 
     autoTable(doc, {
@@ -773,6 +792,48 @@ const Expenses = () => {
       </div>
 
       <TipCard page="expenses" />
+
+      {/* Lançado à mão e também vindo do banco: só a do banco entra nos totais */}
+      {manualDuplicates.length > 0 && (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <p className="text-sm">
+                <AlertTriangle className="inline h-4 w-4 mr-1 text-warning" aria-hidden />
+                {manualDuplicates.length === 1
+                  ? "1 lançamento manual parece ser a mesma transação que veio do banco. Ele não está sendo somado."
+                  : `${manualDuplicates.length} lançamentos manuais parecem ser as mesmas transações que vieram do banco. Eles não estão sendo somados.`}
+              </p>
+              <Button variant="outline" size="sm" onClick={() => setShowDuplicates((v) => !v)}>
+                {showDuplicates ? "Esconder" : "Ver quais"}
+              </Button>
+            </div>
+            {showDuplicates && (
+              <ul className="divide-y text-sm">
+                {manualDuplicates.map(({ manual, bank }) => (
+                  <li key={manual.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2">
+                    <span className="min-w-0">
+                      <span className="font-medium">{manual.description}</span>{" "}
+                      <span className="text-muted-foreground">
+                        ({format(parseISO(manual.date), "dd/MM")}, R$ {formatDecimal2(manual.amount)}) = banco: {bank.description} ({format(parseISO(bank.date), "dd/MM")})
+                      </span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => manual.manual && deleteTransaction(manual.manual)}
+                      aria-label={`Excluir o lançamento manual ${manual.description}`}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" aria-hidden />Excluir o manual
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
 
       {/* Transactions with Filters */}
@@ -1007,19 +1068,19 @@ const Expenses = () => {
               <div className="bg-success/10 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">Entradas</p>
                 <p className="text-lg font-bold text-success">
-                  +R$ {filteredSummary.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  +R$ {formatDecimal2(filteredSummary.income)}
                 </p>
               </div>
               <div className="bg-destructive/10 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">Saídas</p>
                 <p className="text-lg font-bold text-destructive">
-                  -R$ {filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  -R$ {formatDecimal2(filteredSummary.expense)}
                 </p>
               </div>
               <div className={cn("rounded-lg p-3", filteredSummary.balance >= 0 ? "bg-success/10" : "bg-destructive/10")}>
                 <p className="text-xs text-muted-foreground">Saldo</p>
                 <p className={cn("text-lg font-bold", filteredSummary.balance >= 0 ? "text-success" : "text-destructive")}>
-                  {filteredSummary.balance >= 0 ? '+' : ''}R$ {filteredSummary.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {filteredSummary.balance >= 0 ? '+' : ''}R$ {formatDecimal2(filteredSummary.balance)}
                 </p>
               </div>
             </div>
@@ -1058,7 +1119,7 @@ const Expenses = () => {
                         </Pie>
                         <Tooltip
                           formatter={(value: number) => [
-                            `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                            `R$ ${formatDecimal2(value)}`,
                             'Valor'
                           ]}
                           contentStyle={{
@@ -1083,7 +1144,7 @@ const Expenses = () => {
                         </div>
                         <div className="text-right">
                           <span className="text-sm font-semibold">
-                            R$ {category.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {formatDecimal2(category.value)}
                           </span>
                           <span className="text-xs text-muted-foreground ml-2">
                             ({category.percentage}%)
@@ -1095,7 +1156,7 @@ const Expenses = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold">Total</span>
                         <span className="text-sm font-bold text-destructive">
-                          R$ {filteredSummary.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R$ {formatDecimal2(expensesByCategoryData.reduce((sum, c) => sum + c.value, 0))}
                         </span>
                       </div>
                     </div>
@@ -1165,7 +1226,7 @@ const Expenses = () => {
                         />
                         <Tooltip
                           formatter={(value: number, name: string) => [
-                            `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                            `R$ ${formatDecimal2(value)}`,
                             name === 'previousMonth' ? monthComparisonData.previousMonthLabel : monthComparisonData.currentMonthLabel
                           ]}
                           contentStyle={{
@@ -1251,10 +1312,10 @@ const Expenses = () => {
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <span className="text-xs text-muted-foreground block">
-                              {monthComparisonData.previousMonthLabel}: R$ {monthComparisonData.previousTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {monthComparisonData.previousMonthLabel}: R$ {formatDecimal2(monthComparisonData.previousTotal)}
                             </span>
                             <span className="text-sm font-bold">
-                              {monthComparisonData.currentMonthLabel}: R$ {monthComparisonData.currentTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {monthComparisonData.currentMonthLabel}: R$ {formatDecimal2(monthComparisonData.currentTotal)}
                             </span>
                           </div>
                           <div className={cn(
@@ -1266,7 +1327,7 @@ const Expenses = () => {
                                 : "text-muted-foreground"
                           )}>
                             {monthComparisonData.totalDifference > 0 ? '+' : ''}
-                            R$ {Math.abs(monthComparisonData.totalDifference).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {formatDecimal2(Math.abs(monthComparisonData.totalDifference))}
                           </div>
                         </div>
                       </div>
@@ -1417,7 +1478,7 @@ const Expenses = () => {
                             </div>
                             {forecast.suggestedDailyBudget > 0 && forecast.daysRemaining > 0 && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                💡 Sugestão: gaste até R$ {forecast.suggestedDailyBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} por dia
+                                💡 Sugestão: gaste até R$ {formatDecimal2(forecast.suggestedDailyBudget)} por dia
                               </p>
                             )}
                             {forecast.willExceedBudget && (
@@ -1509,11 +1570,12 @@ const Expenses = () => {
                   <div className="flex items-center justify-between sm:justify-end gap-3">
                     <span
                       className={`font-semibold text-sm sm:text-base ${
-                        transaction.type === 'income' ? 'text-success' : 'text-destructive'
+                        transaction.type === 'income' || transaction.refund ? 'text-success' : 'text-destructive'
                       }`}
                     >
-                      {transaction.type === 'income' ? '+' : '-'} R${' '}
-                      {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {transaction.type === 'income' || transaction.refund ? '+' : '-'} R${' '}
+                      {formatDecimal2(Math.abs(transaction.amount))}
+                      {transaction.refund && <span className="ml-1 text-xs font-normal text-muted-foreground">estorno</span>}
                     </span>
                     {transaction.origin === 'manual' ? (
                       <div className="flex gap-1 shrink-0">

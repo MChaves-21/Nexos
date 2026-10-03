@@ -3,7 +3,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { chunk, fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { extractKeyword } from "@shared/categorization";
+import { extractKeyword, resolveCategory } from "@shared/categorization";
 import type { Tables } from "@/integrations/supabase/types";
 import { friendlyErrorMessage } from "@/lib/errors";
 
@@ -193,6 +193,11 @@ export const usePluggyAccount = () => {
   return { status, isLoading, save, remove };
 };
 
+/** A função SQL ainda não existe no banco (migração pendente). */
+function isMissingFunction(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST202" || error.code === "42883" || /could not find the function/i.test(error.message ?? "");
+}
+
 /** Ids por requisição em filtros .in() (cada id ocupa ~40 caracteres na URL). */
 const ID_CHUNK = 100;
 
@@ -269,24 +274,41 @@ export const useSyncedTransactions = (connectionId?: string) => {
       const selected = new Set(syncedTxIds);
       const toImport = transactions.filter((t) => selected.has(t.id) && !t.is_reviewed);
       if (!toImport.length) return;
+      const items = toImport.map((t) => ({ id: t.id, category: resolveCategory(t.ai_category, t.original_category) }));
+
+      // Marca como revisada e insere numa só transação do banco (migração 20261004100000)
+      const { error: rpcError } = await supabase.rpc("import_synced_transactions", { p_items: items });
+      if (!rpcError) return;
+      if (!isMissingFunction(rpcError)) throw rpcError;
+
+      // Banco ainda sem a função: marca primeiro (só as que ainda não estavam marcadas) e desfaz se a inserção falhar.
+      // Assim uma falha no meio esconde a transação por um instante, mas nunca a conta duas vezes.
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-
-      const { error } = await supabase.from("transactions").insert(
-        toImport.map((tx) => ({
-          user_id: user.id,
-          type: tx.type,
-          description: tx.installment_info ? `${tx.description} (${tx.installment_info})` : tx.description,
-          category: tx.ai_category || tx.original_category || "Outros",
-          amount: tx.amount,
-          date: tx.date,
-        })),
-      );
-      if (error) throw error;
-
+      const categoryById = new Map(items.map((i) => [i.id, i.category]));
       for (const ids of chunk(toImport.map((t) => t.id), ID_CHUNK)) {
-        const { error: updateError } = await supabase.from("synced_transactions").update({ is_reviewed: true }).in("id", ids);
-        if (updateError) throw updateError;
+        const { data: claimed, error: claimError } = await supabase
+          .from("synced_transactions")
+          .update({ is_reviewed: true })
+          .in("id", ids)
+          .eq("is_reviewed", false)
+          .select("id, type, description, installment_info, amount, date");
+        if (claimError) throw claimError;
+        if (!claimed?.length) continue;
+        const { error } = await supabase.from("transactions").insert(
+          claimed.filter((tx) => Number(tx.amount) > 0).map((tx) => ({
+            user_id: user.id,
+            type: tx.type === "income" ? ("income" as const) : ("expense" as const),
+            description: tx.installment_info ? `${tx.description} (${tx.installment_info})` : tx.description,
+            category: categoryById.get(tx.id) ?? "Outros",
+            amount: Number(tx.amount),
+            date: tx.date,
+          })),
+        );
+        if (error) {
+          await supabase.from("synced_transactions").update({ is_reviewed: false }).in("id", claimed.map((c) => c.id));
+          throw error;
+        }
       }
     },
     onSuccess: () => {

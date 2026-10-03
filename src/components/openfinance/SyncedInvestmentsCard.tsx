@@ -7,6 +7,7 @@ import { estimateYield } from "@/lib/yieldEstimate";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { bankProfit } from "@/lib/portfolio";
+import { resolveCategory } from "@shared/categorization";
 
 const TYPE_LABELS: Record<string, string> = {
   FIXED_INCOME: "Renda fixa",
@@ -49,7 +50,7 @@ const SyncedInvestmentsCard = ({ hideWhenEmpty = false }: { hideWhenEmpty?: bool
           history.filter((h) => h.bank_connection_id === connId),
           transactions
             .filter((t) => t.bank_connection_id === connId)
-            .map((t) => ({ date: t.date, amount: Number(t.amount), type: t.type, description: t.description, category: t.ai_category || t.original_category })),
+            .map((t) => ({ date: t.date, amount: Number(t.amount), type: t.type, description: t.description, category: resolveCategory(t.ai_category, t.original_category) })),
         );
         if (e) estimate = { value: (estimate?.value ?? 0) + e.value, since: estimate && estimate.since < e.since ? estimate.since : e.since };
       }

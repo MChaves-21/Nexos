@@ -24,3 +24,16 @@ export function containsPattern(text: string): string {
 export function isInternalPath(link: string | null | undefined): link is string {
   return typeof link === "string" && /^\/(?![/\\])[^\s]*$/.test(link);
 }
+
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const DECIMAL_2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** "R$ 1.234,56": sempre 2 casas (toLocaleString só com minimumFractionDigits pode mostrar 3). */
+export function formatBRL(value: number): string {
+  return BRL.format(Number(value) || 0);
+}
+
+/** "1.234,56" sem o símbolo, sempre com 2 casas. */
+export function formatDecimal2(value: number): string {
+  return DECIMAL_2.format(Number(value) || 0);
+}

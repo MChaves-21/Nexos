@@ -17,3 +17,11 @@ export function countsInSummary(category: string | null | undefined): boolean {
 export function changesNetWorth(category: string | null | undefined): boolean {
   return category !== "Transferência" && category !== "Investimento";
 }
+
+/**
+ * É gasto de consumo? Entra em "quanto você gastou", categorias, alertas, orçamento e previsão.
+ * Aporte não é gasto: o dinheiro continua seu, só foi para o investimento.
+ */
+export function isSpending(category: string | null | undefined): boolean {
+  return changesNetWorth(category);
+}

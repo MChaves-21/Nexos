@@ -14,6 +14,7 @@ import autoTable from "jspdf-autotable";
 import { format, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
+import { formatBRL, formatDecimal2 } from "@/lib/utils";
 
 const Reports = () => {
   const currentDate = new Date();
@@ -82,11 +83,9 @@ const Reports = () => {
           format(parseISO(t.date), "dd/MM/yyyy"),
           t.description,
           t.category,
-          t.type === "income" ? "Receita" : "Despesa",
+          t.refund ? "Estorno" : t.type === "income" ? "Receita" : "Despesa",
           t.origin === "bank" ? "Banco" : "Manual",
-          `R$ ${t.amount.toLocaleString("pt-BR", {
-            minimumFractionDigits: 2,
-          })}`,
+          formatBRL(Math.abs(t.amount)),
         ]);
 
         autoTable(doc, {
@@ -116,10 +115,8 @@ const Reports = () => {
 
           return [
             b.category,
-            `R$ ${b.monthly_budget.toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            })}`,
-            `R$ ${spent.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+            `R$ ${formatDecimal2(b.monthly_budget)}`,
+            `R$ ${formatDecimal2(spent)}`,
             `${percentage.toFixed(1)}%`,
           ];
         });
@@ -163,10 +160,8 @@ const Reports = () => {
             inv.asset_name,
             inv.asset_type,
             inv.quantity.toString(),
-            `R$ ${invested.toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            })}`,
-            `R$ ${current.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+            `R$ ${formatDecimal2(invested)}`,
+            `R$ ${formatDecimal2(current)}`,
             `${profitPercentage > 0 ? "+" : ""}${profitPercentage.toFixed(2)}%`,
           ];
         });
@@ -209,10 +204,10 @@ const Reports = () => {
           body: bankInvestments.map((inv) => [
             inv.name,
             inv.type,
-            `R$ ${Number(inv.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+            `R$ ${formatDecimal2(Number(inv.balance))}`,
             inv.amount_profit == null
               ? "-"
-              : `R$ ${Number(inv.amount_profit).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+              : `R$ ${formatDecimal2(Number(inv.amount_profit))}`,
           ]),
           theme: "striped",
           headStyles: { fillColor: [234, 179, 8] },
@@ -243,16 +238,10 @@ const Reports = () => {
           return [
             goal.title,
             goal.category || "Geral",
-            `R$ ${goal.target_amount.toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            })}`,
-            `R$ ${goal.current_amount.toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            })}`,
+            `R$ ${formatDecimal2(goal.target_amount)}`,
+            `R$ ${formatDecimal2(goal.current_amount)}`,
             `${progress.toFixed(1)}%`,
-            `R$ ${remaining.toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            })}`,
+            `R$ ${formatDecimal2(remaining)}`,
             status,
           ];
         });

@@ -28,15 +28,17 @@ const Taxes = () => {
       transactions: transactions.map((t): TaxTx => ({ type: t.type, category: t.category, description: t.description, amount: Number(t.amount), date: t.date })),
       manualInvestments: investments,
       bankInvestments: bankInvestments.map((i) => ({ ...i, balance: Number(i.balance), amount_original: i.amount_original != null ? Number(i.amount_original) : null })),
+      currentYear: thisYear,
     }),
-    [year, transactions, investments, bankInvestments],
+    [year, transactions, investments, bankInvestments, thisYear],
   );
 
   const exportCsv = () => {
     const rows: Array<Array<string | number>> = [["Seção", "Data", "Descrição", "Categoria/Tipo", "Valor"]];
     for (const t of summary.deductible.health.items) rows.push(["Despesa médica", dmy(t.date), neutralizeFormula(t.description), t.category, t.amount.toFixed(2)]);
     for (const t of summary.deductible.education.items) rows.push(["Despesa com educação", dmy(t.date), neutralizeFormula(t.description), t.category, t.amount.toFixed(2)]);
-    for (const i of summary.income) rows.push(["Rendimento", "", "", i.category, i.total.toFixed(2)]);
+    for (const t of summary.notDeductible.items) rows.push(["Não dedutível (conferir)", dmy(t.date), neutralizeFormula(t.description), t.category, t.amount.toFixed(2)]);
+    for (const i of summary.income) rows.push([i.taxable ? "Rendimento tributável" : "Entrada a conferir", "", "", i.category, i.total.toFixed(2)]);
     for (const a of summary.assets) rows.push(["Bens e direitos (31/12)", "", neutralizeFormula(a.name), a.type, a.value.toFixed(2)]);
     const blob = new Blob(["﻿" + toCsv(rows)], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -107,8 +109,15 @@ const Taxes = () => {
         {section(HeartPulse, "Despesas médicas", summary.deductible.health.total,
           "Consultas, exames, plano de saúde, dentista, terapia. Dedutíveis sem limite; guarde os recibos com CPF/CNPJ.", summary.deductible.health.items)}
         {section(GraduationCap, "Despesas com educação", summary.deductible.education.total,
-          "Escola, faculdade, pós. Têm limite anual por pessoa (confira o valor do ano). Cursos livres e idiomas não entram.", summary.deductible.education.items)}
+          `Escola, faculdade, pós. Limite de ${brl(summary.deductible.education.cap)} por pessoa no ano${
+            summary.deductible.education.total > summary.deductible.education.cap ? " (o total passou do limite de uma pessoa: divida entre titular e dependentes)" : ""
+          }. Cursos livres, idiomas e livros não entram.`, summary.deductible.education.items)}
       </div>
+
+      {summary.notDeductible.items.length > 0 &&
+        section(FileText, "Não entram como dedução", summary.notDeductible.total,
+          "Estavam em Saúde ou Educação, mas a Receita não aceita: remédio de farmácia, academia, ótica, cursos livres, idiomas e livros.",
+          summary.notDeductible.items)}
 
       <Card>
         <CardHeader className="pb-3">
@@ -116,13 +125,19 @@ const Taxes = () => {
             <span className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" aria-hidden />Rendimentos recebidos</span>
             <span className="tabular-nums">{brl(summary.incomeTotal)}</span>
           </CardTitle>
-          <CardDescription>Por categoria. O valor oficial do salário está no informe de rendimentos do empregador.</CardDescription>
+          <CardDescription>
+            Por categoria. Tributáveis (salário, freelance): {brl(summary.taxableIncomeTotal)}. As outras entradas podem ser isentas ou nem ser
+            renda (venda de algo usado, reembolso): confira. O valor oficial do salário está no informe de rendimentos do empregador.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {summary.income.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum rendimento registrado neste ano.</p> : (
             <ul className="divide-y text-sm">
               {summary.income.map((i) => (
-                <li key={i.category} className="flex justify-between py-2"><span>{i.category}</span><span className="tabular-nums">{brl(i.total)}</span></li>
+                <li key={i.category} className="flex justify-between gap-2 py-2">
+                  <span>{i.category}{!i.taxable && <Badge variant="outline" className="ml-2 text-[10px]">conferir</Badge>}</span>
+                  <span className="tabular-nums">{brl(i.total)}</span>
+                </li>
               ))}
             </ul>
           )}
@@ -136,11 +151,17 @@ const Taxes = () => {
             <span className="tabular-nums">{brl(summary.assetsTotal)}</span>
           </CardTitle>
           <CardDescription>
-            Na declaração, investimentos entram pelo custo de aquisição, não pelo valor de mercado. Os do banco mostram a posição atual; para
-            anos anteriores, use o informe da instituição.
+            Na declaração, investimentos entram pelo custo de aquisição, não pelo valor de mercado. Os cadastrados à mão aparecem enquanto
+            existirem no Nexos (o app não registra vendas). Os do banco são a posição de hoje e só aparecem no ano corrente.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {summary.bankAssetsOmitted > 0 && (
+            <p className="text-sm text-muted-foreground mb-3">
+              {summary.bankAssetsOmitted} investimento{summary.bankAssetsOmitted > 1 ? "s" : ""} do banco não {summary.bankAssetsOmitted > 1 ? "aparecem" : "aparece"} aqui:
+              o Nexos só tem a posição de hoje, não a de 31/12/{year}. Use o informe de rendimentos da instituição.
+            </p>
+          )}
           {summary.assets.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum investimento registrado.</p> : (
             <ul className="divide-y text-sm">
               {summary.assets.map((a, i) => (

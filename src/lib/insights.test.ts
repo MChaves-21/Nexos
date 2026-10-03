@@ -40,8 +40,8 @@ describe("monthSummary / summaryHeadline", () => {
 
   it("ignores transfers and compares with last month", () => {
     const s = monthSummary(txs, now);
-    expect(s).toMatchObject({ income: 5000, expense: 900, balance: 4100, previousExpense: 1000 });
-    expect(s.expenseChangePct).toBeCloseTo(-10);
+    expect(s).toMatchObject({ income: 5000, expense: 900, balance: 4100, spending: 900, invested: 0, saved: 4100, previousSpending: 1000 });
+    expect(s.spendingChangePct).toBeCloseTo(-10);
   });
 
   it("writes a plain-language sentence", () => {
@@ -128,5 +128,41 @@ describe("averageMonthlySavings", () => {
     ];
     expect(averageMonthlySavings(txs, now)).toBe(750);
     expect(averageMonthlySavings([], now)).toBeNull();
+  });
+});
+
+describe("aportes não são gastos", () => {
+  const txs = [
+    tx("2026-09-05", 5000, "Salário", "Salário", "income"),
+    tx("2026-09-06", 3000, "Moradia"),
+    tx("2026-09-07", 1500, "Investimento", "Aplicação RDB"),
+    tx("2026-09-08", 200, "Investimento", "Resgate RDB", "income"),
+    tx("2026-08-07", 1500, "Investimento", "Aplicação RDB"),
+    tx("2026-07-07", 1500, "Investimento", "Aplicação RDB"),
+  ];
+
+  it("o resumo separa gasto, investido e o que ficou na conta", () => {
+    const s = monthSummary(txs, now);
+    expect(s).toMatchObject({ income: 5200, expense: 4500, balance: 700, spending: 3000, invested: 1300, saved: 2000 });
+    expect(summaryHeadline(s)).toMatch(/Você gastou R\$\s?3\.000,00 este mês\. Investiu R\$\s?1\.300,00\. Sobraram R\$\s?700,00 na conta\./);
+  });
+
+  it("investimento não aparece nas maiores categorias, alertas nem cobranças recorrentes", () => {
+    expect(topExpenseCategories(txs, now, 5).map((c) => c.category)).toEqual(["Moradia"]);
+    expect(unusualSpending(txs, now).map((a) => a.category)).not.toContain("Investimento");
+    expect(recurringCharges(txs, now).map((r) => r.category)).not.toContain("Investimento");
+  });
+
+  it("quem investe todo mês aparece guardando dinheiro no simulador", () => {
+    const monthly = [1, 2, 3].flatMap((n) => {
+      const m = `2026-0${9 - n}`;
+      return [tx(`${m}-05`, 5000, "Salário", "Salário", "income"), tx(`${m}-06`, 3500, "Moradia"), tx(`${m}-07`, 1500, "Investimento")];
+    });
+    expect(averageMonthlySavings(monthly, now)).toBe(1500);
+  });
+
+  it("estorno (saída negativa) abate o gasto da categoria", () => {
+    const s = monthSummary([tx("2026-09-06", 300, "Compras"), tx("2026-09-07", -100, "Compras")], now);
+    expect(s.spending).toBe(200);
   });
 });
