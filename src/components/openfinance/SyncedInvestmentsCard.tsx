@@ -29,6 +29,8 @@ const SyncedInvestmentsCard = ({ hideWhenEmpty = false }: { hideWhenEmpty?: bool
   const { accounts } = useBankConnections();
   const { transactions } = useSyncedTransactions();
   const history = useInvestmentBalanceHistory();
+  // Dia do primeiro saldo guardado (a estimativa precisa de pelo menos dois dias)
+  const firstHistoryDate = history.reduce<string | null>((min, h) => (!min || h.date < min ? h.date : min), null);
 
   const totals = useMemo(() => {
     const balance = investments.reduce((s, i) => s + Number(i.balance), 0);
@@ -109,7 +111,10 @@ const SyncedInvestmentsCard = ({ hideWhenEmpty = false }: { hideWhenEmpty?: bool
                   <>
                     <p className="text-lg font-semibold text-muted-foreground">Calculando…</p>
                     <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                      O banco não envia quanto rendeu. O Nexos estima pela variação do saldo a partir do segundo dia de sincronização.
+                      O banco não envia quanto rendeu. O Nexos estima pela variação do saldo entre dois dias diferentes.{" "}
+                      {firstHistoryDate
+                        ? `Primeiro saldo guardado em ${format(new Date(`${firstHistoryDate}T12:00`), "dd/MM")}: a estimativa aparece depois da sincronização de amanhã (automática às 06:00).`
+                        : "Nenhum saldo guardado ainda: sincronize para começar."}
                     </p>
                   </>
                 ) : (

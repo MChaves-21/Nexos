@@ -248,9 +248,12 @@ export async function syncConnection(
       let del = supabase.from("synced_investments").delete().eq("bank_connection_id", connection.id).eq("user_id", userId);
       if (current.length) del = del.not("external_id", "in", `(${current.map((id) => `"${id}"`).join(",")})`);
       await del;
+    }
 
-      // Saldo do dia (horário de Brasília) para estimar o rendimento quando o banco não informa.
-      // Só com dados completos: uma lista vazia por falha viraria "saldo zero" e um falso prejuízo.
+    // Saldo do dia (horário de Brasília) para estimar o rendimento quando o banco não informa.
+    // Grava sempre que vierem posições; lista vazia só conta com dados completos (senão viraria "saldo zero"
+    // e um falso prejuízo). Antes só gravava com o item atualizado, e o rendimento ficava em "Calculando".
+    if (invRows.length > 0 || fresh) {
       const total = invRows.reduce((s, r) => s + Number(r.balance ?? 0), 0);
       const { error: historyError } = await supabase.from("investment_balance_history").upsert(
         { user_id: userId, bank_connection_id: connection.id, date: localDate(new Date()).iso, balance: total },
