@@ -22,6 +22,13 @@
       "when": 1791053547329,
       "tag": "0002_financial_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791053556670,
+      "tag": "0003_transactions_amount_positive",
+      "breakpoints": true
     }
   ]
 }
