@@ -10,7 +10,7 @@ export const GLOSSARY = {
   },
   transferencia: {
     term: "Por que transferências não contam?",
-    text: "Mandar dinheiro de uma conta sua para outra, pagar a fatura ou aplicar em investimento não é gasto nem ganho; só muda o dinheiro de lugar.",
+    text: "Mandar dinheiro de uma conta sua para outra ou pagar a fatura não é gasto nem ganho; só muda o dinheiro de lugar. Já investimentos aparecem como no extrato: aplicar é saída e dividendos ou resgates são entrada, sem mudar o seu patrimônio.",
   },
   recorrente: {
     term: "Cobrança recorrente",
