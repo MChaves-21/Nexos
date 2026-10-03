@@ -16,6 +16,7 @@ import {
 import { categorizeByRules, type CategorizationRule } from "./categorization.ts";
 import { categorizeWithAI } from "./ai-categorize.ts";
 import { assertItemOwnership, isMissingRelation } from "./validation.ts";
+import { localDate } from "./dates.ts";
 
 export interface BankConnectionRow {
   id: string;
@@ -31,6 +32,8 @@ export interface SyncResult {
   investments: number;
   status: string;
   detail: string | null;
+  /** Quando a Pluggy buscou os dados no banco pela última vez */
+  bankUpdatedAt?: string | null;
 }
 
 const CHUNK = 500;
@@ -57,7 +60,7 @@ export async function syncConnection(
     if (e instanceof PluggyError && e.status === 404) {
       const detail = "Conexão não encontrada na Pluggy. Remova e conecte o banco de novo.";
       await supabase.from("bank_connections").update({ status: "error", status_detail: detail }).eq("id", connection.id);
-      return { synced: 0, total: 0, accounts: 0, investments: 0, status: "error", detail };
+      return { synced: 0, total: 0, accounts: 0, investments: 0, status: "error", detail, bankUpdatedAt: null };
     }
     throw e;
   }
@@ -156,6 +159,14 @@ export async function syncConnection(
     if (current.length) del = del.not("external_id", "in", `(${current.map((id) => `"${id}"`).join(",")})`);
     await del;
     investments = invRows.length;
+
+    // Saldo do dia (horário de Brasília) para estimar o rendimento quando o banco não informa
+    const total = invRows.reduce((s, r) => s + Number(r.balance ?? 0), 0);
+    const { error: historyError } = await supabase.from("investment_balance_history").upsert(
+      { user_id: userId, bank_connection_id: connection.id, date: localDate(new Date()).iso, balance: total },
+      { onConflict: "bank_connection_id,date" },
+    );
+    if (historyError && !isMissingRelation(historyError)) console.error("balance history failed:", historyError.message);
   } catch (e) {
     console.error("investments sync failed:", e instanceof Error ? e.message : e);
     investmentWarning = "Não foi possível buscar os investimentos desta conexão.";
@@ -163,16 +174,21 @@ export async function syncConnection(
 
   // 5. Estado da conexão
   const detail = [itemStatus.detail, investmentWarning].filter(Boolean).join(" ") || null;
-  await supabase
+  const state = {
+    institution_name: resolveInstitutionName(item, pluggyAccounts),
+    last_sync_at: new Date().toISOString(),
+    status: itemStatus.status,
+    status_detail: detail,
+    consent_expires_at: itemStatus.consentExpiresAt,
+  };
+  const { error: stateError } = await supabase
     .from("bank_connections")
-    .update({
-      institution_name: resolveInstitutionName(item, pluggyAccounts),
-      last_sync_at: new Date().toISOString(),
-      status: itemStatus.status,
-      status_detail: detail,
-      consent_expires_at: itemStatus.consentExpiresAt,
-    })
+    .update({ ...state, bank_updated_at: item.lastUpdatedAt ?? null })
     .eq("id", connection.id);
+  // Banco ainda sem a coluna bank_updated_at (migração pendente): grava o resto
+  if (stateError && isMissingRelation(stateError)) {
+    await supabase.from("bank_connections").update(state).eq("id", connection.id);
+  }
 
   // 6. IA só para o que as regras não resolveram
   if (toCategorize.length) {
@@ -183,5 +199,8 @@ export async function syncConnection(
     }
   }
 
-  return { synced, total, accounts: pluggyAccounts.length, investments, status: itemStatus.status, detail };
+  return {
+    synced, total, accounts: pluggyAccounts.length, investments, status: itemStatus.status, detail,
+    bankUpdatedAt: item.lastUpdatedAt ?? null,
+  };
 }

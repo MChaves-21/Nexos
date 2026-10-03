@@ -6,6 +6,7 @@ export const USER_TABLES_DELETE_ORDER = [
   "bills",
   "synced_transactions",
   "synced_investments",
+  "investment_balance_history",
   "bank_accounts",
   "bank_connections",
   "categorization_rules",
