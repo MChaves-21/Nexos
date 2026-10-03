@@ -89,8 +89,9 @@ const Expenses = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
 
   // Lançamentos manuais + transações do banco ainda não importadas
-  const { transactions, manualDuplicates, isLoading, addTransaction, updateTransaction, deleteTransaction, approveCategory } = useAllTransactions();
+  const { transactions, manualDuplicates, reversals, isLoading, addTransaction, updateTransaction, deleteTransaction, approveCategory } = useAllTransactions();
   const [showDuplicates, setShowDuplicates] = useState(false);
+  const [showReversals, setShowReversals] = useState(false);
 
   /** Valor digitado precisa ser maior que zero (o tipo Entrada/Saída já diz o sinal). */
   const validAmount = (raw: string): number | null => {
@@ -792,6 +793,34 @@ const Expenses = () => {
       </div>
 
       <TipCard page="expenses" />
+
+      {/* Compra devolvida por inteiro (ex.: corrida cancelada): some da lista e dos totais */}
+      {reversals.length > 0 && (
+        <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <p className="text-muted-foreground">
+              {reversals.length === 1
+                ? "1 compra foi reembolsada por inteiro e não aparece na lista nem nos totais."
+                : `${reversals.length} compras foram reembolsadas por inteiro e não aparecem na lista nem nos totais.`}
+            </p>
+            <Button variant="ghost" size="sm" onClick={() => setShowReversals((v) => !v)}>
+              {showReversals ? "Esconder" : "Ver quais"}
+            </Button>
+          </div>
+          {showReversals && (
+            <ul className="divide-y">
+              {reversals.map(({ expense, refund }) => (
+                <li key={expense.id} className="py-2">
+                  <span className="font-medium">{expense.description}</span>{" "}
+                  <span className="text-muted-foreground">
+                    ({format(parseISO(expense.date), "dd/MM")}, R$ {formatDecimal2(Math.abs(expense.amount))}), devolvida em {format(parseISO(refund.date), "dd/MM")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Lançado à mão e também vindo do banco: só a do banco entra nos totais */}
       {manualDuplicates.length > 0 && (

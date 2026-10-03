@@ -1,7 +1,7 @@
 import type { Transaction } from "@/hooks/useTransactions";
 import type { SyncedTransaction } from "@/hooks/useBankConnections";
 import { resolveCategory } from "@shared/categorization";
-import { findManualDuplicates, findOwnTransfers, isCardRefund, type LedgerRow } from "@shared/ledger";
+import { findManualDuplicates, findOwnTransfers, findReversalPairs, isCardRefund, isRefundDescription, type LedgerRow } from "@shared/ledger";
 
 /** Transação vista pelas telas: lançada à mão ou vinda do banco (Pluggy/arquivo). */
 export interface UnifiedTransaction {
@@ -35,6 +35,8 @@ export interface Ledger {
   transactions: UnifiedTransaction[];
   /** Lançamentos manuais que repetem uma transação do banco: ficam fora dos totais */
   manualDuplicates: Array<{ manual: UnifiedTransaction; bank: UnifiedTransaction }>;
+  /** Compras devolvidas por inteiro (pagou e recebeu o mesmo valor de volta): fora da lista e dos totais */
+  reversals: Array<{ expense: UnifiedTransaction; refund: UnifiedTransaction }>;
 }
 
 const accountKeyOf = (t: SyncedTransaction) => t.bank_account_id ?? `${t.bank_connection_id}:${t.source}`;
@@ -74,11 +76,19 @@ export function buildLedger(manual: Transaction[], synced: SyncedTransaction[], 
     locked: t.category_source === "user",
   }));
   const transfers = findOwnTransfers(bankRows);
+  // Reembolso total: a compra e a devolução se anulam (transferências não entram)
+  const pairs = findReversalPairs(
+    bankRows.filter((r) => !transfers.has(r.id) && r.category !== "Transferência" && r.category !== "Investimento"),
+  );
+  const reversed = new Set(pairs.flatMap((p) => [p.expenseId, p.refundId]));
 
   const fromBank: UnifiedTransaction[] = pending.map((t, idx) => {
     const row = bankRows[idx];
     const category = transfers.has(t.id) ? "Transferência" : row.category;
-    const refund = isCardRefund({ type: row.type, category }, isCard(t, opts.cardAccountIds));
+    // Estorno no cartão ou entrada de reembolso/devolução: abate o gasto em vez de virar renda
+    const refund =
+      isCardRefund({ type: row.type, category }, isCard(t, opts.cardAccountIds)) ||
+      (row.type === "income" && category !== "Transferência" && category !== "Investimento" && isRefundDescription(t.description));
     return {
       id: t.id,
       origin: "bank",
@@ -97,15 +107,20 @@ export function buildLedger(manual: Transaction[], synced: SyncedTransaction[], 
   const asLedger = (t: UnifiedTransaction): LedgerRow => ({
     id: t.id, type: t.type, amount: Math.abs(t.amount), date: t.date, description: t.description, category: t.category, accountKey: null,
   });
-  const duplicates = findManualDuplicates(fromManual.map(asLedger), fromBank.filter((t) => !t.refund).map(asLedger));
+  const visibleBank = fromBank.filter((t) => !reversed.has(t.id));
+  const duplicates = findManualDuplicates(fromManual.map(asLedger), visibleBank.filter((t) => !t.refund).map(asLedger));
   const bankById = new Map(fromBank.map((t) => [t.id, t]));
+
+  // Pares de reembolso total, para a tela mostrar o que foi ocultado
+  const reversalPairs: Ledger["reversals"] = pairs.map((p) => ({ expense: bankById.get(p.expenseId)!, refund: bankById.get(p.refundId)! }));
 
   const byDateDesc = (a: UnifiedTransaction, b: UnifiedTransaction) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
   return {
-    transactions: [...fromManual.filter((t) => !duplicates.has(t.id)), ...fromBank].sort(byDateDesc),
+    transactions: [...fromManual.filter((t) => !duplicates.has(t.id)), ...visibleBank].sort(byDateDesc),
     manualDuplicates: fromManual
       .filter((t) => duplicates.has(t.id))
       .map((t) => ({ manual: t, bank: bankById.get(duplicates.get(t.id)!)! })),
+    reversals: reversalPairs.sort((a, b) => byDateDesc(a.refund, b.refund)),
   };
 }
 

@@ -66,3 +66,21 @@ describe("buildLedger", () => {
     expect(ledger.manualDuplicates.map((d) => [d.manual.id, d.bank.id])).toEqual([["m1", "s1"]]);
   });
 });
+
+describe("reembolsos", () => {
+  it("compra reembolsada por inteiro sai da lista e fica em reversals", () => {
+    const pay = synced("p", "2026-10-03", { description: "Transferência enviada pelo Pix|99 TECNOLOGIA", amount: 6.7, ai_category: "Transporte", bank_account_id: "nu" });
+    const back = synced("r", "2026-10-03", { description: "Reembolso recebido pelo Pix|99 TECNOLOGIA", amount: 6.7, type: "income", ai_category: "Transporte", bank_account_id: "nu" });
+    const other = synced("o", "2026-10-02", { description: "Uber", amount: 20, ai_category: "Transporte", bank_account_id: "nu" });
+    const ledger = buildLedger([], [pay, back, other]);
+    expect(ledger.transactions.map((t) => t.id)).toEqual(["o"]);
+    expect(ledger.reversals.map((p) => [p.expense.id, p.refund.id])).toEqual([["p", "r"]]);
+  });
+
+  it("reembolso parcial abate o gasto em vez de virar renda", () => {
+    const pay = synced("p", "2026-10-01", { description: "Pix enviado - LOJA", amount: 100, ai_category: "Compras", bank_account_id: "nu" });
+    const back = synced("r", "2026-10-05", { description: "Reembolso recebido - LOJA", amount: 30, type: "income", ai_category: "Compras", bank_account_id: "nu" });
+    const [r] = buildLedger([], [pay, back]).transactions;
+    expect(r).toMatchObject({ id: "r", type: "expense", amount: -30, refund: true });
+  });
+});

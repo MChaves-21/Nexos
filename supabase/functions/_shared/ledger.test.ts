@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorizeByRules, categorizeIncoming, extractKeyword, mapSourceCategory, resolveCategory } from "./categorization";
-import { findManualDuplicates, findOwnTransfers, isCardRefund, type LedgerRow } from "./ledger";
+import { findManualDuplicates, findOwnTransfers, findReversals, isCardRefund, isRefundDescription, type LedgerRow } from "./ledger";
 import { isSpending } from "./flows";
 
 describe("Pix não é transferência por padrão", () => {
@@ -106,5 +106,33 @@ describe("gasto x aporte", () => {
     expect(isSpending("Investimento")).toBe(false);
     expect(isSpending("Transferência")).toBe(false);
     expect(isSpending("Moradia")).toBe(true);
+  });
+});
+
+describe("reembolso total", () => {
+  it("corrida cancelada: o Pix e o reembolso do mesmo valor se anulam", () => {
+    const rows = [
+      row("e1", "expense", 6.7, "2026-10-03", "Transferência enviada pelo Pix|99 TECNOLOGIA LTDA", "nubank", "Transporte"),
+      row("r1", "income", 6.7, "2026-10-03", "Reembolso recebido pelo Pix|99 TECNOLOGIA LTDA", "nubank", "Transporte"),
+      row("e2", "expense", 6.7, "2026-10-03", "Transferência enviada pelo Pix|PADARIA", "nubank", "Alimentação"),
+    ];
+    expect([...findReversals(rows)].sort()).toEqual(["e1", "r1"]);
+  });
+
+  it("não junta valor diferente, outra loja, outra conta, reembolso antes da compra ou entrada comum", () => {
+    const e = row("e", "expense", 50, "2026-10-01", "Pix enviado - LOJA ALFA", "nubank");
+    expect(findReversals([e, row("r", "income", 30, "2026-10-02", "Reembolso LOJA ALFA", "nubank")]).size).toBe(0);
+    expect(findReversals([e, row("r", "income", 50, "2026-10-02", "Reembolso LOJA BETA", "nubank")]).size).toBe(0);
+    expect(findReversals([e, row("r", "income", 50, "2026-10-02", "Reembolso LOJA ALFA", "itau")]).size).toBe(0);
+    expect(findReversals([e, row("r", "income", 50, "2026-09-30", "Reembolso LOJA ALFA", "nubank")]).size).toBe(0);
+    expect(findReversals([e, row("r", "income", 50, "2026-10-02", "Pix recebido - LOJA ALFA", "nubank")]).size).toBe(0);
+    expect(findReversals([e, row("r", "income", 50, "2026-11-15", "Reembolso LOJA ALFA", "nubank")]).size).toBe(0);
+  });
+
+  it("reconhece reembolso, estorno e devolução na descrição", () => {
+    expect(isRefundDescription("Reembolso recebido pelo Pix")).toBe(true);
+    expect(isRefundDescription("Estorno de compra")).toBe(true);
+    expect(isRefundDescription("Devolução Mercado Livre")).toBe(true);
+    expect(isRefundDescription("Transferência recebida")).toBe(false);
   });
 });

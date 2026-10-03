@@ -29,6 +29,8 @@ export const useAllTransactions = () => {
     transactions: ledger.transactions,
     /** Lançamentos manuais que o banco também trouxe: fora dos totais até a pessoa decidir */
     manualDuplicates: ledger.manualDuplicates,
+    /** Compras devolvidas por inteiro: fora da lista e dos totais */
+    reversals: ledger.reversals,
     isLoading: manual.isLoading || synced.isLoading,
     addTransaction: manual.addTransaction,
     updateTransaction: manual.updateTransaction,
