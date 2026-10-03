@@ -36,7 +36,7 @@ import { PriceAlertSettings } from "@/components/investments/PriceAlertSettings"
 import { TickerInput } from "@/components/investments/TickerInput";
 import { parseISO } from "date-fns";
 import { useSyncedInvestments } from "@/hooks/useBankConnections";
-import { buildPortfolio, type PortfolioItem } from "@/lib/portfolio";
+import { buildPortfolio, portfolioTotals, type PortfolioItem } from "@/lib/portfolio";
 import BenchmarkCard from "@/components/investments/BenchmarkCard";
 import InfoHint from "@/components/InfoHint";
 import TipCard from "@/components/TipCard";
@@ -211,7 +211,7 @@ const Investments = () => {
     const monthlyData = months.map(mes => ({ mes, rendimento: 0 }));
     
     // Calculate returns for each investment in the selected year
-    investments.forEach(inv => {
+    investments.filter(inv => inv.gainKnown).forEach(inv => {
       const purchaseDate = parseISO(inv.purchase_date);
       const purchaseYear = purchaseDate.getFullYear();
       const purchaseMonth = purchaseDate.getMonth();
@@ -562,10 +562,13 @@ const Investments = () => {
     setIsEditDialogOpen(false);
   };
 
-  const totalInvested = investments.reduce((sum, item) => sum + (item.purchase_price * item.quantity), 0);
-  const totalCurrent = investments.reduce((sum, item) => sum + (item.current_price * item.quantity), 0);
-  const totalGain = totalCurrent - totalInvested;
-  const totalGainPercentage = totalInvested > 0 ? ((totalGain / totalInvested) * 100).toFixed(2) : '0.00';
+  // Ganho só das posições com valor aplicado conhecido (caixinhas do banco muitas vezes não informam)
+  const totals = portfolioTotals(investments);
+  // Posições sem valor aplicado entram pelo valor atual (não sabemos quanto foi aplicado)
+  const totalInvested = totals.invested + totals.unknownValue;
+  const totalCurrent = totals.current;
+  const totalGain = totals.gain;
+  const totalGainPercentage = totals.gainPct.toFixed(2);
 
   const calculateGain = (item: typeof investments[0]) => {
     const invested = item.purchase_price * item.quantity;
@@ -768,6 +771,11 @@ const Investments = () => {
             <p className={`text-xs mt-1 ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
               {totalGain >= 0 ? '+' : ''}{totalGainPercentage}%
             </p>
+            {totals.unknownCount > 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1 leading-tight">
+                Sem contar R$ {totals.unknownValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} do banco cujo rendimento não é informado
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -802,6 +810,12 @@ const Investments = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {performanceData.every(d => d.rendimento === 0) ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Nenhum ganho para mostrar em {selectedYear}. O gráfico usa os investimentos cadastrados aqui
+              (compra × preço atual); posições do banco sem valor aplicado informado não entram.
+            </p>
+          ) : (
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={performanceData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -857,6 +871,7 @@ const Investments = () => {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -1347,16 +1362,20 @@ const Investments = () => {
                           <p className="font-semibold text-sm sm:text-base">
                             R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </p>
+                          {item.gainKnown ? (
                           <div className="flex items-center gap-1 sm:justify-end mt-0.5">
                             {isPositive ? (
-                              <TrendingUp className="h-3 w-3 text-success" />
+                              <TrendingUp className="h-3 w-3 text-success" aria-hidden />
                             ) : (
-                              <TrendingDown className="h-3 w-3 text-destructive" />
+                              <TrendingDown className="h-3 w-3 text-destructive" aria-hidden />
                             )}
                             <span className={`text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
                               {isPositive ? '+' : ''}{percentage}%
                             </span>
                           </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mt-0.5">Rendimento não informado</p>
+                          )}
                         </div>
                         {item.origin === 'manual' ? (
                         <div className="flex gap-1 shrink-0">

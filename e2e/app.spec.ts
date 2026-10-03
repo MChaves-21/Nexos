@@ -285,3 +285,56 @@ test.describe("Excluir com desfazer", () => {
     expect(deleted).toHaveLength(2);
   });
 });
+
+test.describe("Lista de transações", () => {
+  test("mostra 10 por vez com Ver mais no fim", async ({ page, context }) => {
+    const tables = fixtures();
+    const today = new Date().toISOString().slice(0, 10);
+    tables.synced_transactions = [];
+    tables.transactions = Array.from({ length: 25 }, (_, i) => ({
+      id: `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`, user_id: USER_ID, type: "expense", category: "Outros",
+      description: `Compra ${i + 1}`, amount: 10 + i, date: today, created_at: "", updated_at: "",
+    }));
+    await mockSupabase(context, { tables });
+    await page.goto("/expenses");
+    const deleteButtons = page.getByRole("button", { name: /^Excluir Compra/ });
+    await expect(deleteButtons).toHaveCount(10);
+    await page.getByRole("button", { name: /Ver mais 10/ }).click();
+    await expect(deleteButtons).toHaveCount(20);
+    await page.getByRole("button", { name: /Ver mais 5/ }).click();
+    await expect(deleteButtons).toHaveCount(25);
+    await expect(page.getByRole("button", { name: /Ver mais/ })).toHaveCount(0);
+  });
+});
+
+test.describe("Conexões do banco", () => {
+  test("contas com nomes legíveis, saldo x fatura e data dos dados do banco", async ({ page, context }) => {
+    await mockSupabase(context);
+    await page.goto("/open-finance");
+    await expect(page.getByText("Dados do banco de 02/10 21:36")).toBeVisible();
+    await expect(page.getByText("Conta corrente").first()).toBeVisible();
+    await expect(page.getByText("Nu Pagamentos S.A.", { exact: false })).toHaveCount(0);
+    await expect(page.getByText("Cartão Nubank").first()).toBeVisible();
+    await expect(page.getByText(/Limite usado R\$\s850,50 de R\$\s5\.000,00/)).toBeVisible();
+  });
+});
+
+test.describe("Investimentos no banco", () => {
+  test("separa investimentos e conta e estima o rendimento pela variação do saldo", async ({ page, context }) => {
+    const tables = fixtures();
+    // Banco sem rendimento informado (como as caixinhas do Nubank)
+    tables.synced_investments = (tables.synced_investments as Array<Record<string, unknown>>).map((i) => ({ ...i, amount_profit: null, amount_original: null }));
+    tables.investment_balance_history = [
+      { bank_connection_id: "c1", date: "2026-09-01", balance: 3600 },
+      { bank_connection_id: "c1", date: "2026-10-01", balance: 3744.8 },
+    ];
+    await mockSupabase(context, { tables });
+    await page.goto("/open-finance");
+    // 2.644,80 + 1.100 em investimentos + 3.200 na conta (o cartão não entra)
+    await expect(page.getByText(/R\$\s3\.200,00 na conta =\s*R\$\s6\.944,80\s*no banco/)).toBeVisible();
+    // Posição zerada (resgatada) não aparece
+    await expect(page.getByText("Resgatado")).toHaveCount(0);
+    await expect(page.getByText(/≈\s*R\$\s144,80/)).toBeVisible();
+    await expect(page.getByText(/Desde 01\/09/)).toBeVisible();
+  });
+});

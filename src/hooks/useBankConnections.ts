@@ -19,6 +19,9 @@ export interface SyncResult {
   investments: number;
   status: string;
   detail: string | null;
+  bankUpdatedAt?: string | null;
+  /** O banco foi consultado agora? (a Pluggy pode recusar por limite de atualizações) */
+  refresh?: "updated" | "still-updating" | "not-allowed" | "failed" | "skipped";
 }
 
 /** Chama uma Edge Function e devolve a mensagem de erro dela em vez do genérico "non-2xx". */
@@ -66,6 +69,7 @@ export const useBankConnections = () => {
     queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
     queryClient.invalidateQueries({ queryKey: ["synced-transactions"] });
     queryClient.invalidateQueries({ queryKey: ["synced-investments"] });
+    queryClient.invalidateQueries({ queryKey: ["investment-balance-history"] });
   };
 
   /** Sem itemId: nova conexão. Com itemId: widget em modo de atualização (reconectar). */
@@ -82,9 +86,14 @@ export const useBankConnections = () => {
     onSuccess: (data) => {
       invalidateAll();
       const investments = data.investments ? ` · ${data.investments} investimentos atualizados` : "";
+      const freshness =
+        data.refresh === "updated" ? " Dados buscados no banco agora."
+        : data.refresh === "still-updating" ? " O banco ainda está enviando dados; sincronize de novo em alguns minutos."
+        : data.refresh === "not-allowed" ? " O banco não permitiu nova consulta agora; mostrando a última atualização disponível."
+        : "";
       toast({
         title: data.status === "reauth_required" ? "Reconexão necessária" : "Sincronização concluída",
-        description: data.detail ?? `${data.synced} novas transações de ${data.total} encontradas${investments}.`,
+        description: data.detail ?? `${data.synced} novas transações de ${data.total} encontradas${investments}.${freshness}`,
         variant: data.status === "reauth_required" ? "destructive" : "default",
       });
     },
@@ -312,4 +321,25 @@ export const useSyncedInvestments = () => {
   });
 
   return { investments, isLoading };
+};
+
+export interface BalanceHistoryPoint { bank_connection_id: string; date: string; balance: number }
+
+/** Histórico diário do saldo dos investimentos (vazio se a migração ainda não foi aplicada). */
+export const useInvestmentBalanceHistory = () => {
+  const { data = [] } = useQuery({
+    queryKey: ["investment-balance-history"],
+    queryFn: async () => {
+      try {
+        const rows = await fetchAllRows((from, to) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from("investment_balance_history").select("bank_connection_id, date, balance").order("date").order("id").range(from, to),
+        );
+        return (rows as BalanceHistoryPoint[]).map((r) => ({ ...r, balance: Number(r.balance) }));
+      } catch {
+        return [];
+      }
+    },
+  });
+  return data;
 };

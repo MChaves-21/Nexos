@@ -3,6 +3,7 @@ import { corsHeaders, errorResponse, getServiceClient, getUserClient, jsonRespon
 import { requireUuid } from "../_shared/validation.ts";
 import { getApiKeyForUser } from "../_shared/pluggy-credentials.ts";
 import { syncConnection } from "../_shared/sync-core.ts";
+import { refreshItem } from "../_shared/item-refresh.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -32,8 +33,19 @@ serve(async (req) => {
 
     try {
       const { apiKey } = await getApiKeyForUser(getServiceClient(), userId);
+      // Sincronizar na mão = dados de agora: pede à Pluggy para buscar no banco antes de ler.
+      // Se ela recusar ou demorar, segue com o que já existe (a próxima sync pega o resto).
+      let refresh: string = "skipped";
+      if (connection.pluggy_item_id) {
+        try {
+          refresh = await refreshItem(apiKey, connection.pluggy_item_id);
+        } catch (e) {
+          console.warn("pluggy-sync: atualização no banco falhou:", e instanceof Error ? e.message : "erro");
+          refresh = "failed";
+        }
+      }
       const result = await syncConnection(supabase, connection, apiKey);
-      return jsonResponse(result);
+      return jsonResponse({ ...result, refresh });
     } catch (e) {
       await supabase
         .from("bank_connections")

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useBankConnections, type BankConnection } from "@/hooks/useBankConnections";
 import FileImportDialog from "./FileImportDialog";
+import { accountTitle, amountLabel, creditUsage } from "@/lib/accounts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -208,7 +209,11 @@ const BankConnectionsManager = () => {
                         <p className="font-medium text-sm truncate">{conn.institution_name}</p>
                         <div className="flex items-center gap-2 flex-wrap">
                           {getStatusBadge(conn)}
-                          {conn.last_sync_at && (
+                          {isPluggy && conn.bank_updated_at ? (
+                            <span className="text-xs text-muted-foreground" title={conn.last_sync_at ? `Lido pelo Nexos em ${format(new Date(conn.last_sync_at), "dd/MM HH:mm")}` : undefined}>
+                              Dados do banco de {format(new Date(conn.bank_updated_at), "dd/MM HH:mm", { locale: ptBR })}
+                            </span>
+                          ) : conn.last_sync_at && (
                             <span className="text-xs text-muted-foreground">
                               {isPluggy ? "Última sync" : "Última importação"}:{" "}
                               {format(new Date(conn.last_sync_at), "dd/MM HH:mm", { locale: ptBR })}
@@ -264,18 +269,28 @@ const BankConnectionsManager = () => {
 
                   {connAccounts.length > 0 && (
                     <div className="grid gap-1 sm:grid-cols-2">
-                      {connAccounts.map((acc) => (
-                        <div key={acc.id} className="flex min-w-0 items-center justify-between gap-2 text-xs rounded-md bg-muted/50 px-2 py-1.5">
-                          <span className="flex items-center gap-1.5 min-w-0">
-                            {acc.type === "CREDIT" ? <CreditCard className="h-3 w-3 flex-shrink-0" /> : <Wallet className="h-3 w-3 flex-shrink-0" />}
-                            <span className="truncate">{acc.name}</span>
-                          </span>
-                          <span className="font-medium whitespace-nowrap">
-                            {acc.type === "CREDIT" ? "Fatura " : ""}
-                            {formatCurrency(acc.balance)}
-                          </span>
-                        </div>
-                      ))}
+                      {connAccounts.map((acc) => {
+                        const usage = creditUsage(acc);
+                        return (
+                          <div key={acc.id} className="text-xs rounded-md bg-muted/50 px-2 py-1.5 min-w-0" title={acc.name}>
+                            <div className="flex min-w-0 items-center justify-between gap-2">
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                {acc.type === "CREDIT" ? <CreditCard className="h-3 w-3 flex-shrink-0" aria-hidden /> : <Wallet className="h-3 w-3 flex-shrink-0" aria-hidden />}
+                                <span className="truncate font-medium">{accountTitle(acc)}</span>
+                              </span>
+                              <span className="whitespace-nowrap">
+                                <span className="text-muted-foreground">{amountLabel(acc)} </span>
+                                <span className="font-medium">{formatCurrency(acc.balance)}</span>
+                              </span>
+                            </div>
+                            {usage && (
+                              <p className="text-muted-foreground mt-0.5">
+                                Limite usado {formatCurrency(usage.used)} de {formatCurrency(usage.limit)}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 

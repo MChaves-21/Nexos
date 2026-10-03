@@ -2,9 +2,11 @@ import { useMemo } from "react";
 import { Landmark, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useSyncedInvestments } from "@/hooks/useBankConnections";
+import { useBankConnections, useInvestmentBalanceHistory, useSyncedInvestments, useSyncedTransactions } from "@/hooks/useBankConnections";
+import { estimateYield } from "@/lib/yieldEstimate";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { bankProfit } from "@/lib/portfolio";
 
 const TYPE_LABELS: Record<string, string> = {
   FIXED_INCOME: "Renda fixa",
@@ -20,15 +22,40 @@ const formatCurrency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "c
 
 /** Investimentos lidos do banco via Open Finance (somente leitura; a carteira manual continua separada). */
 const SyncedInvestmentsCard = ({ hideWhenEmpty = false }: { hideWhenEmpty?: boolean }) => {
-  const { investments, isLoading } = useSyncedInvestments();
+  const { investments: allInvestments, isLoading } = useSyncedInvestments();
+  // Posições zeradas (resgatadas) não aparecem nem somam
+  const investments = useMemo(() => allInvestments.filter((i) => Number(i.balance) > 0), [allInvestments]);
+  const { accounts } = useBankConnections();
+  const { transactions } = useSyncedTransactions();
+  const history = useInvestmentBalanceHistory();
 
   const totals = useMemo(() => {
     const balance = investments.reduce((s, i) => s + Number(i.balance), 0);
-    const profit = investments.reduce((s, i) => s + Number(i.amount_profit ?? 0), 0);
+    // Rendimento só das posições em que o banco informa; as outras não contam como zero
+    const profits = investments.map(bankProfit);
+    const known = profits.filter((p): p is number => p !== null);
+    const profit = known.length ? known.reduce((s, p) => s + p, 0) : null;
+    const unknown = profits.length - known.length;
     const byType = new Map<string, number>();
     for (const i of investments) byType.set(i.type, (byType.get(i.type) ?? 0) + Number(i.balance));
-    return { balance, profit, byType: Array.from(byType.entries()).sort((a, b) => b[1] - a[1]) };
-  }, [investments]);
+    // Dinheiro parado na conta (não cartão): para o "total no banco"
+    const inAccounts = accounts.filter((a) => a.type === "BANK").reduce((s, a) => s + Number(a.balance), 0);
+
+    // Sem rendimento informado: estima pela variação do saldo, por conexão, descontando aportes e resgates
+    let estimate: { value: number; since: string } | null = null;
+    if (profit === null) {
+      for (const connId of new Set(history.map((h) => h.bank_connection_id))) {
+        const e = estimateYield(
+          history.filter((h) => h.bank_connection_id === connId),
+          transactions
+            .filter((t) => t.bank_connection_id === connId)
+            .map((t) => ({ date: t.date, amount: Number(t.amount), type: t.type, description: t.description, category: t.ai_category || t.original_category })),
+        );
+        if (e) estimate = { value: (estimate?.value ?? 0) + e.value, since: estimate && estimate.since < e.since ? estimate.since : e.since };
+      }
+    }
+    return { balance, profit, unknown, inAccounts, estimate, byType: Array.from(byType.entries()).sort((a, b) => b[1] - a[1]) };
+  }, [investments, accounts, transactions, history]);
 
   if (hideWhenEmpty && !isLoading && investments.length === 0) return null;
 
@@ -58,15 +85,45 @@ const SyncedInvestmentsCard = ({ hideWhenEmpty = false }: { hideWhenEmpty?: bool
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Saldo total</p>
+                <p className="text-xs text-muted-foreground">Investimentos</p>
                 <p className="text-lg font-semibold">{formatCurrency(totals.balance)}</p>
+                {totals.inAccounts > 0 && (
+                  <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                    + {formatCurrency(totals.inAccounts)} na conta = <span className="font-medium text-foreground">{formatCurrency(totals.balance + totals.inAccounts)}</span> no banco
+                  </p>
+                )}
               </div>
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Rendimento informado</p>
-                <p className={`text-lg font-semibold flex items-center gap-1 ${totals.profit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                  {totals.profit >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                  {formatCurrency(totals.profit)}
-                </p>
+                <p className="text-xs text-muted-foreground">Rendimento</p>
+                {totals.profit === null && totals.estimate ? (
+                  <>
+                    <p className={`text-lg font-semibold ${totals.estimate.value >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      ≈ {formatCurrency(totals.estimate.value)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                      Desde {format(new Date(`${totals.estimate.since}T12:00`), "dd/MM")}, pela variação do saldo sem aportes e resgates. Inclui valorização das ações.
+                    </p>
+                  </>
+                ) : totals.profit === null ? (
+                  <>
+                    <p className="text-lg font-semibold text-muted-foreground">Calculando…</p>
+                    <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                      O banco não envia quanto rendeu. O Nexos estima pela variação do saldo a partir do segundo dia de sincronização.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className={`text-lg font-semibold flex items-center gap-1 ${totals.profit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      {totals.profit >= 0 ? <TrendingUp className="h-4 w-4" aria-hidden /> : <TrendingDown className="h-4 w-4" aria-hidden />}
+                      {formatCurrency(totals.profit)}
+                    </p>
+                    {totals.unknown > 0 && (
+                      <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                        {totals.unknown} {totals.unknown === 1 ? "posição sem" : "posições sem"} rendimento informado pelo banco
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -92,10 +149,10 @@ const SyncedInvestmentsCard = ({ hideWhenEmpty = false }: { hideWhenEmpty?: bool
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold whitespace-nowrap">{formatCurrency(Number(inv.balance))}</p>
-                    {inv.amount_profit != null && (
-                      <p className={`text-[11px] ${Number(inv.amount_profit) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                        {Number(inv.amount_profit) >= 0 ? "+" : ""}
-                        {formatCurrency(Number(inv.amount_profit))}
+                    {bankProfit(inv) !== null && (
+                      <p className={`text-[11px] ${bankProfit(inv)! >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                        {bankProfit(inv)! >= 0 ? "+" : ""}
+                        {formatCurrency(bankProfit(inv)!)}
                       </p>
                     )}
                   </div>

@@ -8,6 +8,7 @@ export const EXPORT_TABLES = [
   "bank_connections",
   "bank_accounts",
   "synced_investments",
+  "investment_balance_history",
   "investments",
   "category_budgets",
   "financial_goals",

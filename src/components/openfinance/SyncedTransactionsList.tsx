@@ -11,6 +11,8 @@ import { ptBR } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 
 import { CATEGORIES } from "@shared/categorization";
+import ShowMoreButton from "@/components/ShowMoreButton";
+import { useShowMore } from "@/hooks/useShowMore";
 
 const SyncedTransactionsList = () => {
   const { transactions, isLoading, approveCategory, importToTransactions } = useSyncedTransactions();
@@ -21,8 +23,7 @@ const SyncedTransactionsList = () => {
   const reviewedTransactions = transactions.filter((t) => t.is_reviewed);
 
   const displayTransactions = showAll ? transactions : pendingTransactions;
-  const visibleLimit = 20;
-  const [visibleCount, setVisibleCount] = useState(visibleLimit);
+  const list = useShowMore(displayTransactions, 10, showAll);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -123,7 +124,7 @@ const SyncedTransactionsList = () => {
                 <label htmlFor="select-all-synced" className="text-xs text-muted-foreground">Selecionar todas</label>
               </div>
             )}
-            {displayTransactions.slice(0, visibleCount).map((tx) => (
+            {list.visible.map((tx) => (
               <TransactionRow
                 key={tx.id}
                 transaction={tx}
@@ -134,17 +135,9 @@ const SyncedTransactionsList = () => {
                 formatAmount={formatAmount}
               />
             ))}
-            {displayTransactions.length > visibleCount && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-2"
-                onClick={() => setVisibleCount((v) => v + visibleLimit)}
-              >
-                <ChevronDown className="h-4 w-4 mr-1" />
-                Ver mais ({displayTransactions.length - visibleCount} restantes)
-              </Button>
-            )}
+            <div className="mt-2">
+              <ShowMoreButton remaining={list.remaining} onClick={list.showMore} />
+            </div>
           </div>
         )}
       </CardContent>
