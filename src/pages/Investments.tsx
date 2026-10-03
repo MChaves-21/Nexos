@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Plus, TrendingUp, TrendingDown, Edit2, Trash2, Calendar, Target, ArrowUpRight, ArrowDownRight, Scale, RefreshCw, Bell, Landmark } from "lucide-react";
 import { useInvestments } from "@/hooks/useInvestments";
-import { formatUnitPrice } from "@/lib/utils";
+import { formatUnitPrice, formatDecimal2 } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAllocationTargets } from "@/hooks/useAllocationTargets";
 import { usePriceAlerts, PriceChange } from "@/hooks/usePriceAlerts";
@@ -742,7 +742,7 @@ const Investments = () => {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-xl sm:text-2xl font-bold">
-              R$ {totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {formatDecimal2(totalInvested)}
             </div>
           </CardContent>
         </Card>
@@ -754,7 +754,7 @@ const Investments = () => {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-xl sm:text-2xl font-bold">
-              R$ {totalCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {formatDecimal2(totalCurrent)}
             </div>
           </CardContent>
         </Card>
@@ -766,14 +766,14 @@ const Investments = () => {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className={`text-xl sm:text-2xl font-bold ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
-              R$ {totalGain.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {formatDecimal2(totalGain)}
             </div>
             <p className={`text-xs mt-1 ${totalGain >= 0 ? 'text-success' : 'text-destructive'}`}>
               {totalGain >= 0 ? '+' : ''}{totalGainPercentage}%
             </p>
             {totals.unknownCount > 0 && (
               <p className="text-[11px] text-muted-foreground mt-1 leading-tight">
-                Sem contar R$ {totals.unknownValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} do banco cujo rendimento não é informado
+                Sem contar R$ {formatDecimal2(totals.unknownValue)} do banco cujo rendimento não é informado
               </p>
             )}
           </CardContent>
@@ -840,7 +840,7 @@ const Investments = () => {
                       <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Rendimento:</span>
                         <span className={`font-medium ${isNeg ? 'text-destructive' : 'text-success'}`}>
-                          {isNeg ? '' : '+'}R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {isNeg ? '' : '+'}R$ {formatDecimal2(value)}
                         </span>
                       </div>
                       {pct && (
@@ -854,7 +854,7 @@ const Investments = () => {
                       {totalInvested > 0 && (
                         <div className="flex justify-between gap-4 border-t border-border mt-1.5 pt-1.5">
                           <span className="text-muted-foreground">Investido:</span>
-                          <span className="font-medium">R$ {totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="font-medium">R$ {formatDecimal2(totalInvested)}</span>
                         </div>
                       )}
                     </div>
@@ -910,7 +910,7 @@ const Investments = () => {
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "var(--radius)"
                     }}
-                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]}
+                    formatter={(value: number) => [`R$ ${formatDecimal2(value)}`]}
                   />
                   <Legend 
                     formatter={(value) => (
@@ -1101,7 +1101,7 @@ const Investments = () => {
                   </div>
                   <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
                     <p className="font-semibold text-sm">
-                      R$ {suggestion.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {formatDecimal2(suggestion.amount)}
                     </p>
                     <Badge 
                       variant={
@@ -1143,12 +1143,12 @@ const Investments = () => {
                     <div className="flex items-center gap-3 text-xs sm:text-sm flex-wrap">
                       <span className="text-muted-foreground">
                         Investido: <span className="text-foreground font-medium">
-                          R$ {item.invested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R$ {formatDecimal2(item.invested)}
                         </span>
                       </span>
                       <span className="text-muted-foreground">
                         Atual: <span className="text-foreground font-medium">
-                          R$ {item.current.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R$ {formatDecimal2(item.current)}
                         </span>
                       </span>
                       <span className={`font-semibold ${item.percentageReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
@@ -1167,7 +1167,7 @@ const Investments = () => {
                       />
                     </div>
                     <span className={`text-sm font-medium min-w-[80px] text-right ${item.gain >= 0 ? 'text-success' : 'text-destructive'}`}>
-                      {item.gain >= 0 ? '+' : ''}R$ {item.gain.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {item.gain >= 0 ? '+' : ''}R$ {formatDecimal2(item.gain)}
                     </span>
                   </div>
                 </div>
@@ -1231,11 +1231,11 @@ const Investments = () => {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                 <div className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Total Investido</p>
-                  <p className="text-sm font-bold">R$ {accumulatedEvolutionData[accumulatedEvolutionData.length - 1]?.investido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-sm font-bold">R$ {formatDecimal2(accumulatedEvolutionData[accumulatedEvolutionData.length - 1]?.investido ?? 0)}</p>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Valor Atual</p>
-                  <p className="text-sm font-bold text-success">R$ {accumulatedEvolutionData[accumulatedEvolutionData.length - 1]?.atual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-sm font-bold text-success">R$ {formatDecimal2(accumulatedEvolutionData[accumulatedEvolutionData.length - 1]?.atual ?? 0)}</p>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-3 col-span-2 sm:col-span-1">
                   <p className="text-xs text-muted-foreground">Resultado</p>
@@ -1245,7 +1245,7 @@ const Investments = () => {
                     const pct = last && last.investido > 0 ? ((diff / last.investido) * 100).toFixed(1) : '0.0';
                     return (
                       <p className={`text-sm font-bold ${diff >= 0 ? 'text-success' : 'text-destructive'}`}>
-                        {diff >= 0 ? '+' : ''}R$ {diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({pct}%)
+                        {diff >= 0 ? '+' : ''}R$ {formatDecimal2(diff)} ({pct}%)
                       </p>
                     );
                   })()}
@@ -1270,16 +1270,16 @@ const Investments = () => {
                           <div className="space-y-1">
                             <div className="flex justify-between gap-4">
                               <span className="text-muted-foreground">Investido:</span>
-                              <span className="font-medium">R$ {data.investido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="font-medium">R$ {formatDecimal2(data.investido)}</span>
                             </div>
                             <div className="flex justify-between gap-4">
                               <span className="text-muted-foreground">Valor Atual:</span>
-                              <span className="font-medium text-success">R$ {data.atual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="font-medium text-success">R$ {formatDecimal2(data.atual)}</span>
                             </div>
                             <div className="flex justify-between gap-4 border-t border-border pt-1.5 mt-1.5">
                               <span className="text-muted-foreground">Resultado:</span>
                               <span className={`font-medium ${isPositive ? 'text-success' : 'text-destructive'}`}>
-                                {isPositive ? '+' : ''}R$ {diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                {isPositive ? '+' : ''}R$ {formatDecimal2(diff)}
                               </span>
                             </div>
                             <div className="flex justify-between gap-4">
@@ -1360,7 +1360,7 @@ const Investments = () => {
                       <div className="flex items-center justify-between sm:justify-end gap-3">
                         <div className="text-left sm:text-right">
                           <p className="font-semibold text-sm sm:text-base">
-                            R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {formatDecimal2(totalValue)}
                           </p>
                           {item.gainKnown ? (
                           <div className="flex items-center gap-1 sm:justify-end mt-0.5">

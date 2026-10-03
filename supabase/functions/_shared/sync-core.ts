@@ -7,13 +7,15 @@ import {
   mapTransaction,
   resolveInstitutionName,
   shouldImportTransaction,
+  staleTransactionIds,
+  syncAnchor,
   syncFromDate,
   type PluggyAccount,
   type PluggyInvestment,
   type PluggyItem,
   type PluggyTransaction,
 } from "./pluggy-mappers.ts";
-import { categorizeByRules, type CategorizationRule } from "./categorization.ts";
+import { categorizeIncoming, type CategorizationRule } from "./categorization.ts";
 import { categorizeWithAI } from "./ai-categorize.ts";
 import { assertItemOwnership, isMissingRelation } from "./validation.ts";
 import { localDate } from "./dates.ts";
@@ -23,6 +25,8 @@ export interface BankConnectionRow {
   user_id: string;
   pluggy_item_id: string | null;
   last_sync_at: string | null;
+  /** Quando o banco mandou dados para a Pluggy pela última vez (coluna pode não existir em bancos antigos) */
+  bank_updated_at?: string | null;
 }
 
 export interface SyncResult {
@@ -37,6 +41,8 @@ export interface SyncResult {
 }
 
 const CHUNK = 500;
+/** Máximo de transações sem categoria mandadas para a IA por sincronização (custo) */
+const AI_LIMIT = 300;
 
 /**
  * Sincroniza uma conexão Pluggy: status do item, contas, transações e investimentos.
@@ -89,8 +95,11 @@ export async function syncConnection(
     for (const row of data ?? []) accountIdByExternal.set(row.external_id, row.id);
   }
 
+  // Só um item UPDATED tem dados completos e atuais: sem isso não apagamos nada nem avançamos a janela
+  const fresh = item.status === "UPDATED";
+
   // 3. Transações de cada conta, com paginação e janela de datas
-  const from = syncFromDate(connection.last_sync_at);
+  const from = syncFromDate(syncAnchor(connection));
   const to = new Date().toISOString().slice(0, 10);
 
   const { data: userRules } = await supabase
@@ -110,7 +119,7 @@ export async function syncConnection(
 
     const rows = importable.map((tx) => {
       const mapped = mapTransaction(tx, account.type);
-      const match = categorizeByRules(mapped.description, rules);
+      const match = categorizeIncoming(mapped.description, mapped.original_category, rules);
       return {
         ...mapped,
         user_id: userId,
@@ -134,6 +143,64 @@ export async function syncConnection(
         if (!row.category_source) toCategorize.push({ id: row.id, description: row.description });
       }
     }
+
+    // O banco pode corrigir valor, data ou descrição de uma transação já gravada (ex.: compra em dólar
+    // fechada no câmbio do dia). Atualiza só os dados do banco; categoria e "importada" ficam como estão.
+    const bankFields = rows.map(({ ai_category, ai_confidence, category_source, ...rest }) => rest);
+    for (let i = 0; i < bankFields.length; i += CHUNK) {
+      const { error } = await supabase
+        .from("synced_transactions")
+        .upsert(bankFields.slice(i, i + CHUNK), { onConflict: "bank_connection_id,external_id" });
+      if (error) throw error;
+    }
+
+    // Compras canceladas/desfeitas somem da Pluggy: remove da janela consultada. Só com dados completos
+    // (item atualizado) e se a conta trouxe alguma transação, para uma resposta vazia não apagar tudo.
+    const accountId = accountIdByExternal.get(account.id);
+    if (fresh && accountId && txs.length > 0) {
+      const { data: stored, error } = await supabase
+        .from("synced_transactions")
+        .select("id, external_id, date, is_reviewed")
+        .eq("bank_account_id", accountId)
+        .eq("source", "pluggy")
+        .gt("date", from)
+        .lte("date", to);
+      if (error) throw error;
+      const fetched = new Set(txs.map((t) => t.id));
+      const stale = staleTransactionIds(stored ?? [], fetched, from, to);
+      for (let i = 0; i < stale.length; i += 100) {
+        const { error: delError } = await supabase.from("synced_transactions").delete().in("id", stale.slice(i, i + 100));
+        if (delError) throw delError;
+      }
+    }
+  }
+
+  // Transações antigas sem categoria (ex.: Pix que a regra antiga chamava de "Transferência"):
+  // aplica as regras de agora e manda o resto para a IA
+  {
+    const { data: pending } = await supabase
+      .from("synced_transactions")
+      .select("id, description, original_category")
+      .eq("bank_connection_id", connection.id)
+      .is("category_source", null)
+      .limit(1000);
+    const known = new Set(toCategorize.map((t) => t.id));
+    const byCategory = new Map<string, string[]>();
+    for (const row of pending ?? []) {
+      if (known.has(row.id)) continue;
+      const match = categorizeIncoming(row.description, row.original_category, rules);
+      if (match) byCategory.set(match.category, [...(byCategory.get(match.category) ?? []), row.id]);
+      else toCategorize.push({ id: row.id, description: row.description });
+    }
+    for (const [category, ids] of byCategory) {
+      for (let i = 0; i < ids.length; i += 100) {
+        await supabase
+          .from("synced_transactions")
+          .update({ ai_category: category, ai_confidence: 1, category_source: "rule" })
+          .in("id", ids.slice(i, i + 100))
+          .is("category_source", null);
+      }
+    }
   }
 
   // 4. Investimentos (nem todo banco/plano expõe esse produto; falha aqui não derruba a sync)
@@ -153,20 +220,24 @@ export async function syncConnection(
         .upsert(invRows, { onConflict: "bank_connection_id,external_id" });
       if (error) throw error;
     }
-    // Remove posições que não existem mais no banco (resgatadas/vencidas)
-    const current = invRows.map((r) => r.external_id);
-    let del = supabase.from("synced_investments").delete().eq("bank_connection_id", connection.id).eq("user_id", userId);
-    if (current.length) del = del.not("external_id", "in", `(${current.map((id) => `"${id}"`).join(",")})`);
-    await del;
     investments = invRows.length;
 
-    // Saldo do dia (horário de Brasília) para estimar o rendimento quando o banco não informa
-    const total = invRows.reduce((s, r) => s + Number(r.balance ?? 0), 0);
-    const { error: historyError } = await supabase.from("investment_balance_history").upsert(
-      { user_id: userId, bank_connection_id: connection.id, date: localDate(new Date()).iso, balance: total },
-      { onConflict: "bank_connection_id,date" },
-    );
-    if (historyError && !isMissingRelation(historyError)) console.error("balance history failed:", historyError.message);
+    if (fresh) {
+      // Remove posições que não existem mais no banco (resgatadas/vencidas)
+      const current = invRows.map((r) => r.external_id);
+      let del = supabase.from("synced_investments").delete().eq("bank_connection_id", connection.id).eq("user_id", userId);
+      if (current.length) del = del.not("external_id", "in", `(${current.map((id) => `"${id}"`).join(",")})`);
+      await del;
+
+      // Saldo do dia (horário de Brasília) para estimar o rendimento quando o banco não informa.
+      // Só com dados completos: uma lista vazia por falha viraria "saldo zero" e um falso prejuízo.
+      const total = invRows.reduce((s, r) => s + Number(r.balance ?? 0), 0);
+      const { error: historyError } = await supabase.from("investment_balance_history").upsert(
+        { user_id: userId, bank_connection_id: connection.id, date: localDate(new Date()).iso, balance: total },
+        { onConflict: "bank_connection_id,date" },
+      );
+      if (historyError && !isMissingRelation(historyError)) console.error("balance history failed:", historyError.message);
+    }
   } catch (e) {
     console.error("investments sync failed:", e instanceof Error ? e.message : e);
     investmentWarning = "Não foi possível buscar os investimentos desta conexão.";
@@ -176,24 +247,26 @@ export async function syncConnection(
   const detail = [itemStatus.detail, investmentWarning].filter(Boolean).join(" ") || null;
   const state = {
     institution_name: resolveInstitutionName(item, pluggyAccounts),
-    last_sync_at: new Date().toISOString(),
+    // Só avança com dados completos: a próxima busca começa daqui (menos 10 dias)
+    ...(fresh ? { last_sync_at: new Date().toISOString() } : {}),
     status: itemStatus.status,
     status_detail: detail,
     consent_expires_at: itemStatus.consentExpiresAt,
   };
   const { error: stateError } = await supabase
     .from("bank_connections")
-    .update({ ...state, bank_updated_at: item.lastUpdatedAt ?? null })
+    .update({ ...state, ...(item.lastUpdatedAt ? { bank_updated_at: item.lastUpdatedAt } : {}) })
     .eq("id", connection.id);
-  // Banco ainda sem a coluna bank_updated_at (migração pendente): grava o resto
-  if (stateError && isMissingRelation(stateError)) {
-    await supabase.from("bank_connections").update(state).eq("id", connection.id);
+  // Banco sem a coluna bank_updated_at ou sem permissão de gravá-la pelo app (migração pendente): grava o resto
+  if (stateError) {
+    const { error: retryError } = await supabase.from("bank_connections").update(state).eq("id", connection.id);
+    if (retryError) console.error("connection state update failed:", retryError.message);
   }
 
   // 6. IA só para o que as regras não resolveram
   if (toCategorize.length) {
     try {
-      await categorizeWithAI(supabase, toCategorize);
+      await categorizeWithAI(supabase, toCategorize.slice(0, AI_LIMIT));
     } catch (e) {
       console.error("AI categorization error:", e instanceof Error ? e.message : e);
     }

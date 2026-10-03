@@ -90,11 +90,13 @@ export const DEFAULT_RULES: CategorizationRule[] = [
   { keyword: "cdb", category: "Investimento" },
   { keyword: "tesouro", category: "Investimento" },
   { keyword: "corretora", category: "Investimento" },
+  // Só o que é com certeza dinheiro trocando de lugar entre as próprias contas.
+  // Pix/TED/"transferência" sozinhos NÃO entram: no Brasil quase todo pagamento e recebimento é Pix
+  // (aluguel, mercado, salário). Transferências entre contas próprias são detectadas em @shared/ledger.
   { keyword: "pagamento recebido", category: "Transferência" },
   { keyword: "pagamento de fatura", category: "Transferência" },
-  { keyword: "transferencia", category: "Transferência" },
-  { keyword: "pix", category: "Transferência" },
-  { keyword: "ted", category: "Transferência" },
+  { keyword: "pagamento da fatura", category: "Transferência" },
+  { keyword: "mesma titularidade", category: "Transferência" },
 ];
 
 /** Minúsculas, sem acentos e com espaços simples. */
@@ -118,11 +120,26 @@ const STOP_WORDS = new Set([
  *      "Loja Exemplo - Parcela 2/5"     -> "loja exemplo"
  */
 export function extractKeyword(description: string): string {
-  const words = matchText(normalizeText(description).replace(/parcela\s*\d+\s*\/\s*\d+/g, " "))
+  const text = matchText(normalizeText(description).replace(/parcela\s*\d+\s*\/\s*\d+/g, " ")).replace(PAYMENT_PREFIX, "");
+  const words = text
     .split(" ")
     .filter((w) => w.length > 1 && !/^\d+$/.test(w) && !STOP_WORDS.has(w));
+  // Só palavras genéricas ("transferencia enviada pelo") valeriam para todo Pix: não aprende nada
+  if (words.every((w) => GENERIC_PAYMENT_WORDS.has(w))) return "";
   return words.slice(0, 3).join(" ");
 }
+
+/**
+ * Início das descrições de Pix/TED ("Transferência enviada pelo Pix - FULANO", "Pix recebido de LOJA").
+ * A regra aprendida tem que ser sobre quem recebeu/pagou, não sobre o meio de pagamento.
+ */
+const PAYMENT_PREFIX =
+  /^(?:(?:transferencia|transf|pix|ted|doc)(?: (?:enviad[ao]|recebid[ao]|realizad[ao]|agendad[ao]))?(?: (?:pelo|por|via) (?:pix|ted|doc))?(?: (?:de|para|a))?\s*)+/;
+
+const GENERIC_PAYMENT_WORDS = new Set([
+  "transferencia", "transf", "pix", "ted", "doc", "enviada", "enviado", "recebida", "recebido", "pelo", "por", "via",
+  "pagamento", "conta", "saldo",
+]);
 
 /** Texto para comparação: normalizado e sem pontuação ("UBER *TRIP" -> "uber trip"). */
 function matchText(text: string): string {
@@ -132,6 +149,18 @@ function matchText(text: string): string {
 function matchesKeyword(normalizedDescription: string, keyword: string): boolean {
   const k = matchText(keyword);
   if (!k) return false;
+  // Palavra-chave aprendida sem as palavras de ligação ("padaria joao" para "PADARIA DO JOAO"):
+  // cada palavra precisa aparecer inteira, na mesma ordem
+  if (k.includes(" ") && !normalizedDescription.includes(k)) {
+    const words = normalizedDescription.split(" ");
+    let at = 0;
+    for (const w of k.split(" ")) {
+      const found = words.indexOf(w, at);
+      if (found < 0) return false;
+      at = found + 1;
+    }
+    return true;
+  }
   // Palavras curtas (pix, ted, rdb...) precisam casar como palavra inteira
   if (k.length <= 4) {
     const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -180,4 +209,63 @@ export function sanitizeAiCategories(raw: unknown, batchSize: number): Array<{ i
     out.push({ index: index as number, category: category as Category, confidence: Math.round(c * 100) / 100 });
   }
   return out;
+}
+
+/**
+ * A própria fonte diz que é dinheiro entre contas da mesma pessoa ou pagamento da fatura?
+ * A Pluggy usa categorias como "Same person transfer - PIX" e "Credit card payment".
+ */
+export function isOwnTransferCategory(originalCategory: string | null | undefined): boolean {
+  if (!originalCategory) return false;
+  return /same person|credit card payment|mesma titularidade|pagamento de fatura/i.test(originalCategory);
+}
+
+// Categoria da Pluggy (em inglês) → categoria do Nexos. Ordem importa: o mais específico primeiro.
+const PLUGGY_CATEGORY_MAP: Array<[RegExp, Category]> = [
+  [/same person|credit card payment/i, "Transferência"],
+  [/salary|retirement|pension|government aid/i, "Salário"],
+  [/entrepreneurial|freelanc/i, "Freelance"],
+  [/dividend|interest|investment|fixed income|mutual fund|variable income|margin/i, "Investimento"],
+  [/pharmac|health|dentist|hospital|clinic|optometr|wellness|gym|fitness|sa[uú]de/i, "Saúde"],
+  [/bookstore/i, "Compras"],
+  [/education|course|university|school|kindergarten|educa[cç]/i, "Educação"],
+  [/grocer|food|eating|restaurant|delivery/i, "Alimentação"],
+  [/gas station|parking|toll|vehicle|automotive|car rental|taxi|ride-hailing|transport|\bbus\b|bicycle|airport|airline/i, "Transporte"],
+  [/\brent\b|housing|utilit|water|electric|^gas$|houseware|urban land|^casa$/i, "Moradia"],
+  [/streaming|digital service|subscription/i, "Assinaturas"],
+  [/leisure|ticket|gaming|travel|accommodation|sport|gambling|lottery|\bbet\b|mileage|lazer|viage/i, "Lazer"],
+  [/cloth|vestu/i, "Vestuário"],
+  [/shopping|electronic|eletr[oô]nic|\bpet\b|kids|toys|office/i, "Compras"],
+  [/telecom|internet|mobile|\btv\b|service|servi[cç]o|\bfees?\b|insurance|\btax/i, "Serviços"],
+];
+
+/** Converte a categoria da fonte (Pluggy em inglês ou coluna do CSV) para uma do Nexos; null se não souber. */
+export function mapSourceCategory(originalCategory: string | null | undefined): Category | null {
+  const original = originalCategory?.trim();
+  if (!original) return null;
+  if ((CATEGORIES as readonly string[]).includes(original)) return original as Category;
+  for (const [re, category] of PLUGGY_CATEGORY_MAP) if (re.test(original)) return category;
+  // Fatura do Nubank em CSV traz categorias em português ("restaurante", "supermercado"...)
+  const byRule = categorizeByRules(original, []);
+  return byRule && byRule.category !== "Transferência" ? (byRule.category as Category) : null;
+}
+
+/** Categoria exibida: a escolhida (pessoa, regra ou IA) ou, sem ela, a traduzida da fonte. */
+export function resolveCategory(aiCategory: string | null | undefined, originalCategory: string | null | undefined): string {
+  return aiCategory || mapSourceCategory(originalCategory) || "Outros";
+}
+
+/**
+ * Categoria na hora de gravar uma transação vinda do banco:
+ * regras da pessoa > a fonte diz que é entre contas próprias > regras padrão. null = vai para a IA.
+ */
+export function categorizeIncoming(
+  description: string,
+  originalCategory: string | null | undefined,
+  userRules: CategorizationRule[] = [],
+): { category: string; fromUserRule: boolean } | null {
+  const own = categorizeByRules(description, userRules, []);
+  if (own) return own;
+  if (isOwnTransferCategory(originalCategory)) return { category: "Transferência", fromUserRule: false };
+  return categorizeByRules(description, []);
 }

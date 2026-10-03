@@ -21,6 +21,15 @@ describe("projectInstallments", () => {
     expect(months.map((m) => m.total)).toEqual([100, 100, 0]);
   });
 
+  it("a 1ª parcela com centavos a mais é a mesma compra; valor bem diferente é outra compra", () => {
+    const months = projectInstallments(
+      [tx("2026-09-03", "LOJA X 1/3", "1/3", 33.34), tx("2026-10-03", "LOJA X 2/3", "2/3", 33.33), tx("2026-10-04", "LOJA X 1/3", "1/3", 150)],
+      "2026-10",
+      3,
+    );
+    expect(months.map((m) => Math.round(m.total * 100) / 100)).toEqual([183.33, 150, 0]);
+  });
+
   it("ignores finished purchases, income and plain purchases; keeps different cards apart", () => {
     const months = projectInstallments(
       [

@@ -55,7 +55,12 @@ export function parseAmount(raw: string): number {
 
   const lastComma = s.lastIndexOf(",");
   const lastDot = s.lastIndexOf(".");
-  if (lastComma > lastDot) {
+  // Dinheiro tem no máximo 2 casas: com um só tipo de separador seguido de exatamente 3 dígitos
+  // ("1.234", "12,345,678"), ele é de milhar, não decimal
+  const onlyThousands = (sep: "." | ",") => new RegExp(`^[1-9]\\d{0,2}(\\${sep}\\d{3})+$`).test(s);
+  if ((lastComma < 0 && onlyThousands(".")) || (lastDot < 0 && onlyThousands(","))) {
+    s = s.replace(/[.,]/g, "");
+  } else if (lastComma > lastDot) {
     // vírgula é o separador decimal
     s = s.replace(/\./g, "").replace(",", ".");
   } else {

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSyncedTransactions } from "@/hooks/useBankConnections";
-import { CATEGORIES } from "@shared/categorization";
+import { CATEGORIES, mapSourceCategory } from "@shared/categorization";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -54,7 +54,7 @@ const Categorization = () => {
           ) : (
             <ul className="divide-y">
               {list.map((t) => {
-                const suggested = t.ai_category || t.original_category;
+                const suggested = t.ai_category || mapSourceCategory(t.original_category);
                 const conf = t.ai_confidence != null ? Math.round(Number(t.ai_confidence) * 100) : null;
                 return (
                   <li key={t.id} className="flex flex-col sm:flex-row sm:items-center gap-2 py-3">

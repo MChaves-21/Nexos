@@ -19,7 +19,7 @@ serve(async (req) => {
 
     const { data: connection, error: connError } = await supabase
       .from("bank_connections")
-      .select("id, user_id, pluggy_item_id, last_sync_at, provider")
+      .select("*")
       .eq("id", connectionId)
       .eq("user_id", userId)
       .single();

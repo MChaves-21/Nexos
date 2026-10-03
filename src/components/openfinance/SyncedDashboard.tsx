@@ -11,6 +11,7 @@ import {
   CheckCircle2, Clock, PieChart as PieIcon,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { resolveCategory } from "@shared/categorization";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Alimentação: "#f97316",
@@ -58,7 +59,7 @@ const SyncedDashboard = () => {
     transactions
       .filter((t) => t.type !== "income")
       .forEach((t) => {
-        const cat = t.ai_category || t.original_category || "Outros";
+        const cat = resolveCategory(t.ai_category, t.original_category);
         catMap.set(cat, (catMap.get(cat) || 0) + t.amount);
       });
     const categoryData = Array.from(catMap.entries())

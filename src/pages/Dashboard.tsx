@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Wallet, TrendingUp, TrendingDown, Landmark, PiggyBank, Plus, AlertTriangle, Repeat, CalendarClock } from "lucide-react";
-import { changesNetWorth } from "@shared/flows";
+import { changesNetWorth, isSpending } from "@shared/flows";
+import { accountsNet } from "@/lib/accounts";
 import { format, startOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -40,8 +41,8 @@ const Dashboard = () => {
 
   const data = useMemo(() => {
     const now = new Date();
-    const cash = accounts.filter((a) => a.type !== "CREDIT").reduce((s, a) => s + Number(a.balance), 0);
-    const debt = accounts.filter((a) => a.type === "CREDIT").reduce((s, a) => s + Math.abs(Number(a.balance)), 0);
+    // Dívida do cartão inclui as parcelas que ainda vão cair (limite usado), não só a fatura atual
+    const { cash, debt } = accountsNet(accounts);
     // Investimentos do banco + carteira cadastrada à mão
     const invested =
       investments.reduce((s, i) => s + Number(i.balance), 0) +
@@ -62,7 +63,7 @@ const Dashboard = () => {
         // Aporte/resgate só troca o dinheiro de lugar: não mexe no patrimônio
         if (changesNetWorth(t.category)) f.wealth += t.type === "income" ? Number(t.amount) : -Number(t.amount);
       }
-      if (t.type === "expense" && monthKey(t.date) === currentKey) byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + Number(t.amount));
+      if (t.type === "expense" && isSpending(t.category) && monthKey(t.date) === currentKey) byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + Number(t.amount));
     }
 
     // Evolução: parte do patrimônio atual e desconta o saldo de cada mês para trás
@@ -88,7 +89,7 @@ const Dashboard = () => {
       weekdays: spendingByWeekday(transactions, now),
       evolution: evolution.map((p) => ({ ...p, label: label(p.month) })),
       cashFlow: months.slice(-6).map((m) => ({ label: label(m), Entradas: flows.get(m)!.income, Saídas: flows.get(m)!.expense })),
-      categories: Array.from(byCategory.entries()).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value })),
+      categories: Array.from(byCategory.entries()).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value })),
     };
   }, [accounts, investments, manualInvestments, transactions]);
 
@@ -182,7 +183,7 @@ const Dashboard = () => {
                 ) : (
                   <ul className="space-y-4">
                     {data.top.map((c) => {
-                      const pct = data.summary.expense > 0 ? (c.total / data.summary.expense) * 100 : 0;
+                      const pct = data.summary.spending > 0 ? (c.total / data.summary.spending) * 100 : 0;
                       return (
                         <li key={c.category} className="space-y-1.5">
                           <div className="flex justify-between text-sm">
@@ -234,7 +235,7 @@ const Dashboard = () => {
             <>
               {!loading && (
                 <p className="text-xs text-muted-foreground">
-                  Contas {brl(data.cash)} · Fatura do cartão −{brl(data.debt)} · Investimentos {brl(data.invested)}
+                  Contas {brl(data.cash)} · Cartões (fatura + parcelas futuras) −{brl(data.debt)} · Investimentos {brl(data.invested)}
                 </p>
               )}
 
@@ -275,7 +276,7 @@ const Dashboard = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base sm:text-lg flex items-center gap-2">Evolução do dinheiro guardado<InfoHint term="patrimonio" /></CardTitle>
-                  <CardDescription>Últimos 12 meses, estimada a partir das entradas e saídas</CardDescription>
+                  <CardDescription>Últimos 12 meses, estimada a partir das entradas e saídas (sem rendimentos nem variação de preço dos investimentos)</CardDescription>
                 </CardHeader>
                 <CardContent className="h-72">
                   <ResponsiveContainer width="100%" height="100%">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeTransactions } from "./mergeTransactions";
+import { buildLedger, mergeTransactions } from "./mergeTransactions";
 import type { Transaction } from "@/hooks/useTransactions";
 import type { SyncedTransaction } from "@/hooks/useBankConnections";
 
@@ -33,6 +33,36 @@ describe("mergeTransactions", () => {
       synced("s2", "2026-08-01"),
     ]);
     expect(a.category).toBe("Alimentação");
-    expect(b.category).toBe("Shopping");
+    // Categoria da Pluggy em inglês é traduzida
+    expect(b.category).toBe("Compras");
+  });
+});
+
+describe("buildLedger", () => {
+  it("estorno no cartão abate o gasto em vez de virar renda", () => {
+    const refund = synced("r1", "2026-08-05", { type: "income", ai_category: "Compras", bank_account_id: "card" });
+    const [t] = mergeTransactions([], [refund], { cardAccountIds: new Set(["card"]) });
+    expect(t).toMatchObject({ type: "expense", amount: -10, refund: true, category: "Compras" });
+  });
+
+  it("crédito na conta corrente continua sendo entrada", () => {
+    const [t] = mergeTransactions([], [synced("r1", "2026-08-05", { type: "income", ai_category: "Salário", bank_account_id: "conta" })], {
+      cardAccountIds: new Set(["card"]),
+    });
+    expect(t).toMatchObject({ type: "income", amount: 10 });
+  });
+
+  it("Pix entre contas próprias vira transferência", () => {
+    const out = synced("s1", "2026-08-05", { description: "Pix enviado - MURILO CHAVES", amount: 300, bank_account_id: "nubank" });
+    const inn = synced("s2", "2026-08-05", { description: "Pix recebido - MURILO CHAVES", amount: 300, type: "income", bank_account_id: "itau" });
+    expect(mergeTransactions([], [out, inn]).map((t) => t.category)).toEqual(["Transferência", "Transferência"]);
+  });
+
+  it("lançamento manual repetido pelo banco sai da lista e fica em manualDuplicates", () => {
+    const m = { ...manual("m1", "2026-08-02"), description: "Netflix", amount: 10, category: "Assinaturas" };
+    const s = synced("s1", "2026-08-03", { description: "NETFLIX.COM", amount: 10 });
+    const ledger = buildLedger([m], [s]);
+    expect(ledger.transactions.map((t) => t.id)).toEqual(["s1"]);
+    expect(ledger.manualDuplicates.map((d) => [d.manual.id, d.bank.id])).toEqual([["m1", "s1"]]);
   });
 });

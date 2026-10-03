@@ -369,3 +369,73 @@ describe("investimentos", () => {
   });
 });
 
+
+describe("importar transações do banco", () => {
+  it("marca e insere juntas, uma vez só, e nunca pega transação de outra pessoa", async () => {
+    const { rows: conns } = await asUser(A, `SELECT id FROM public.bank_connections WHERE user_id = $1 LIMIT 1`, [A]);
+    const connA = (conns[0] as { id: string }).id;
+    const { rows } = await asUser(
+      A,
+      `INSERT INTO public.synced_transactions (user_id, bank_connection_id, external_id, description, amount, date, type, installment_info, source)
+       VALUES ($1, $2, 'imp1', 'Loja', 30, '2026-10-01', 'expense', '2/3', 'csv_card') RETURNING id`,
+      [A, connA],
+    );
+    const id = (rows[0] as { id: string }).id;
+    const items = JSON.stringify([{ id, category: "Compras" }]);
+
+    // Outra pessoa não importa (nem marca) a transação de A
+    const other = await asUser(B, `SELECT public.import_synced_transactions($1::jsonb) AS n`, [items]);
+    expect((other.rows[0] as { n: number }).n).toBe(0);
+
+    const first = await asUser(A, `SELECT public.import_synced_transactions($1::jsonb) AS n`, [items]);
+    expect((first.rows[0] as { n: number }).n).toBe(1);
+    const again = await asUser(A, `SELECT public.import_synced_transactions($1::jsonb) AS n`, [items]);
+    expect((again.rows[0] as { n: number }).n).toBe(0);
+
+    const imported = await asUser(A, `SELECT description, category, amount::float AS amount FROM public.transactions WHERE description LIKE 'Loja%'`);
+    expect(imported.rows).toEqual([{ description: "Loja (2/3)", category: "Compras", amount: 30 }]);
+  });
+
+  it("visitante sem login não chama a função", async () => {
+    const { rows } = await db.query<{ ok: boolean }>(`SELECT has_function_privilege('anon', 'public.import_synced_transactions(jsonb)', 'EXECUTE') AS ok`);
+    expect(rows[0].ok).toBe(false);
+  });
+});
+
+describe("lançamentos manuais", () => {
+  it("valor precisa ser maior que zero", async () => {
+    await expect(
+      asUser(A, `INSERT INTO public.transactions (user_id, type, description, category, amount) VALUES ($1, 'expense', 'x', 'Outros', -5)`, [A]),
+    ).rejects.toThrow(/transactions_amount_positive/);
+    await expect(
+      asUser(A, `INSERT INTO public.transactions (user_id, type, description, category, amount) VALUES ($1, 'expense', 'x', 'Outros', 0)`, [A]),
+    ).rejects.toThrow(/transactions_amount_positive/);
+  });
+});
+
+describe("correção do Pix", () => {
+  it("limpa a categoria 'Transferência' dada pela regra antiga e apaga regras aprendidas genéricas", async () => {
+    const { rows: conns } = await asUser(A, `SELECT id FROM public.bank_connections WHERE user_id = $1 LIMIT 1`, [A]);
+    const connA = (conns[0] as { id: string }).id;
+    await asUser(
+      A,
+      `INSERT INTO public.synced_transactions (user_id, bank_connection_id, external_id, description, amount, date, ai_category, category_source, source) VALUES
+       ($1, $2, 'p1', 'Transferência enviada pelo Pix - IMOBILIARIA', 1500, '2026-09-05', 'Transferência', 'rule', 'csv_account'),
+       ($1, $2, 'p2', 'Pagamento de fatura', 900, '2026-09-06', 'Transferência', 'rule', 'csv_account'),
+       ($1, $2, 'p3', 'Pix enviado - MURILO', 100, '2026-09-07', 'Transferência', 'user', 'csv_account')`,
+      [A, connA],
+    );
+    await asUser(A, `INSERT INTO public.categorization_rules (user_id, keyword, category) VALUES ($1, 'transferencia enviada pelo', 'Transferência'), ($1, 'imobiliaria', 'Moradia')`, [A]);
+
+    await db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, "20261004100000_financial_fixes.sql"), "utf8"));
+
+    const { rows } = await asService(`SELECT external_id, ai_category FROM public.synced_transactions WHERE external_id IN ('p1','p2','p3') ORDER BY external_id`);
+    expect(rows).toEqual([
+      { external_id: "p1", ai_category: null },
+      { external_id: "p2", ai_category: "Transferência" },
+      { external_id: "p3", ai_category: "Transferência" },
+    ]);
+    const rules = await asUser(A, `SELECT keyword FROM public.categorization_rules ORDER BY keyword`);
+    expect(rules.rows).toEqual([{ keyword: "imobiliaria" }]);
+  });
+});

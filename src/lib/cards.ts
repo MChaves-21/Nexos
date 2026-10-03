@@ -23,9 +23,12 @@ const addMonths = (period: string, n: number) => {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 };
 
-/** "Loja X - Parcela 2/5" e "LOJA X 3/5" viram a mesma compra. */
+/** "Loja X - Parcela 2/5" e "LOJA X 3/5" viram a mesma compra (o valor é comparado à parte, com tolerância). */
 const purchaseKey = (tx: InstallmentTx, total: number) =>
-  [tx.cardKey, normalizeText(tx.description).replace(/parcela\s*\d+\s*\/\s*\d+/g, "").replace(/\d+\s*\/\s*\d+/g, "").replace(/[^a-z0-9]+/g, " ").trim(), Number(tx.amount).toFixed(2), total].join("|");
+  [tx.cardKey, normalizeText(tx.description).replace(/parcela\s*\d+\s*\/\s*\d+/g, "").replace(/\d+\s*\/\s*\d+/g, "").replace(/[^a-z0-9]+/g, " ").trim(), total].join("|");
+
+/** A 1ª parcela costuma ter alguns centavos a mais (arredondamento): valores próximos são a mesma compra. */
+const sameInstallmentValue = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(b) * 0.02);
 
 /**
  * Projeta as parcelas restantes de cada compra parcelada nos meses seguintes ao atual.
@@ -33,7 +36,7 @@ const purchaseKey = (tx: InstallmentTx, total: number) =>
  * senão as parcelas futuras seriam contadas mais de uma vez.
  */
 export function projectInstallments(txs: InstallmentTx[], currentPeriod: string, months = 6): FutureMonth[] {
-  const latest = new Map<string, { tx: InstallmentTx; n: number; total: number }>();
+  const groups = new Map<string, Array<{ tx: InstallmentTx; n: number; total: number }>>();
   for (const tx of txs) {
     if (tx.type !== "expense" || !tx.installment_info) continue;
     const m = tx.installment_info.match(/^(\d+)\/(\d+)$/);
@@ -42,13 +45,18 @@ export function projectInstallments(txs: InstallmentTx[], currentPeriod: string,
     const total = Number(m[2]);
     if (n >= total) continue;
     const key = purchaseKey(tx, total);
-    const prev = latest.get(key);
-    if (!prev || n > prev.n) latest.set(key, { tx, n, total });
+    const list = groups.get(key) ?? [];
+    // Mesma loja e mesmo nº de parcelas, mas valor bem diferente = outra compra
+    const prev = list.find((p) => sameInstallmentValue(Number(p.tx.amount), Number(tx.amount)) && p.n !== n);
+    if (!prev) list.push({ tx, n, total });
+    else if (n > prev.n) Object.assign(prev, { tx, n });
+    groups.set(key, list);
   }
+  const latest = [...groups.values()].flat();
 
   const window = Array.from({ length: months }, (_, i) => addMonths(currentPeriod, i + 1));
   const byPeriod = new Map<string, FutureMonth>(window.map((p) => [p, { period: p, total: 0, items: [] }]));
-  for (const { tx, n, total } of latest.values()) {
+  for (const { tx, n, total } of latest) {
     const txPeriod = tx.date.slice(0, 7);
     for (let k = 1; k <= total - n; k++) {
       const month = byPeriod.get(addMonths(txPeriod, k));

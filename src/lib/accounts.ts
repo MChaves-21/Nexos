@@ -35,3 +35,26 @@ export function creditUsage(a: BankAccountLike): { used: number; limit: number }
   if (a.type !== "CREDIT" || !a.credit_limit || a.available_credit_limit == null) return null;
   return { used: Math.max(0, a.credit_limit - a.available_credit_limit), limit: a.credit_limit };
 }
+
+/**
+ * Quanto se deve no cartão. A fatura atual não inclui as parcelas que ainda vão cair, mas elas já são dívida:
+ * o limite usado (limite − disponível) inclui tudo isso. Usa o maior dos dois.
+ * Saldo negativo na fatura (pagou a mais) não vira dívida.
+ */
+export function cardDebt(a: BankAccountLike): number {
+  if (a.type !== "CREDIT") return 0;
+  const bill = Math.max(0, Number(a.balance) || 0);
+  const used = creditUsage(a)?.used ?? 0;
+  return Math.max(bill, used);
+}
+
+/** Saldo das contas (sem cartões) menos a dívida dos cartões. */
+export function accountsNet(accounts: BankAccountLike[]): { cash: number; debt: number } {
+  let cash = 0;
+  let debt = 0;
+  for (const a of accounts) {
+    if (a.type === "CREDIT") debt += cardDebt(a);
+    else cash += Number(a.balance) || 0;
+  }
+  return { cash, debt };
+}

@@ -1,5 +1,6 @@
 // Conversão dos objetos da API Pluggy para as linhas do banco.
-// Módulo puro (sem imports) para poder ser testado com Vitest.
+// Módulo puro (só importa outro módulo puro) para poder ser testado com Vitest.
+import { localDate } from "./dates.ts";
 
 export interface PluggyItem {
   id: string;
@@ -172,7 +173,7 @@ export function mapTransaction(tx: PluggyTransaction, accountType: string) {
     external_id: tx.id,
     description: (tx.description || tx.descriptionRaw || "Sem descrição").trim(),
     amount: Math.abs(tx.amount),
-    date: tx.date.slice(0, 10),
+    date: transactionDate(tx.date),
     type: transactionKind(tx, accountType),
     original_category: tx.category ?? null,
     installment_info: installmentInfo(tx),
@@ -200,6 +201,44 @@ export function mapInvestment(inv: PluggyInvestment) {
     reference_date: inv.date ? inv.date.slice(0, 10) : null,
     currency_code: inv.currencyCode ?? "BRL",
   };
+}
+
+/**
+ * Dia da transação no horário de Brasília. A Pluggy manda data e hora em UTC: um Pix às 22h de 30/09
+ * chega como "2026-10-01T01:00:00Z" e, cortando o texto, cairia no dia (e no mês) seguinte.
+ * Meia-noite UTC exata é como alguns bancos mandam "só a data": nesse caso o dia é o do texto.
+ */
+export function transactionDate(iso: string): string {
+  if (!/T/.test(iso) || /T00:00(:00(\.0+)?)?(Z|\+00:00)$/.test(iso)) return iso.slice(0, 10);
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : localDate(d).iso;
+}
+
+/**
+ * De quando buscar transações. O ponto de partida é a última vez que o BANCO mandou dados para a Pluggy
+ * (bank_updated_at), não a última vez que o Nexos leu: se o banco ficar dias sem atualizar,
+ * a janela não anda e nada se perde. Usa a mais antiga das duas datas conhecidas.
+ */
+export function syncAnchor(conn: { last_sync_at: string | null; bank_updated_at?: string | null }): string | null {
+  const dates = [conn.last_sync_at, conn.bank_updated_at].filter((d): d is string => !!d && !Number.isNaN(new Date(d).getTime()));
+  if (!dates.length) return null;
+  return dates.reduce((a, b) => (new Date(a) <= new Date(b) ? a : b));
+}
+
+/**
+ * Transações que sumiram do banco (compra cancelada, lançamento desfeito) dentro da janela consultada.
+ * Só considera o miolo da janela (depois de `from`): na borda, a diferença de fuso pode esconder uma linha.
+ * Nunca apaga o que já foi importado para o histórico manual.
+ */
+export function staleTransactionIds(
+  stored: Array<{ id: string; external_id: string; date: string; is_reviewed: boolean }>,
+  fetchedExternalIds: Set<string>,
+  from: string,
+  to: string,
+): string[] {
+  return stored
+    .filter((r) => !r.is_reviewed && r.date > from && r.date <= to && !fetchedExternalIds.has(r.external_id))
+    .map((r) => r.id);
 }
 
 /** Janela de busca: 1 ano na primeira sincronização, depois desde a última menos 10 dias (lançamentos retroativos). */

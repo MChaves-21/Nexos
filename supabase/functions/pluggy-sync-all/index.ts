@@ -24,7 +24,7 @@ serve(async (req) => {
     const supabase = getServiceClient();
     const { data: connections, error } = await supabase
       .from("bank_connections")
-      .select("id, user_id, pluggy_item_id, last_sync_at")
+      .select("*")
       .eq("provider", "pluggy")
       .eq("auto_sync", true)
       // Sem consentimento válido não adianta tentar; o usuário precisa reconectar
