@@ -7,7 +7,7 @@ import { isMissingRelation } from "./validation.ts";
 
 import { countsInSummary, isSpending } from "./flows.ts";
 import { resolveCategory } from "./categorization.ts";
-import { findOwnTransfers, isCardRefund, type LedgerRow } from "./ledger.ts";
+import { findOwnTransfers, findReversals, isCardRefund, isRefundDescription, type LedgerRow } from "./ledger.ts";
 
 interface Flow { type: string; amount: number; date: string; category: string }
 
@@ -51,16 +51,21 @@ async function loadFlows(service: SupabaseClient, userId: string, from: string, 
     locked: t.category_source === "user",
   }));
   const transfers = findOwnTransfers(bankRows);
+  const reversed = findReversals(bankRows.filter((r) => !transfers.has(r.id) && r.category !== "Transferência" && r.category !== "Investimento"));
 
   return [
     ...manual.map((t) => ({ type: t.type, amount: Number(t.amount), date: t.date, category: t.category })),
-    ...bankRows.map((r, i) => {
+    ...bankRows.flatMap((r, i) => {
+      // Reembolso total: compra e devolução se anulam
+      if (reversed.has(r.id)) return [] as Flow[];
       const category = transfers.has(r.id) ? "Transferência" : r.category;
       const isCard = synced[i].source === "csv_card" || (!!synced[i].bank_account_id && cardIds.has(synced[i].bank_account_id!));
-      // Estorno no cartão abate o gasto da categoria
-      return isCardRefund({ type: r.type, category }, isCard)
+      const refund = isCardRefund({ type: r.type, category }, isCard) ||
+        (r.type === "income" && category !== "Transferência" && category !== "Investimento" && isRefundDescription(r.description));
+      // Estorno/reembolso abate o gasto da categoria
+      return [refund
         ? { type: "expense", amount: -r.amount, date: r.date, category }
-        : { type: r.type, amount: r.amount, date: r.date, category };
+        : { type: r.type, amount: r.amount, date: r.date, category }];
     }),
   ];
 }

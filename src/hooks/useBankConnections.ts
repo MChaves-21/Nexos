@@ -75,7 +75,7 @@ export const useBankConnections = () => {
   /** Sem itemId: nova conexão. Com itemId: widget em modo de atualização (reconectar). */
   const createConnectToken = useMutation({
     mutationFn: (itemId?: string) =>
-      invokeFunction<{ accessToken: string }>("pluggy-connect", { action: "create-connect-token", itemId }),
+      invokeFunction<{ accessToken: string; meuPluggyConnectorId?: number | null }>("pluggy-connect", { action: "create-connect-token", itemId }),
     onError: (error) => {
       toast({ title: "Erro ao abrir a Pluggy", description: friendlyErrorMessage(error), variant: "destructive" });
     },

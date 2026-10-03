@@ -68,7 +68,19 @@ serve(async (req) => {
           options: { clientUserId: userId, avoidDuplicates: true },
         }),
       });
-      return jsonResponse({ accessToken: data.accessToken });
+      // Conector "MeuPluggy": com a conta de demonstração da Pluggy é o único caminho para bancos reais.
+      // O app abre o widget direto nele (sem a lista de bancos). Falha aqui não impede a conexão.
+      let meuPluggyConnectorId: number | null = null;
+      try {
+        const { results = [] } = await pluggyRequest<{ results?: Array<{ id: number; name: string }> }>(
+          apiKey,
+          `/connectors?name=${encodeURIComponent("MeuPluggy")}`,
+        );
+        meuPluggyConnectorId = results.find((c) => /meu\s*pluggy/i.test(c.name))?.id ?? null;
+      } catch (e) {
+        console.warn("pluggy-connect: conector MeuPluggy não encontrado:", e instanceof Error ? e.message : e);
+      }
+      return jsonResponse({ accessToken: data.accessToken, meuPluggyConnectorId });
     }
 
     if (action === "save-connection") {
@@ -83,7 +95,7 @@ serve(async (req) => {
       } catch (e) {
         if (e instanceof PluggyError && (e.status === 404 || e.status === 400)) {
           // 200 com erro de validação: o front mostra um aviso sem tratar como falha do servidor
-          return jsonResponse({ error: "Item não encontrado na Pluggy. Use o botão Abrir Pluggy Connect ou confira o Item ID." }, 200);
+          return jsonResponse({ error: "Item não encontrado na Pluggy. Use o botão Conectar pelo Meu Pluggy ou confira o Item ID." }, 200);
         }
         throw e;
       }
