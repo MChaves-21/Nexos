@@ -936,7 +936,6 @@ export type Database = {
         Returns: string
       }
       create_family_invite: { Args: never; Returns: string }
-      import_synced_transactions: { Args: { p_items: Json }; Returns: number }
       family_overview: {
         Args: never
         Returns: {
@@ -953,6 +952,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      import_synced_transactions: { Args: { p_items: Json }; Returns: number }
       is_family_admin: { Args: { p_family: string }; Returns: boolean }
       leave_family: { Args: never; Returns: undefined }
       my_family_id: { Args: never; Returns: string }
