@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorizeByRules, extractKeyword } from "./categorization";
-import { installmentInfo, mapAccount, mapItemStatus, mapTransaction, shouldImportTransaction, staleTransactionIds, syncAnchor, syncFromDate, transactionDate, transactionKind } from "./pluggy-mappers";
+import { changedTransactions, installmentInfo, mapAccount, mapItemStatus, mapTransaction, shouldImportTransaction, staleTransactionIds, syncAnchor, syncFromDate, transactionDate, transactionKind } from "./pluggy-mappers";
 
 describe("categorization", () => {
   it("extracts a learnable keyword", () => {
@@ -140,5 +140,23 @@ describe("sincronização: datas e janela", () => {
       { id: "d", external_id: "x4", date: "2026-09-10", is_reviewed: false },
     ];
     expect(staleTransactionIds(stored, new Set(["x1"]), "2026-09-10", "2026-09-30")).toEqual(["b"]);
+  });
+});
+
+describe("sincronização: só regrava o que mudou", () => {
+  it("detecta valor, data ou descrição alterados e ignora o que é igual ou novo", () => {
+    const base = { description: "Loja", amount: 10, date: "2026-09-10", type: "expense", installment_info: null, original_category: null };
+    const fetched = [
+      { ...base, external_id: "a" },
+      { ...base, external_id: "b", amount: 12.5 },
+      { ...base, external_id: "c", date: "2026-09-09" },
+      { ...base, external_id: "novo" },
+    ];
+    const stored = [
+      { ...base, external_id: "a", amount: "10.00" },
+      { ...base, external_id: "b" },
+      { ...base, external_id: "c" },
+    ];
+    expect(changedTransactions(fetched, stored).map((r) => r.external_id)).toEqual(["b", "c"]);
   });
 });

@@ -241,6 +241,36 @@ export function staleTransactionIds(
     .map((r) => r.id);
 }
 
+export interface StoredBankFields {
+  external_id: string;
+  description: string;
+  amount: number | string;
+  date: string;
+  type: string;
+  installment_info: string | null;
+  original_category: string | null;
+}
+
+/**
+ * Transações que o banco alterou depois de gravadas (valor, data, descrição...).
+ * Só essas são regravadas: regravar tudo a cada sincronização deixava o botão lento.
+ */
+export function changedTransactions<T extends Omit<StoredBankFields, "amount"> & { amount: number }>(fetched: T[], stored: StoredBankFields[]): T[] {
+  const byId = new Map(stored.map((r) => [r.external_id, r]));
+  return fetched.filter((f) => {
+    const s = byId.get(f.external_id);
+    if (!s) return false; // nova: já foi inserida
+    return (
+      Math.round(Number(s.amount) * 100) !== Math.round(f.amount * 100) ||
+      s.date !== f.date ||
+      s.description !== f.description ||
+      s.type !== f.type ||
+      (s.installment_info ?? null) !== (f.installment_info ?? null) ||
+      (s.original_category ?? null) !== (f.original_category ?? null)
+    );
+  });
+}
+
 /** Janela de busca: 1 ano na primeira sincronização, depois desde a última menos 10 dias (lançamentos retroativos). */
 export function syncFromDate(lastSyncAt: string | null, now: Date = new Date()): string {
   const d = lastSyncAt ? new Date(lastSyncAt) : new Date(now);

@@ -7,6 +7,7 @@ import {
   mapTransaction,
   resolveInstitutionName,
   shouldImportTransaction,
+  changedTransactions,
   staleTransactionIds,
   syncAnchor,
   syncFromDate,
@@ -41,6 +42,12 @@ export interface SyncResult {
 }
 
 const CHUNK = 500;
+
+/** Supabase Edge Runtime: termina o trabalho depois de responder. Fora dele, a promessa segue sem ser esperada. */
+function runInBackground(job: Promise<unknown>): void {
+  const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(job);
+}
 /** Máximo de transações sem categoria mandadas para a IA por sincronização (custo) */
 const AI_LIMIT = 300;
 
@@ -144,30 +151,43 @@ export async function syncConnection(
       }
     }
 
+    const accountId = accountIdByExternal.get(account.id);
+    if (!accountId || !rows.length) continue;
+    // O que já está gravado nesta conta, na janela consultada (em páginas: o PostgREST corta em 1.000)
+    const stored: Array<{
+      id: string; external_id: string; date: string; is_reviewed: boolean; description: string;
+      amount: number; type: string; installment_info: string | null; original_category: string | null;
+    }> = [];
+    for (let page = 0; ; page += 1000) {
+      const { data, error } = await supabase
+        .from("synced_transactions")
+        .select("id, external_id, date, is_reviewed, description, amount, type, installment_info, original_category")
+        .eq("bank_account_id", accountId)
+        .eq("source", "pluggy")
+        .gte("date", from)
+        .lte("date", to)
+        .order("id")
+        .range(page, page + 999);
+      if (error) throw error;
+      stored.push(...(data ?? []));
+      if ((data ?? []).length < 1000) break;
+    }
+
     // O banco pode corrigir valor, data ou descrição de uma transação já gravada (ex.: compra em dólar
-    // fechada no câmbio do dia). Atualiza só os dados do banco; categoria e "importada" ficam como estão.
-    const bankFields = rows.map(({ ai_category, ai_confidence, category_source, ...rest }) => rest);
-    for (let i = 0; i < bankFields.length; i += CHUNK) {
+    // fechada no câmbio do dia). Regrava só as que mudaram; categoria e "importada" ficam como estão.
+    const changed = changedTransactions(rows, stored).map(({ ai_category, ai_confidence, category_source, ...rest }) => rest);
+    for (let i = 0; i < changed.length; i += CHUNK) {
       const { error } = await supabase
         .from("synced_transactions")
-        .upsert(bankFields.slice(i, i + CHUNK), { onConflict: "bank_connection_id,external_id" });
+        .upsert(changed.slice(i, i + CHUNK), { onConflict: "bank_connection_id,external_id" });
       if (error) throw error;
     }
 
     // Compras canceladas/desfeitas somem da Pluggy: remove da janela consultada. Só com dados completos
     // (item atualizado) e se a conta trouxe alguma transação, para uma resposta vazia não apagar tudo.
-    const accountId = accountIdByExternal.get(account.id);
-    if (fresh && accountId && txs.length > 0) {
-      const { data: stored, error } = await supabase
-        .from("synced_transactions")
-        .select("id, external_id, date, is_reviewed")
-        .eq("bank_account_id", accountId)
-        .eq("source", "pluggy")
-        .gt("date", from)
-        .lte("date", to);
-      if (error) throw error;
+    if (fresh && txs.length > 0) {
       const fetched = new Set(txs.map((t) => t.id));
-      const stale = staleTransactionIds(stored ?? [], fetched, from, to);
+      const stale = staleTransactionIds(stored, fetched, from, to);
       for (let i = 0; i < stale.length; i += 100) {
         const { error: delError } = await supabase.from("synced_transactions").delete().in("id", stale.slice(i, i + 100));
         if (delError) throw delError;
@@ -263,13 +283,14 @@ export async function syncConnection(
     if (retryError) console.error("connection state update failed:", retryError.message);
   }
 
-  // 6. IA só para o que as regras não resolveram
+  // 6. IA só para o que as regras não resolveram. Roda em segundo plano: a resposta volta logo e as
+  //    categorias aparecem alguns segundos depois (o app recarrega as transações sozinho).
   if (toCategorize.length) {
-    try {
-      await categorizeWithAI(supabase, toCategorize.slice(0, AI_LIMIT));
-    } catch (e) {
+    const job = categorizeWithAI(supabase, toCategorize.slice(0, AI_LIMIT)).catch((e) => {
       console.error("AI categorization error:", e instanceof Error ? e.message : e);
-    }
+      return 0;
+    });
+    runInBackground(job);
   }
 
   return {

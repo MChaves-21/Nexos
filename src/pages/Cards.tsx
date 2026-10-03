@@ -39,13 +39,19 @@ const Cards = () => {
         type: t.type,
         cardKey: t.bank_account_id ?? t.bank_connection_id,
       }));
-    return projectInstallments(txs, format(new Date(), "yyyy-MM"), 6);
+    const period = format(new Date(), "yyyy-MM");
+    // Tudo o que ainda falta pagar de parcelas, por cartão (para explicar o limite usado)
+    const remaining = new Map<string, number>();
+    for (const m of projectInstallments(txs, period, 48)) {
+      for (const i of m.items) remaining.set(i.cardKey, (remaining.get(i.cardKey) ?? 0) + i.amount);
+    }
+    return { months: projectInstallments(txs, period, 6), remaining };
   }, [cards, transactions]);
 
   const cardName = (key: string) =>
     cards.find((c) => c.id === key)?.name ?? connections.find((c) => c.id === key)?.institution_name ?? "Cartão";
-  const maxFuture = Math.max(...future.map((m) => m.total), 1);
-  const hasFuture = future.some((m) => m.total > 0);
+  const maxFuture = Math.max(...future.months.map((m) => m.total), 1);
+  const hasFuture = future.months.some((m) => m.total > 0);
 
   return (
     <div className="space-y-6">
@@ -96,6 +102,22 @@ const Cards = () => {
                         <span>{brl(Number(c.credit_limit) - Number(c.available_credit_limit))} de {brl(Number(c.credit_limit))}</span>
                       </div>
                       <Progress value={usage} aria-label={`Limite usado: ${Math.round(usage)}%`} className={usage > 80 ? "[&>div]:bg-warning" : ""} />
+                      {(() => {
+                        // O banco desconta do limite mais do que a fatura atual: mostra de onde vem a diferença
+                        const used = Number(c.credit_limit) - Number(c.available_credit_limit);
+                        const bill = Math.max(0, Number(c.balance));
+                        const installments = future.remaining.get(c.id) ?? 0;
+                        const other = used - bill - installments;
+                        if (used - bill < 1) return null;
+                        return (
+                          <p className="text-xs text-muted-foreground">
+                            Fatura atual {brl(bill)}
+                            {installments >= 0.01 && <> + parcelas futuras {brl(installments)}</>}
+                            {other >= 1 && <> + {brl(other)} que o banco ainda segura (compras pendentes, fatura fechada não paga ou reservas)</>}
+                            {other <= -1 && <>. O banco informa menos do que a soma das parcelas: alguma pode já ter sido paga ou antecipada.</>}
+                          </p>
+                        );
+                      })()}
                     </div>
                   )}
                 </CardContent>
@@ -113,7 +135,7 @@ const Cards = () => {
           </CardHeader>
           <CardContent>
             <ul className="space-y-4">
-              {future.map((m) => (
+              {future.months.map((m) => (
                 <li key={m.period} className="space-y-1.5">
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">{monthLabel(m.period)}</span>
