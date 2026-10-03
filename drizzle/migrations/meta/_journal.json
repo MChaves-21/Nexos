@@ -15,6 +15,13 @@
       "when": 1791053531779,
       "tag": "0001_bank_data_timestamp",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791053547329,
+      "tag": "0002_financial_fixes",
+      "breakpoints": true
     }
   ]
 }
