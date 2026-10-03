@@ -150,7 +150,6 @@ export type Database = {
       bank_connections: {
         Row: {
           auto_sync: boolean
-          bank_updated_at: string | null
           consent_expires_at: string | null
           created_at: string
           id: string
@@ -165,7 +164,6 @@ export type Database = {
         }
         Insert: {
           auto_sync?: boolean
-          bank_updated_at?: string | null
           consent_expires_at?: string | null
           created_at?: string
           id?: string
@@ -180,7 +178,6 @@ export type Database = {
         }
         Update: {
           auto_sync?: boolean
-          bank_updated_at?: string | null
           consent_expires_at?: string | null
           created_at?: string
           id?: string
