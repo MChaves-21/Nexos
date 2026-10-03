@@ -8,6 +8,13 @@
       "when": 1790989177193,
       "tag": "0000_bank_data_timestamp",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791053531779,
+      "tag": "0001_bank_data_timestamp",
+      "breakpoints": true
     }
   ]
 }
