@@ -20,8 +20,13 @@ export async function categorizeWithAI(
   const batchSize = 20;
   let categorized = 0;
 
-  for (let i = 0; i < transactions.length; i += batchSize) {
-    const batch = transactions.slice(i, i + batchSize);
+  // Lotes em paralelo (poucos de cada vez, para não estourar o limite de requisições da IA)
+  const batches: Array<Array<{ id: string; description: string }>> = [];
+  for (let i = 0; i < transactions.length; i += batchSize) batches.push(transactions.slice(i, i + batchSize));
+  let creditsExhausted = false;
+
+  const runBatch = async (batch: Array<{ id: string; description: string }>): Promise<void> => {
+    if (creditsExhausted) return;
     // JSON.stringify escapa aspas e quebras de linha: uma descrição não "sai" da própria linha
     const descriptions = batch.map((t, idx) => `${idx + 1}. ${JSON.stringify(t.description.slice(0, 300))}`).join("\n");
 
@@ -79,14 +84,15 @@ export async function categorizeWithAI(
     if (!aiResp.ok) {
       if (aiResp.status === 429) {
         console.error("AI rate limited, skipping batch");
-        continue;
+        return;
       }
       if (aiResp.status === 402) {
         console.error("AI credits exhausted");
-        break;
+        creditsExhausted = true;
+        return;
       }
       console.error("AI error status:", aiResp.status);
-      continue;
+      return;
     }
 
     const aiData = await aiResp.json();
@@ -98,19 +104,28 @@ export async function categorizeWithAI(
         parsed = JSON.parse(toolCall.function.arguments);
       } catch {
         console.error("Failed to parse AI response");
-        continue;
+        return;
       }
-      for (const cat of sanitizeAiCategories(parsed, batch.length)) {
-        const { data, error } = await supabase
-          .from("synced_transactions")
-          .update({ ai_category: cat.category, ai_confidence: cat.confidence, category_source: "ai" })
-          .eq("id", batch[cat.index - 1].id)
-          // Não sobrescreve categoria escolhida pelo usuário ou por regra
-          .is("category_source", null)
-          .select("id");
-        if (!error) categorized += data?.length ?? 0;
-      }
+      // Gravações do lote em paralelo (antes eram uma a uma)
+      await Promise.all(
+        sanitizeAiCategories(parsed, batch.length).map(async (cat) => {
+          const { data, error } = await supabase
+            .from("synced_transactions")
+            .update({ ai_category: cat.category, ai_confidence: cat.confidence, category_source: "ai" })
+            .eq("id", batch[cat.index - 1].id)
+            // Não sobrescreve categoria escolhida pelo usuário ou por regra
+            .is("category_source", null)
+            .select("id");
+          if (!error) categorized += data?.length ?? 0;
+        }),
+      );
     }
+  };
+
+  const CONCURRENCY = 3;
+  for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    await Promise.all(batches.slice(i, i + CONCURRENCY).map(runBatch));
+    if (creditsExhausted) break;
   }
 
   return categorized;

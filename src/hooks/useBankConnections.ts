@@ -85,6 +85,10 @@ export const useBankConnections = () => {
     mutationFn: (connectionId: string) => invokeFunction<SyncResult>("pluggy-sync", { connectionId }),
     onSuccess: (data) => {
       invalidateAll();
+      // A categorização por IA termina depois da resposta (em segundo plano): busca de novo em seguida
+      for (const ms of [15_000, 45_000]) {
+        setTimeout(() => queryClient.invalidateQueries({ queryKey: ["synced-transactions"] }), ms);
+      }
       const investments = data.investments ? ` · ${data.investments} investimentos atualizados` : "";
       const freshness =
         data.refresh === "updated" ? " Dados buscados no banco agora."
