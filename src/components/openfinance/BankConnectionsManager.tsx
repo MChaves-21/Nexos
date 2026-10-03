@@ -16,8 +16,9 @@ import { accountTitle, amountLabel, creditUsage } from "@/lib/accounts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Conectores de teste ("Pluggy Bank") aparecem no widget; desligue com VITE_PLUGGY_INCLUDE_SANDBOX=false
-const INCLUDE_SANDBOX = import.meta.env.VITE_PLUGGY_INCLUDE_SANDBOX !== "false";
+// Conectores de teste ("Pluggy Bank") só aparecem se VITE_PLUGGY_INCLUDE_SANDBOX=true (confundiam com bancos de verdade)
+const INCLUDE_SANDBOX = import.meta.env.VITE_PLUGGY_INCLUDE_SANDBOX === "true";
+const MEU_PLUGGY_URL = "https://meu.pluggy.ai";
 
 const formatCurrency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -37,12 +38,13 @@ const BankConnectionsManager = () => {
   const [manualItemId, setManualItemId] = useState("");
   const [manualInstitution, setManualInstitution] = useState("");
   // Widget aberto: token + item em atualização (reconexão), se houver
-  const [widget, setWidget] = useState<{ token: string; updateItem?: string } | null>(null);
+  const [widget, setWidget] = useState<{ token: string; updateItem?: string; connectorId?: number } | null>(null);
 
-  const openWidget = async (updateItem?: string) => {
-    const { accessToken } = await createConnectToken.mutateAsync(updateItem);
+  /** viaMeuPluggy: abre direto no conector MeuPluggy, sem a lista de instituições */
+  const openWidget = async (updateItem?: string, viaMeuPluggy = false) => {
+    const { accessToken, meuPluggyConnectorId } = await createConnectToken.mutateAsync(updateItem);
     setShowConnectDialog(false);
-    setWidget({ token: accessToken, updateItem });
+    setWidget({ token: accessToken, updateItem, connectorId: viaMeuPluggy && meuPluggyConnectorId ? meuPluggyConnectorId : undefined });
   };
 
   const handleManualConnect = async () => {
@@ -80,6 +82,7 @@ const BankConnectionsManager = () => {
           connectToken={widget.token}
           updateItem={widget.updateItem}
           includeSandbox={INCLUDE_SANDBOX}
+          selectedConnectorId={widget.connectorId}
           language="pt"
           onSuccess={({ item }) => {
             setWidget(null);
@@ -121,15 +124,32 @@ const BankConnectionsManager = () => {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
+                  <ol className="list-decimal pl-5 space-y-1 text-sm">
+                    <li>
+                      Em{" "}
+                      <a href={MEU_PLUGGY_URL} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
+                        meu.pluggy.ai
+                      </a>{" "}
+                      (grátis), adicione seus bancos: Nubank, Banco do Brasil, Itaú... A autorização é feita no app de cada banco.
+                    </li>
+                    <li>Volte aqui, toque em <strong>Conectar pelo Meu Pluggy</strong> e entre com a mesma conta.</li>
+                  </ol>
                   <Button
-                    onClick={() => openWidget()}
+                    onClick={() => openWidget(undefined, true)}
                     disabled={createConnectToken.isPending}
                     className="w-full gap-2"
                     size="lg"
                   >
                     {createConnectToken.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4" />}
-                    Abrir Pluggy Connect
+                    Conectar pelo Meu Pluggy
                   </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Por que não aparece o meu banco na lista da Pluggy? A conta da Pluggy usada pelo Nexos é gratuita e só libera
+                    bancos reais pelo Meu Pluggy.{" "}
+                    <button type="button" className="underline underline-offset-2" onClick={() => openWidget()} disabled={createConnectToken.isPending}>
+                      Ver a lista completa mesmo assim
+                    </button>
+                  </p>
 
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
