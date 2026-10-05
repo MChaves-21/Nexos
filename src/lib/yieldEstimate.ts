@@ -5,7 +5,8 @@
 export interface BalancePoint { date: string; balance: number }
 export interface AccountTx { date: string; amount: number; type: string; description: string; category?: string | null }
 
-const INVESTMENT_FLOW = /investiment|caixinha|aplica[cç][aã]o|resgate|guardad|cdb|tesouro|rdb|lci|lca/i;
+// Inclui a reserva para compra de ações e a devolução da sobra: o líquido entre as duas é o aporte
+const INVESTMENT_FLOW = /investiment|caixinha|aplica[cç][aã]o|resgate|guardad|cdb|tesouro|rdb|lci|lca|reserv|corretora|ordem de compra/i;
 
 /** A transação move dinheiro entre a conta e os investimentos? */
 export function isInvestmentFlow(tx: AccountTx): boolean {

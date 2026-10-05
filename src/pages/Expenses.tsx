@@ -813,7 +813,7 @@ const Expenses = () => {
                 <li key={expense.id} className="py-2">
                   <span className="font-medium">{expense.description}</span>{" "}
                   <span className="text-muted-foreground">
-                    ({format(parseISO(expense.date), "dd/MM")}, R$ {formatDecimal2(Math.abs(expense.amount))}), devolvida em {format(parseISO(refund.date), "dd/MM")}
+                    ({format(parseISO(expense.date), "dd/MM")}, R$ {formatDecimal2(expense.settlement?.reserved ?? Math.abs(expense.amount))}), devolvida em {format(parseISO(refund.date), "dd/MM")}
                   </span>
                 </li>
               ))}
@@ -1590,6 +1590,11 @@ const Expenses = () => {
                       )}
                       {transaction.installment_info && (
                         <span className="text-xs text-muted-foreground">Parcela {transaction.installment_info}</span>
+                      )}
+                      {transaction.settlement && (
+                        <span className="text-xs text-muted-foreground">
+                          reservado R$ {formatDecimal2(transaction.settlement.reserved)}, voltou R$ {formatDecimal2(transaction.settlement.returned)}
+                        </span>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">

@@ -7,6 +7,8 @@
 // 4) Reembolso total: pagou e recebeu o mesmo valor de volta (ex.: corrida de Uber cancelada).
 //    É como se não tivesse acontecido: as duas saem da lista e dos totais.
 // 5) Reembolso parcial ou sem par: entrada com "reembolso/estorno/devolução" abate o gasto, não é renda.
+// 6) Reserva de investimento: ao comprar (ex.: ações), o banco reserva um valor e devolve a sobra
+//    que não foi usada. Vale só o que foi aplicado de fato (reservado − devolvido).
 import { normalizeText } from "./categorization.ts";
 
 export interface LedgerRow {
@@ -54,7 +56,9 @@ const GENERIC = new Set([
   "reembolso", "estorno", "devolucao", "cancelamento", "cancelada", "cancelado",
 ]);
 
-const REFUND_WORDS = /reembols|estorn|devolu[cç]|cancelament|chargeback|refund/;
+// Dinheiro que voltou: reembolso, estorno, devolução, Pix devolvido, compra/transferência cancelada ou não concluída
+const REFUND_WORDS =
+  /reembols|estorn|devolu[cç]|devolvid|cancelad|cancelament|chargeback|refund|desfeit|nao (efetuad|concluid|realizad|autorizad)|falh[ao]u?\b/;
 
 /** A descrição diz que o dinheiro voltou (reembolso, estorno, devolução, cancelamento)? */
 export function isRefundDescription(description: string): boolean {
@@ -195,4 +199,54 @@ export function findReversalPairs(rows: LedgerRow[], maxDays = 30): Array<{ expe
 /** Ids das duas pontas de cada reembolso total (ver findReversalPairs). */
 export function findReversals(rows: LedgerRow[], maxDays = 30): Set<string> {
   return new Set(findReversalPairs(rows, maxDays).flatMap((p) => [p.expenseId, p.refundId]));
+}
+
+const INVESTMENT_OUT = /reserv|investiment|aplica[cç]|ordem|compra de a[cç]|corretora|tesouro|\bcdb\b|\brdb\b/;
+const INVESTMENT_BACK = /investiment|reserv|liberad|devolvid|devolu[cç]|sobra|nao utilizad|nao executad/;
+const SETTLEMENT_HINT = /reserv|liberad|devolvid|devolu[cç]|sobra|nao utilizad|nao executad|recebido de investiment/;
+
+export interface InvestmentSettlement {
+  reservationId: string;
+  returnId: string;
+  /** Quanto foi aplicado de fato (reservado − devolvido); 0 = ordem cancelada */
+  net: number;
+  reserved: number;
+  returned: number;
+}
+
+/**
+ * Reserva de investimento e devolução da sobra: saída para investimento e, até `maxDays` depois,
+ * entrada de investimento de valor igual ou menor na mesma conta, com alguma das descrições falando
+ * em reserva/devolução/liberação. Cada reserva casa com uma devolução só (a mais próxima).
+ */
+export function findInvestmentSettlements(rows: LedgerRow[], maxDays = 7): InvestmentSettlement[] {
+  const isInvestment = (r: LedgerRow, re: RegExp) => r.category === "Investimento" || re.test(normalizeText(r.description));
+  const reservations = rows
+    .filter((r) => r.type === "expense" && r.accountKey && isInvestment(r, INVESTMENT_OUT))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const returns = rows
+    .filter((r) => r.type === "income" && r.accountKey && isInvestment(r, INVESTMENT_BACK))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const used = new Set<string>();
+  const out: InvestmentSettlement[] = [];
+  for (const back of returns) {
+    let best: LedgerRow | null = null;
+    let bestGap = Infinity;
+    for (const res of reservations) {
+      if (used.has(res.id) || res.accountKey !== back.accountKey || res.date > back.date) continue;
+      if (cents(back.amount) > cents(res.amount)) continue;
+      const gap = daysApart(res.date, back.date);
+      if (gap > maxDays || gap >= bestGap) continue;
+      if (!SETTLEMENT_HINT.test(normalizeText(res.description)) && !SETTLEMENT_HINT.test(normalizeText(back.description))) continue;
+      best = res;
+      bestGap = gap;
+    }
+    if (best) {
+      used.add(best.id);
+      const reserved = Math.abs(best.amount);
+      const returned = Math.abs(back.amount);
+      out.push({ reservationId: best.id, returnId: back.id, net: Math.round((reserved - returned) * 100) / 100, reserved, returned });
+    }
+  }
+  return out;
 }

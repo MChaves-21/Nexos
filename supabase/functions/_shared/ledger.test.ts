@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorizeByRules, categorizeIncoming, extractKeyword, mapSourceCategory, resolveCategory } from "./categorization";
-import { findManualDuplicates, findOwnTransfers, findReversals, isCardRefund, isRefundDescription, type LedgerRow } from "./ledger";
+import { findInvestmentSettlements, findManualDuplicates, findOwnTransfers, findReversals, isCardRefund, isRefundDescription, type LedgerRow } from "./ledger";
 import { isSpending } from "./flows";
 
 describe("Pix não é transferência por padrão", () => {
@@ -134,5 +134,37 @@ describe("reembolso total", () => {
     expect(isRefundDescription("Estorno de compra")).toBe(true);
     expect(isRefundDescription("Devolução Mercado Livre")).toBe(true);
     expect(isRefundDescription("Transferência recebida")).toBe(false);
+  });
+});
+
+describe("transação que falhou ou foi cancelada", () => {
+  it("Pix devolvido e compra cancelada anulam a saída", () => {
+    expect(isRefundDescription("Transferência devolvida|FULANO")).toBe(true);
+    expect(isRefundDescription("Pix devolvido")).toBe(true);
+    expect(isRefundDescription("Compra cancelada - LOJA")).toBe(true);
+    expect(isRefundDescription("Pagamento não efetuado")).toBe(true);
+    const rows = [
+      row("e", "expense", 80, "2026-10-05", "Transferência enviada pelo Pix|FULANO SILVA", "nu", "Outros"),
+      row("r", "income", 80, "2026-10-05", "Transferência devolvida|FULANO SILVA", "nu", "Outros"),
+    ];
+    expect([...findReversals(rows)].sort()).toEqual(["e", "r"]);
+  });
+});
+
+describe("reserva de investimento", () => {
+  it("vale só o que foi aplicado: reservado menos a sobra devolvida", () => {
+    const rows = [
+      row("res", "expense", 1000, "2026-10-01", "Valor reservado para compra de ações", "nu", "Investimento"),
+      row("back", "income", 48.3, "2026-10-02", "Valor recebido de Investimentos", "nu", "Investimento"),
+    ];
+    expect(findInvestmentSettlements(rows)).toEqual([{ reservationId: "res", returnId: "back", net: 951.7, reserved: 1000, returned: 48.3 }]);
+  });
+
+  it("ordem cancelada devolve tudo (líquido zero); devolução maior, em outra conta ou muito depois não casa", () => {
+    const res = row("res", "expense", 500, "2026-10-01", "Valor reservado para investimentos", "nu", "Investimento");
+    expect(findInvestmentSettlements([res, row("b", "income", 500, "2026-10-01", "Valor recebido de Investimentos", "nu", "Investimento")])[0].net).toBe(0);
+    expect(findInvestmentSettlements([res, row("b", "income", 600, "2026-10-02", "Valor recebido de Investimentos", "nu", "Investimento")])).toEqual([]);
+    expect(findInvestmentSettlements([res, row("b", "income", 50, "2026-10-02", "Valor recebido de Investimentos", "itau", "Investimento")])).toEqual([]);
+    expect(findInvestmentSettlements([res, row("b", "income", 50, "2026-10-20", "Valor recebido de Investimentos", "nu", "Investimento")])).toEqual([]);
   });
 });
