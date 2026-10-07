@@ -7,7 +7,7 @@ import { isMissingRelation } from "./validation.ts";
 
 import { countsInSummary, isSpending } from "./flows.ts";
 import { resolveCategory } from "./categorization.ts";
-import { findOwnTransfers, findReversals, isCardRefund, isRefundDescription, type LedgerRow } from "./ledger.ts";
+import { findInvestmentSettlements, findOwnTransfers, findReversals, isCardRefund, isRefundDescription, type LedgerRow } from "./ledger.ts";
 
 interface Flow { type: string; amount: number; date: string; category: string }
 
@@ -51,13 +51,22 @@ async function loadFlows(service: SupabaseClient, userId: string, from: string, 
     locked: t.category_source === "user",
   }));
   const transfers = findOwnTransfers(bankRows);
-  const reversed = findReversals(bankRows.filter((r) => !transfers.has(r.id) && r.category !== "Transferência" && r.category !== "Investimento"));
+  // Reserva de investimento: vale o reservado menos a sobra devolvida
+  const settlements = findInvestmentSettlements(bankRows.filter((r) => !transfers.has(r.id)));
+  const netByReservation = new Map(settlements.map((s) => [s.reservationId, s.net]));
+  const inSettlement = new Set(settlements.flatMap((s) => [s.reservationId, s.returnId]));
+  const reversed = findReversals(
+    bankRows.filter((r) => !transfers.has(r.id) && !inSettlement.has(r.id) && r.category !== "Transferência" && r.category !== "Investimento"),
+  );
+  for (const s of settlements) reversed.add(s.returnId);
 
   return [
     ...manual.map((t) => ({ type: t.type, amount: Number(t.amount), date: t.date, category: t.category })),
     ...bankRows.flatMap((r, i) => {
       // Reembolso total: compra e devolução se anulam
       if (reversed.has(r.id)) return [] as Flow[];
+      const net = netByReservation.get(r.id);
+      if (net !== undefined) return net > 0 ? [{ type: "expense", amount: net, date: r.date, category: "Investimento" }] : ([] as Flow[]);
       const category = transfers.has(r.id) ? "Transferência" : r.category;
       const isCard = synced[i].source === "csv_card" || (!!synced[i].bank_account_id && cardIds.has(synced[i].bank_account_id!));
       const refund = isCardRefund({ type: r.type, category }, isCard) ||

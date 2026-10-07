@@ -84,3 +84,21 @@ describe("reembolsos", () => {
     expect(r).toMatchObject({ id: "r", type: "expense", amount: -30, refund: true });
   });
 });
+
+describe("reserva de investimento na lista", () => {
+  it("mostra só o valor aplicado e esconde a devolução da sobra", () => {
+    const res = synced("res", "2026-10-01", { description: "Valor reservado para compra de ações", amount: 1000, ai_category: "Investimento", bank_account_id: "nu" });
+    const back = synced("back", "2026-10-02", { description: "Valor recebido de Investimentos", amount: 48.3, type: "income", ai_category: "Investimento", bank_account_id: "nu" });
+    const list = mergeTransactions([], [res, back]);
+    expect(list.map((t) => [t.id, t.amount])).toEqual([["res", 951.7]]);
+    expect(list[0].settlement).toEqual({ reserved: 1000, returned: 48.3 });
+  });
+
+  it("ordem cancelada some da lista e aparece entre as devolvidas", () => {
+    const res = synced("res", "2026-10-01", { description: "Valor reservado para investimentos", amount: 500, ai_category: "Investimento", bank_account_id: "nu" });
+    const back = synced("back", "2026-10-01", { description: "Valor recebido de Investimentos", amount: 500, type: "income", ai_category: "Investimento", bank_account_id: "nu" });
+    const ledger = buildLedger([], [res, back]);
+    expect(ledger.transactions).toEqual([]);
+    expect(ledger.reversals.map((p) => [p.expense.id, p.refund.id])).toEqual([["res", "back"]]);
+  });
+});

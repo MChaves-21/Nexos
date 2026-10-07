@@ -1,7 +1,7 @@
 import type { Transaction } from "@/hooks/useTransactions";
 import type { SyncedTransaction } from "@/hooks/useBankConnections";
 import { resolveCategory } from "@shared/categorization";
-import { findManualDuplicates, findOwnTransfers, findReversalPairs, isCardRefund, isRefundDescription, type LedgerRow } from "@shared/ledger";
+import { findInvestmentSettlements, findManualDuplicates, findOwnTransfers, findReversalPairs, isCardRefund, isRefundDescription, type LedgerRow } from "@shared/ledger";
 
 /** Transação vista pelas telas: lançada à mão ou vinda do banco (Pluggy/arquivo). */
 export interface UnifiedTransaction {
@@ -20,6 +20,8 @@ export interface UnifiedTransaction {
   category_source: string | null;
   /** Estorno/cashback no cartão (amount negativo) */
   refund?: boolean;
+  /** Reserva de investimento com sobra devolvida: amount já é o valor aplicado de fato */
+  settlement?: { reserved: number; returned: number };
   /** Presente em lançamentos manuais (para editar/excluir) */
   manual?: Transaction;
   /** Presente em lançamentos do banco (para trocar categoria) */
@@ -76,19 +78,46 @@ export function buildLedger(manual: Transaction[], synced: SyncedTransaction[], 
     locked: t.category_source === "user",
   }));
   const transfers = findOwnTransfers(bankRows);
-  // Reembolso total: a compra e a devolução se anulam (transferências não entram)
+  // Reserva de investimento: vale o reservado menos a sobra devolvida (a devolução some da lista)
+  const settlements = findInvestmentSettlements(bankRows.filter((r) => !transfers.has(r.id)));
+  const settlementByReservation = new Map(settlements.map((s) => [s.reservationId, s]));
+  const settledReturns = new Set(settlements.map((s) => s.returnId));
+  const cancelledOrders = settlements.filter((s) => s.net < 0.005);
+  const inSettlement = new Set(settlements.flatMap((s) => [s.reservationId, s.returnId]));
+  // Reembolso total: a compra e a devolução se anulam (transferências e investimentos não entram)
   const pairs = findReversalPairs(
-    bankRows.filter((r) => !transfers.has(r.id) && r.category !== "Transferência" && r.category !== "Investimento"),
+    bankRows.filter((r) => !transfers.has(r.id) && !inSettlement.has(r.id) && r.category !== "Transferência" && r.category !== "Investimento"),
   );
-  const reversed = new Set(pairs.flatMap((p) => [p.expenseId, p.refundId]));
+  const reversed = new Set([
+    ...pairs.flatMap((p) => [p.expenseId, p.refundId]),
+    ...settledReturns,
+    ...cancelledOrders.map((s) => s.reservationId),
+  ]);
 
   const fromBank: UnifiedTransaction[] = pending.map((t, idx) => {
     const row = bankRows[idx];
     const category = transfers.has(t.id) ? "Transferência" : row.category;
     // Estorno no cartão ou entrada de reembolso/devolução: abate o gasto em vez de virar renda
     const refund =
-      isCardRefund({ type: row.type, category }, isCard(t, opts.cardAccountIds)) ||
-      (row.type === "income" && category !== "Transferência" && category !== "Investimento" && isRefundDescription(t.description));
+      !inSettlement.has(t.id) &&
+      (isCardRefund({ type: row.type, category }, isCard(t, opts.cardAccountIds)) ||
+        (row.type === "income" && category !== "Transferência" && category !== "Investimento" && isRefundDescription(t.description)));
+    const settlement = settlementByReservation.get(t.id);
+    if (settlement) {
+      return {
+        id: t.id,
+        origin: "bank",
+        type: "expense",
+        description: t.description,
+        category: category === "Outros" ? "Investimento" : category,
+        amount: settlement.net,
+        date: t.date,
+        installment_info: t.installment_info,
+        category_source: t.category_source,
+        settlement: { reserved: settlement.reserved, returned: settlement.returned },
+        synced: t,
+      };
+    }
     return {
       id: t.id,
       origin: "bank",
@@ -112,7 +141,11 @@ export function buildLedger(manual: Transaction[], synced: SyncedTransaction[], 
   const bankById = new Map(fromBank.map((t) => [t.id, t]));
 
   // Pares de reembolso total, para a tela mostrar o que foi ocultado
-  const reversalPairs: Ledger["reversals"] = pairs.map((p) => ({ expense: bankById.get(p.expenseId)!, refund: bankById.get(p.refundId)! }));
+  const reversalPairs: Ledger["reversals"] = [
+    ...pairs.map((p) => ({ expense: bankById.get(p.expenseId)!, refund: bankById.get(p.refundId)! })),
+    // Ordem de investimento cancelada: tudo o que foi reservado voltou
+    ...cancelledOrders.map((s) => ({ expense: bankById.get(s.reservationId)!, refund: bankById.get(s.returnId)! })),
+  ];
 
   const byDateDesc = (a: UnifiedTransaction, b: UnifiedTransaction) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
   return {
