@@ -203,7 +203,9 @@ export function findReversals(rows: LedgerRow[], maxDays = 30): Set<string> {
 
 const INVESTMENT_OUT = /reserv|investiment|aplica[cç]|ordem|compra de a[cç]|corretora|tesouro|\bcdb\b|\brdb\b/;
 const INVESTMENT_BACK = /investiment|reserv|liberad|devolvid|devolu[cç]|sobra|nao utilizad|nao executad/;
-const SETTLEMENT_HINT = /reserv|liberad|devolvid|devolu[cç]|sobra|nao utilizad|nao executad|recebido de investiment/;
+// Só junta quando a descrição fala em reserva/sobra: um resgate comum da caixinha ("Valor recebido de
+// Investimentos") logo depois de uma aplicação é entrada de verdade e não pode sumir da lista
+const SETTLEMENT_HINT = /reserv|sobra|nao utilizad|nao executad|liberad/;
 
 export interface InvestmentSettlement {
   reservationId: string;

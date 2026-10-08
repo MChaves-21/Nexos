@@ -227,6 +227,13 @@ const Expenses = () => {
     [transactions],
   );
 
+  // Entradas mostram primeiro as categorias de entrada (Salário, Freelance...); saídas, as de gasto
+  const INCOME_FIRST = ['Salário', 'Freelance', 'Investimento', 'Transferência', 'Outros'];
+  const categoriesFor = (type: 'income' | 'expense') =>
+    type === 'income'
+      ? [...INCOME_FIRST.filter((c) => formCategories.includes(c)), ...formCategories.filter((c) => !INCOME_FIRST.includes(c))]
+      : formCategories;
+
   // Sugere a categoria pela descrição (regras padrão), sem sobrescrever a escolha da pessoa
   const suggestCategory = () => {
     if (formData.category || !formData.description.trim()) return;
@@ -762,7 +769,7 @@ const Expenses = () => {
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                 <SelectContent>
-                  {formCategories.map((cat) => (
+                  {categoriesFor(formData.type).map((cat) => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1693,7 +1700,8 @@ const Expenses = () => {
                   <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {allCategories.map((cat) => (
+                  {/* Todas as categorias (antes só as de gastos já usadas: faltava Salário, Freelance...) */}
+                  {categoriesFor(formData.type).map((cat) => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
                 </SelectContent>
