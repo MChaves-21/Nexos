@@ -168,3 +168,13 @@ describe("reserva de investimento", () => {
     expect(findInvestmentSettlements([res, row("b", "income", 50, "2026-10-20", "Valor recebido de Investimentos", "nu", "Investimento")])).toEqual([]);
   });
 });
+
+describe("resgate comum não é sobra de reserva", () => {
+  it("aplicação na caixinha seguida de resgate continua como saída e entrada", () => {
+    const rows = [
+      row("apl", "expense", 500, "2026-10-01", "Aplicação RDB", "nu", "Investimento"),
+      row("res", "income", 200, "2026-10-03", "Valor recebido de Investimentos", "nu", "Investimento"),
+    ];
+    expect(findInvestmentSettlements(rows)).toEqual([]);
+  });
+});
