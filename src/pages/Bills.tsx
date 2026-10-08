@@ -19,7 +19,7 @@ const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", c
 const STATUS: Record<OccurrenceStatus, { label: string; className: string }> = {
   paid: { label: "Paga", className: "bg-success/10 text-success border-success/30" },
   late: { label: "Atrasada", className: "bg-destructive/10 text-destructive border-destructive/30" },
-  "due-soon": { label: "Vence logo", className: "bg-warning/10 text-warning-foreground border-warning/40" },
+  "due-soon": { label: "Vence logo", className: "bg-warning/10 text-amber-700 dark:text-amber-400 border-warning/40" },
   upcoming: { label: "A vencer", className: "bg-muted text-muted-foreground" },
 };
 const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
