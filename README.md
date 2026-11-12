@@ -1,34 +1,50 @@
-Desenvolvi o Nexos, uma plataforma de gestão financeira inteligente criada para centralizar o controle de património, investimentos e fluxo de caixa. O projeto foi construído utilizando o Lovable, uma plataforma de desenvolvimento baseada em IA que permitiu transformar conceitos complexos em uma interface robusta e funcional de forma ágil. Muito além de uma simples folha de cálculo, o Nexos conecta rendimentos a metas reais, oferecendo uma visão clara para organização e projeções de longo prazo. O objetivo é transformar dados em decisões, ajudando os utilizadores a dominarem as suas carteiras e acelerarem a sua independência financeira.
-# 💰 Nexos - Gestão Financeira Inteligente
+# 💰 NEXOS: gestão financeira com Open Finance
+
+[![CI](https://github.com/MChaves-21/Nexos/actions/workflows/ci.yml/badge.svg)](https://github.com/MChaves-21/Nexos/actions/workflows/ci.yml)
+![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-2EAD33?logo=playwright&logoColor=white)
+
+**🔗 Demo:** https://nexos21.lovable.app
 
 ![Nexos Dashboard](./public/nexos1.png)
 ![Nexos Transações](./public/nexos2.png)
 
-O **Nexos** é uma solução completa para controle de finanças pessoais, desenvolvida para ajudar usuários a organizarem suas receitas e despesas com uma interface intuitiva e um backend robusto e conectado.
+O **NEXOS** centraliza as finanças pessoais em um só lugar: importa transações e investimentos do banco (Open Finance pela **Pluggy** ou arquivo CSV/OFX), categoriza os gastos com regras e IA, acompanha metas, orçamentos, cartões e contas a pagar e ajuda a montar o Imposto de Renda.
 
-## 🛠️ Funcionalidades Principais
-- ✅ **Autenticação Segura:** Proteção de dados e acesso individualizado.
-- ✅ **Fluxo de Caixa:** Registro detalhado de todas as entradas e saídas.
-- ✅ **Dashboard Dinâmico:** Visualização clara do resumo mensal e saldo atual.
-- ✅ **Categorização:** Organização inteligente de transações para melhor análise de gastos.
+Comecei a interface no **Lovable** e evoluí o projeto com código próprio: Edge Functions, regras de segurança no banco (RLS), testes automatizados e CI.
 
-## 📦 Como rodar o projeto
+## 🛠️ Destaques
+
+- **Open Finance:** conexão com bancos pela Pluggy, sincronização diária agendada com `pg_cron`, contas, transações e investimentos
+- **Importação de extratos** CSV/OFX sem duplicar lançamentos
+- **Categorização em camadas:** regras aprendidas com as correções do usuário → palavras-chave → IA só para o que sobrar
+- **Segurança:** RLS em todas as tabelas, testada automaticamente; credenciais cifradas com AES-GCM; proteção contra CSV injection
+- **Família:** convites por link e painel do administrador sem acesso a valores de outras pessoas
+- **LGPD:** exportação de todos os dados e exclusão de conta
+- **PWA** instalável no celular
+
+## 🧱 Stack
+
+| Camada | Tecnologia |
+|---|---|
+| Front-end | React 18, Vite, TypeScript, Tailwind, shadcn/ui, Recharts |
+| Back-end | Supabase (PostgreSQL, Auth, Edge Functions em Deno, pg_cron) |
+| Integrações | Pluggy (Open Finance), API do Banco Central (Selic, CDI, IPCA), Gemini para categorização |
+| Testes | Vitest, PGlite (migrações reais em Postgres embutido), Playwright + auditoria de acessibilidade |
+| CI/Deploy | GitHub Actions, Lovable Cloud / Vercel |
+
+## 📦 Como rodar
 
 ```bash
-# 1. Clone o repositório
-git clone [https://github.com/MChaves-21/xnexos](https://github.com/MChaves-21/xnexos)
-
-# 2. Suba o banco de dados via Docker
-docker-compose up -d
-
-# 3. Instale as dependências
-npm install
-
-# 4. Rode as migrações do Prisma para estruturar o banco
-npx prisma migrate dev
-
-# 5. Inicie o servidor de desenvolvimento
+git clone https://github.com/MChaves-21/Nexos.git
+cd Nexos
+npm install --legacy-peer-deps
 npm run dev
+```
+
+O `.env` versionado traz só as chaves públicas do Supabase. Os segredos (Pluggy, IA, e-mail) ficam nas Edge Functions.
 
 ## 🏦 Open Finance e importação de extratos
 
